@@ -1,4 +1,4 @@
-#pragma once
+
 #ifndef __WJR_MMACRO_H
 #define __WJR_MMACRO_H
 
@@ -1525,7 +1525,7 @@ namespace std {
 
 #endif // __WJR_COMPRESSED_PAIR_H
 
-#pragma once
+
 #ifndef __WJR_ALGORITHM_H__
 #define __WJR_ALGORITHM_H__
 
@@ -1773,15 +1773,17 @@ _WJR_END
 
 #endif
 
-#pragma once
+
 #ifndef __WJR_ALLOCATOR_H
 #define __WJR_ALLOCATOR_H
+
+#include <new>
 
 _WJR_BEGIN
 
 template<typename _Ty>
 struct __aligned_helper {
-	constexpr static size_t value = std::max(alignof(_Ty), 16ull);
+	constexpr static size_t value = std::max((size_t)alignof(_Ty), (size_t)16ull);
 };
 
 template<>
