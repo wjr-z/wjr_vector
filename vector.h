@@ -1855,14 +1855,14 @@ public:
 #endif
 		assume(reinterpret_cast<uintptr_t>(_Ptr) % _Al == _Off);
 		auto ptr = reinterpret_cast<char*>(_Ptr) - _Off;
-		::operator delete(ptr, _Count * sizeof(_Ty) + _Off, std::align_val_t{ _Al });
+		::operator delete(ptr, _Count * sizeof(_Ty) + _Off, static_cast<std::align_val_t>(_Al));
 	}
 
 	WJR_NODISCARD WJR_CONSTEXPR20 _Ty* allocate(const size_t _Count) {
 #if defined(WJR_TEST_ALLOCATOR)
 		__test_allocator_instance._Count += _Count * sizeof(_Ty) + _Off;
 #endif
-		auto ptr = static_cast<char*>(::operator new(_Count * sizeof(_Ty) + _Off, std::align_val_t{ _Al })) + _Off;
+		auto ptr = static_cast<char*>(::operator new(_Count * sizeof(_Ty) + _Off, static_cast<std::align_val_t>(_Al))) + _Off;
 		assume(reinterpret_cast<uintptr_t>(ptr) % _Al == _Off);
 		return reinterpret_cast<_Ty*>(ptr);
 	}
