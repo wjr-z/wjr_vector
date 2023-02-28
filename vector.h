@@ -8149,6 +8149,7 @@ public:
 	static_assert(_Al >= 8, "The alignment must be greater than or equal to 8.");
 	static_assert(_Off >= 0 && _Off < _Al,
 		"The offset must be greater than or equal to 0 and less than the alignment.");
+	static_assert((_Al & (_Al - 1)) == 0, "The alignment must be a power of 2.");
 
 	using value_type = _Ty;
 
@@ -8550,11 +8551,15 @@ public:
 		_Myval(std::piecewise_construct_t{},
 			std::forward_as_tuple(al),
 			std::forward_as_tuple()) {}
-
+private:
+	constexpr static bool _IsNoThrowCopyConstruct = 
+		noexcept(copyConstruct(std::declval<_Alty&>(), std::declval<const data_type&>(), std::declval<data_type&>()));
+	constexpr static bool _IsNoThrowMoveConstruct =
+		noexcept(moveConstruct(std::declval<_Alty&>(), std::declval<data_type&&>(), std::declval<data_type&>()));
+public:
 	template<typename _Alloc>
 	WJR_CONSTEXPR20 vector_core(const vector_core& other, _Alloc&& al)
-		noexcept(std::is_nothrow_constructible_v<_Alty&, _Alloc&&> &&
-			noexcept(copyConstruct(std::declval<_Alty&>(), std::declval<const data_type&>(), std::declval<data_type&>())))
+		noexcept(std::is_nothrow_constructible_v<_Alty&, _Alloc&&> && _IsNoThrowCopyConstruct)
 		: _Myval(std::piecewise_construct_t{},
 			std::forward_as_tuple(std::forward<_Alloc>(al)),
 			std::forward_as_tuple()) {
@@ -8562,8 +8567,7 @@ public:
 	}
 
 	WJR_CONSTEXPR20 vector_core(vector_core&& other)
-		noexcept(std::is_nothrow_move_constructible_v<_Alty> &&
-			noexcept(moveConstruct(std::declval<_Alty&>(), std::declval<data_type&&>(), std::declval<data_type&>())))
+		noexcept(std::is_nothrow_move_constructible_v<_Alty> && _IsNoThrowMoveConstruct)
 		: _Myval(std::piecewise_construct_t{},
 			std::forward_as_tuple(std::move(other.getAllocator())),
 			std::forward_as_tuple()) {
@@ -9156,7 +9160,7 @@ public:
 		assume(_Data.size() == 0);
 	}
 
-	WJR_CONSTEXPR20 static size_type getGrowthCapacity(const size_type _Oldcapacity, size_type _Newsize) noexcept {
+	WJR_CONSTEXPR20 static size_type getGrowthCapacity(const size_type _Oldcapacity, const size_type _Newsize) noexcept {
 		return _Mybase::getGrowthCapacity(_Oldcapacity, _Newsize);
 	}
 
