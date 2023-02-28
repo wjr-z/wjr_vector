@@ -8329,7 +8329,8 @@ _WJR_BEGIN
 * 13.[const] _Ty* data() [const]
 * 14.const _Ty* cdata() const
 * 15._Ty* mutable_data() [TODO]
-* 16.void set_size();
+* 16.void set_size(const size_type);
+* 17.void inc_size(const difference_type);
 */
 
 /*
@@ -8358,7 +8359,8 @@ _WJR_BEGIN
 * 24.[const] _Ty* data() [const]
 * 25.const _Ty* cdata() const
 * 26._Ty* mutable_data() [TODO]
-* 27.void set_size();
+* 27.void set_size(const size_type);
+* 28.void inc_size(const difference_type);
 * 28.[const] _Al& getAllocator() [const];
 * 29.[const] vector_data& getData() [const];
 */
@@ -8417,8 +8419,12 @@ struct vector_data {
 		return _Myfirst;
 	}
 
-	WJR_CONSTEXPR20 void set_size(size_type _Size) noexcept {
+	WJR_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 		_Mylast = _Myfirst + _Size;
+	}
+
+	WJR_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
+		_Mylast += _Size;
 	}
 
 	pointer _Myfirst = nullptr;
@@ -8501,8 +8507,12 @@ public:
 		return reinterpret_cast<const_pointer>(_M_storage);
 	}
 
-	WJR_CONSTEXPR20 void set_size(size_type _Size) noexcept {
+	WJR_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 		_M_size = _Size;
+	}
+
+	WJR_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
+		_M_size += _Size;
 	}
 
 	alignas(_MaxAlignment) uint8_t _M_storage[_MaxMemroy];
@@ -8660,12 +8670,11 @@ public:
 		!_Vector_helper::has_static_member_function_getGrowthCapacity_v<_D, const size_type, const size_type>, int> = 0>
 	WJR_CONSTEXPR20 static size_type getGrowthCapacity(const size_type _Oldcapacity, const size_type _Newsize) noexcept {
 		assume(_Newsize > _Oldcapacity);
-		const auto _Newcapacity = _Oldcapacity + _Oldcapacity ;
+		const auto _Newcapacity = _Oldcapacity + _Oldcapacity / 2;
 		const auto _FixedCapacity = _Newcapacity < _Newsize ? _Newsize : _Newcapacity;
-		return _FixedCapacity;
-		/*return _FixedCapacity < 32 ? ((_FixedCapacity + 3) & (-4)) : 
+		return _FixedCapacity < 32 ? ((_FixedCapacity + 3) & (-4)) : 
 			_FixedCapacity < 256 ? ((_FixedCapacity + 15) & (-16)) : 
-			((_FixedCapacity + 63) & (-64));*/
+			((_FixedCapacity + 63) & (-64));
 	}
 
 	template<typename _D = Data, std::enable_if_t<
@@ -8723,8 +8732,12 @@ public:
 		return getData().cdata();
 	}
 
-	WJR_CONSTEXPR20 void set_size(size_type _Size) noexcept {
+	WJR_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 		getData().set_size(_Size);
+	}
+
+	WJR_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
+		getData().inc_size(_Size);
 	}
 
 	WJR_CONSTEXPR20 _Alty& getAllocator() noexcept {
@@ -9028,11 +9041,11 @@ public:
 	WJR_CONSTEXPR20 reference emplace_back(Args&&... args) {
 		auto& al = getAllocator();
 		const auto _Myfirst = data();
-		const auto _Mylast = data() + size();
-		const auto _Myend = data() + capacity();
+		const auto _Mylast = _Myfirst + size();
+		const auto _Myend = _Myfirst + capacity();
 		if (is_likely(_Mylast != _Myend)) {
 			_Alty_traits::construct(al, _Mylast, std::forward<Args>(args)...);
-			set_size(size() + 1);
+			inc_size(1);
 		}
 		else {
 			_M_realloc_insert_at_end(std::forward<Args>(args)...);
@@ -9049,7 +9062,7 @@ public:
 	}
 
 	WJR_CONSTEXPR20 void pop_back() noexcept {
-		set_size(size() - 1);
+		inc_size(-1);
 		const pointer _Mylast = data() + size();
 		_Alty_traits::destroy(getAllocator(), _Mylast);
 	}
@@ -9172,8 +9185,12 @@ public:
 		return _Mybase::getData();
 	}
 
-	WJR_CONSTEXPR20 void set_size(size_type _Newsize) noexcept {
-		_Mybase::set_size(_Newsize);
+	WJR_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
+		_Mybase::set_size(_Size);
+	}
+
+	WJR_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
+		_Mybase::inc_size(_Size);
 	}
 
 private:
@@ -9230,7 +9247,7 @@ private:
 			wjr::move(_Where + 1, _Mylast, _Where);
 		}
 		wjr::destroy_at_a(_Mylast - 1, getAllocator());
-		set_size(size() - 1);
+		inc_size(-1);
 		return _Where;
 	}
 
@@ -9283,7 +9300,7 @@ private:
 					wjr::uninitialized_move_a(_Where, __old_last, _Mylast + n - __elements_after, al);
 					wjr::copy(_First, _Mid, _Where);
 				}
-				set_size(size() + n);
+				inc_size(n);
 			}
 			else {
 				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
@@ -9322,7 +9339,7 @@ private:
 
 			if (__rest >= n) {
 				wjr::uninitialized_copy_a(_First, _Last, _Mylast, al);
-				set_size(size() + n);
+				inc_size(n);
 			}
 			else {
 				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
@@ -9501,7 +9518,7 @@ private:
 				wjr::uninitialized_move_a(_Where, _Mylast, _Where + n, al);
 				wjr::fill(_Where, _Mylast, _Copy);
 			}
-			set_size(size() + n);
+			inc_size(n);
 		}
 		else {
 			const auto _Newcapacity = getGrowthCapacity(capacity(), size() + n);
@@ -9559,7 +9576,7 @@ private:
 		wjr::move_backward(_Where, _Mylast - 1, _Mylast);
 		*_Where = std::forward<Args>(args);
 
-		set_size(size() + 1);
+		inc_size(1);
 	}
 
 	template<typename...Args>
@@ -9574,7 +9591,7 @@ private:
 		if (_Mylast != _Myend) {
 			if (_Where == _Mylast) {
 				_Alty_traits::construct(al, _Mylast, std::forward<Args>(args)...);
-				set_size(size() + 1);
+				inc_size(1);
 			}
 			else {
 				temporary_allocator_value<Alloc> _Tmp(al, std::forward<Args>(args)...);
