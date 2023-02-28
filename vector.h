@@ -3204,10 +3204,10 @@ struct sse {
 		return _mm_extract_epi8(a, imm8);
 #else
 		if constexpr (imm8 & 1) {
-			return extract_epi16(a, imm8 >> 1) >> 8;
+			return extract_epi16<imm8 >> 1>(a) >> 8;
 		}
 		else {
-			return extract_epi16(a, imm8 >> 1) & 0xff;
+			return extract_epi16 < imm8 >> 1 > (a) & 0xff;
 		}
 #endif // __SSE4_1__
 	}
