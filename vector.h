@@ -550,15 +550,10 @@ WJR_INTRINSIC_CONSTEXPR bool is_constant_p(T x) noexcept {
 #define WJR_HAS_WEAK_CONSTANT_P
 #endif
 
-struct move_tag {};
-
-struct power_of_two_tag {
-	unsigned long long value;
-};
-
-struct zero_tag {};
-
 struct disable_tag {};
+
+struct default_construct_tag {};
+struct value_construct_tag {};
 
 constexpr size_t byte_width = WJR_BYTE_WIDTH;
 
@@ -671,6 +666,9 @@ using iter_val_t = typename std::iterator_traits<T>::value_type;
 
 template<typename T>
 using iter_ref_t = typename std::iterator_traits<T>::reference;
+
+//template<typename T>
+//using iter_ptr_t = typename std::iterator_traits<T>::pointer;
 
 template<typename T, typename = void>
 struct is_iterator : std::false_type {};
@@ -982,25 +980,51 @@ namespace enum_ops {
 	}
 }
 
-namespace __To_address {
+namespace _To_address_helper {
 	REGISTER_HAS_STATIC_MEMBER_FUNCTION(to_address, to_address);
 }
 
 template<typename T>
-constexpr auto to_address(T&& p) noexcept {
-	if constexpr (__To_address::has_static_member_function_to_address_v<std::pointer_traits<std::decay_t<T&&>>, T&&>) {
-		return std::pointer_traits<std::decay_t<T&&>>::to_address(std::forward<T>(p));
-	}
-	else if constexpr (wjr::has_member_function_point_to_operator_v<T&&>) {
-		return to_address(std::forward<T>(p).operator->());
+constexpr auto to_address(T* p) noexcept {
+	static_assert(!std::is_function_v<T>, "");
+	return p;
+}
+
+template<typename T>
+constexpr auto to_address(const T& p) noexcept {
+	if constexpr (_To_address_helper::has_static_member_function_to_address_v<std::pointer_traits<T>, T>) {
+		return std::pointer_traits<T>::to_address(p);
 	}
 	else {
-		return std::forward<T>(p);
+		return wjr::to_address(p.operator->());
 	}
 }
 
 template<typename T>
-using to_address_t = decltype(to_address(std::declval<T>()));
+constexpr void* voidify(const T* ptr) {
+	return const_cast<void*>(static_cast<const volatile void*>(ptr));
+}
+
+template<typename T>
+constexpr auto get_address(T* p) noexcept {
+	return p;
+}
+
+template<typename T>
+constexpr auto get_address(const T& p) noexcept {
+	if constexpr (_To_address_helper::has_static_member_function_to_address_v<std::pointer_traits<T>, T>) {
+		return std::pointer_traits<T>::to_address(p);
+	}
+	else if constexpr (wjr::has_member_function_point_to_operator_v<add_cref_t<T>>) {
+		return wjr::get_address(p.operator->());
+	}
+	else {
+		return std::addressof(*std::forward<T>(p));
+	}
+}
+
+template<typename iter>
+using iter_address_t = std::add_pointer_t<remove_ref_t<iter_ref_t<iter>>>;
 
 template<typename T>
 struct type_identity {
@@ -1084,7 +1108,7 @@ constexpr __make_iter_wrapper<iter> make_iter_wrapper(iter first, iter last) {
 }
 
 template<typename T>
-using alloc_pointer_t = typename std::allocator_traits<T>::pointer;
+using alloc_ptr_t = typename std::allocator_traits<T>::pointer;
 
 template<typename T>
 using alloc_value_t = typename std::allocator_traits<T>::value_type;
@@ -1112,19 +1136,19 @@ REGISTER_HAS_MEMBER_FUNCTION(construct, construct);
 // Use the default destructor, which is beneficial for optimization.
 // But if the destructor of the allocator has side effects, then do not use this allocator.
 
-template<typename Alloc, typename Ptr, typename...Args>
+template<typename Alloc, typename Iter, typename...Args>
 struct is_default_allocator_construct : std::disjunction<is_default_allocator<Alloc>,
-	std::negation<has_member_function_construct<Alloc, Ptr, Args...>>> {};
+	std::negation<has_member_function_construct<Alloc, iter_address_t<Iter>, Args...>>> {};
 
-template<typename Alloc, typename Ptr, typename...Args>
-constexpr bool is_default_allocator_construct_v = is_default_allocator_construct<Alloc, Ptr, Args...>::value;
+template<typename Alloc, typename Iter, typename...Args>
+constexpr bool is_default_allocator_construct_v = is_default_allocator_construct<Alloc, Iter, Args...>::value;
 
-template<typename Alloc, typename _Ptr>
+template<typename Alloc, typename Iter>
 struct is_default_allocator_destroy : std::disjunction<is_default_allocator<Alloc>,
-	std::negation<has_member_function_destroy<Alloc, _Ptr>>> {};
+	std::negation<has_member_function_destroy<Alloc, iter_address_t<Iter>>>> {};
 
-template<typename Alloc, typename _Ptr>
-constexpr bool is_default_allocator_destroy_v = is_default_allocator_destroy<Alloc, _Ptr>::value;
+template<typename Alloc, typename Iter>
+constexpr bool is_default_allocator_destroy_v = is_default_allocator_destroy<Alloc, Iter>::value;
 
 _WJR_END
 
@@ -1638,9 +1662,6 @@ size_t _Get_bytes_num(const byte_array<N>& a) {
 	}
 }
 
-template<typename T>
-struct is_bit_default_constructible : std::is_trivially_default_constructible<T> {};
-
 template<typename T, typename U,
 	bool =
 	std::is_same_v<bool, std::remove_reference_t<U>> >= std::is_same_v<bool, T> &&
@@ -1717,9 +1738,6 @@ struct is_bit_constructible : __is_bit_constructible<std::remove_reference_t<T>,
 
 template<typename T, typename U>
 struct is_bit_assignable : __is_bit_constructible<std::remove_reference_t<T>, U> {};
-
-template<typename T>
-struct is_bit_destructible : std::is_trivially_destructible<T> {};
 
 _WJR_END
 
@@ -7267,10 +7285,6 @@ _WJR_ALGO_END
 
 #endif // __WJR_ALGO_ALOG_H
 
-#if defined(WJR_HAS_EXECUTION)
-#include <execution>
-#endif // WJR_HAS_EXECUTION
-
 _WJR_BEGIN
 
 template<typename _Iter, typename _Val, typename _Pred,
@@ -7287,15 +7301,7 @@ struct __has_fast_find : std::conjunction<
 template<typename _Iter, typename _Val, typename _Pred>
 constexpr bool __has_fast_find_v = __has_fast_find<_Iter, _Val, _Pred>::value;
 
-struct _Find_fn {
-	
-#if defined(WJR_HAS_EXECUTION)
-	template<typename ExecutionPolicy, typename ForwardIt, typename T, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, int> = 0>
-	ForwardIt operator()(ExecutionPolicy&& policy, ForwardIt first, ForwardIt last, const T& value) const {
-		return std::find(std::forward<ExecutionPolicy>(policy), first, last, value);
-	}
-#endif // WJR_HAS_EXECUTION
+struct find_fn {
 
 	template<typename _Iter, typename _Ty, typename _Pred = std::equal_to<>>
 	WJR_CONSTEXPR20 _Iter operator()(
@@ -7304,12 +7310,12 @@ struct _Find_fn {
 			if constexpr (__has_fast_find_v<_Iter, _Ty, _Pred>) {
 				const auto n = std::distance(_First, _Last);
 				if constexpr (!wjr::is_reverse_iterator_v<_Iter>) {
-					const auto first = wjr::to_address(_First);
+					const auto first = wjr::get_address(_First);
 					return _First + (algo::memchr(first, _Val, n, pred) - first);
 				}
 #if defined(__HAS_FAST_MEMCHR) // use algo::memchr
 				else {
-					const auto first = wjr::to_address(_Last - 1);
+					const auto first = wjr::get_address(_Last - 1);
 					return _Last - (algo::memrchr(first, _Val, n, pred) - first);
 				}
 #endif // __HAS_FAST_MEMCHR
@@ -7330,17 +7336,9 @@ struct _Find_fn {
 
 };
 
-constexpr _Find_fn find{};
+constexpr find_fn find{};
 
-struct _Find_if_fn {
-	
-#if defined(WJR_HAS_EXECUTION)
-	template<typename ExecutionPolicy, typename ForwardIt, typename UnaryPredicate, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, int> = 0>
-	ForwardIt operator()(ExecutionPolicy&& policy, ForwardIt first, ForwardIt last, UnaryPredicate p) const {
-		return std::find_if(std::forward<ExecutionPolicy>(policy), first, last, p);
-	}
-#endif // WJR_HAS_EXECUTION
+struct find_if_fn {
 
 	template<typename _Iter, typename _Pr>
 	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, _Pr _Pred) const {
@@ -7348,17 +7346,9 @@ struct _Find_if_fn {
 	}
 };
 
-constexpr _Find_if_fn find_if{};
+constexpr find_if_fn find_if{};
 
-struct _Find_if_not_fn {
-	
-#if defined(WJR_HAS_EXECUTION)
-	template<typename ExecutionPolicy, typename ForwardIt, typename UnaryPredicate, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, int> = 0>
-	ForwardIt operator()(ExecutionPolicy&& policy, ForwardIt first, ForwardIt last, UnaryPredicate p) const {
-		return std::find_if_not(std::forward<ExecutionPolicy>(policy), first, last, p);
-	}
-#endif // WJR_HAS_EXECUTION
+struct find_if_not_fn {
 
 	template<typename _Iter, typename _Pr>
 	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, _Pr _Pred) const {
@@ -7366,7 +7356,7 @@ struct _Find_if_not_fn {
 	}
 };
 
-constexpr _Find_if_not_fn find_if_not{};
+constexpr find_if_not_fn find_if_not{};
 
 template<typename _Iter, typename _Val,
 	typename _Iter_value = iter_val_t<_Iter>>
@@ -7378,16 +7368,7 @@ struct __has_fast_count : std::conjunction<
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_count_v = __has_fast_count<_Iter, _Val>::value;
 
-struct _Count_fn {
-
-#if defined(WJR_HAS_EXECUTION)
-	template<typename ExecutionPolicy, typename ForwardIt, typename T, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, int> = 0>
-	typename std::iterator_traits<ForwardIt>::difference_type 
-		operator()(ExecutionPolicy&& policy, ForwardIt first, ForwardIt last, const T& value) const {
-		return std::count(std::forward<ExecutionPolicy>(policy), first, last, value);
-	}
-#endif // WJR_HAS_EXECUTION
+struct count_fn {
 
 	template<typename _Iter, typename _Ty>
 	WJR_CONSTEXPR20 typename std::iterator_traits<_Iter>::difference_type
@@ -7397,11 +7378,11 @@ struct _Count_fn {
 			if constexpr (__has_fast_count_v<_Iter, _Ty>) {
 				const auto n = _Last - _First;
 				if constexpr (!wjr::is_reverse_iterator_v<_Iter>) {
-					const auto first = wjr::to_address(_First);
+					const auto first = wjr::get_address(_First);
 					return algo::memcnt(first, _Val, n);
 				}
 				else {
-					const auto first = wjr::to_address(_Last - 1);
+					const auto first = wjr::get_address(_Last - 1);
 					return algo::memcnt(first, _Val, n);
 				}
 			}
@@ -7411,18 +7392,9 @@ struct _Count_fn {
 	}
 };
 
-constexpr _Count_fn count{};
+constexpr count_fn count{};
 
-struct _Count_if_fn {
-
-#if defined(WJR_HAS_EXECUTION)
-	template<typename ExecutionPolicy, typename ForwardIt, typename UnaryPredicate, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, int> = 0>
-	typename std::iterator_traits<ForwardIt>::difference_type
-		operator()(ExecutionPolicy&& policy, ForwardIt first, ForwardIt last, UnaryPredicate p) const {
-		return std::count_if(std::forward<ExecutionPolicy>(policy), first, last, p);
-	}
-#endif // WJR_HAS_EXECUTION
+struct count_if_fn {
 
 	template<typename _Iter, typename _Pr>
 	WJR_CONSTEXPR20 typename std::iterator_traits<_Iter>::difference_type
@@ -7431,7 +7403,7 @@ struct _Count_if_fn {
 	}
 };
 
-constexpr _Count_if_fn count_if{};
+constexpr count_if_fn count_if{};
 
 // First use algo::memcmp
 // Then use memcmp
@@ -7468,36 +7440,7 @@ struct __has_fast_mismatch : std::conjunction <
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_mismatch_v = __has_fast_mismatch<_Iter1, _Iter2, _Pred>::value;
 
-struct _Mismatch_fn {
-
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	std::pair<_Iter1, _Iter2> operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
-		return std::mismatch(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2);
-	}
-
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	std::pair<_Iter1, _Iter2> operator()(_ExPolicy&& _Policy, 
-		_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
-		return std::mismatch(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2, _Last2);
-	}
-
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, typename _Pred, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	std::pair<_Iter1, _Iter2> operator()(_ExPolicy&& _Policy, 
-		_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-		return std::mismatch(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2, pred);
-	}
-
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, typename _Pred, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	std::pair<_Iter1, _Iter2> operator()(_ExPolicy&& _Policy,
-		_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-		return std::mismatch(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2, _Last2, pred);
-	}
-#endif // WJR_HAS_EXECUTION
+struct mismatch_fn {
 
 	template<typename _Iter1, typename _Iter2>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
@@ -7517,16 +7460,16 @@ struct _Mismatch_fn {
 				const auto n = std::distance(_First1, _Last1);
 				if (is_unlikely(n == 0)) { return std::make_pair(_First1, _First2); }
 				if constexpr (!wjr::is_reverse_iterator_v<_Iter1>) {
-					const auto first1 = wjr::to_address(_First1);
-					const auto first2 = wjr::to_address(_First2);
+					const auto first1 = wjr::get_address(_First1);
+					const auto first2 = wjr::get_address(_First2);
 
 					auto pos = algo::memmis(first1, first2, n, pred) - first1;
 					return std::make_pair(_First1 + pos, _First2 + pos);
 				}
 				else {
-					const auto first1 = wjr::to_address(_Last1 - 1);
+					const auto first1 = wjr::get_address(_Last1 - 1);
 					const auto _Last2 = _First2 + n;
-					const auto first2 = wjr::to_address(_Last2 - 1);
+					const auto first2 = wjr::get_address(_Last2 - 1);
 
 					auto pos = (first1 + n) - algo::memrmis(first1, first2, n, pred);
 					return std::make_pair(_First1 + pos, _First2 + pos);
@@ -7552,35 +7495,9 @@ struct _Mismatch_fn {
 
 };
 
-constexpr _Mismatch_fn mismatch;
+constexpr mismatch_fn mismatch;
 
-struct _Equal_fn {
-
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
-		return std::equal(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2);
-	}
-	
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
-		return std::equal(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2, _Last2);
-	}
-
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, typename _Pred, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-		return std::equal(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2, pred);
-	}
-
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, typename _Pred, std::enable_if_t<
-		std::is_execution_policy_v<std::decay_t<_ExPolicy>>, int> = 0>
-	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-		return std::equal(std::forward<_ExPolicy>(_Policy), _First1, _Last1, _First2, _Last2, pred);
-	}
-#endif // WJR_HAS_EXECUTION
+struct equal_fn {
 
 	template<typename _Iter1, typename _Iter2>
 	WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
@@ -7599,14 +7516,14 @@ struct _Equal_fn {
 				const auto n = _Last1 - _First1;
 				if (is_unlikely(n == 0)) { return true; }
 				if constexpr (!wjr::is_reverse_iterator_v<_Iter1>) {
-					const auto first1 = wjr::to_address(_First1);
-					const auto first2 = wjr::to_address(_First2);
+					const auto first1 = wjr::get_address(_First1);
+					const auto first2 = wjr::get_address(_First2);
 					return algo::memcmp(first1, first2, n, pred);
 				}
 				else {
-					const auto first1 = wjr::to_address(_Last1 - 1);
+					const auto first1 = wjr::get_address(_Last1 - 1);
 					const auto _Last2 = _First2 + n;
-					const auto first2 = wjr::to_address(_Last2 - 1);
+					const auto first2 = wjr::get_address(_Last2 - 1);
 					return algo::memcmp(first1, first2, n, pred);
 				}
 			}
@@ -7629,7 +7546,7 @@ struct _Equal_fn {
 
 };
 
-constexpr _Equal_fn equal{};
+constexpr equal_fn equal{};
 
 template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
@@ -7642,7 +7559,7 @@ struct __has_fast_lexicographical_compare : std::conjunction<
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_lexicographical_compare_v = __has_fast_lexicographical_compare<_Iter1, _Iter2, _Pred>::value;
 
-struct _Lexicographical_compare_fn {
+struct lexicographical_compare_fn {
 
 	template<typename _ExPolicy, typename _Iter1, typename _Iter2>
 	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
@@ -7681,7 +7598,7 @@ struct _Lexicographical_compare_fn {
 	}
 };
 
-constexpr _Lexicographical_compare_fn lexicographical_compare{};
+constexpr lexicographical_compare_fn lexicographical_compare{};
 
 template<typename _Iter, typename _Val,
 	typename _Iter_ref = iter_ref_t<_Iter>>
@@ -7693,15 +7610,7 @@ struct __has_fast_fill : std::conjunction<
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_fill_v = __has_fast_fill<_Iter, _Val>::value;
 
-struct _Fill_fn {
-
-#if defined(WJR_HAS_EXECUTION)
-	template<typename ExecutionPolicy, typename _Iter, typename _Val>
-	void operator()(ExecutionPolicy&& policy,
-		_Iter first, _Iter last, const _Val& value) const {
-		return std::fill(policy, first, last, value);
-	}
-#endif // WJR_HAS_EXECUTION
+struct fill_fn {
 
 	template<typename _Iter, typename _Val>
 	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, const _Val& value) const {
@@ -7709,12 +7618,12 @@ struct _Fill_fn {
 			if constexpr (__has_fast_fill_v<_Iter, _Val>) {
 				const auto n = std::distance(_First, _Last);
 				if constexpr (!is_reverse_iterator_v<_Iter>) {
-					const auto first = wjr::to_address(_First);
+					const auto first = wjr::get_address(_First);
 					algo::assign_memset(first, value, n);
 				}
 				else {
 					if (is_unlikely(n == 0)) { return; }
-					const auto first = wjr::to_address(_Last - 1);
+					const auto first = wjr::get_address(_Last - 1);
 					algo::assign_memset(first, value, n);
 				}
 				return;
@@ -7725,17 +7634,9 @@ struct _Fill_fn {
 
 };
 
-constexpr _Fill_fn fill{};
+constexpr fill_fn fill{};
 
-struct _Fill_n_fn {
-
-#if defined(WJR_HAS_EXECUTION)
-	template<typename ExecutionPolicy, typename _Iter, typename _Size, typename _Val>
-	_Iter operator()(ExecutionPolicy&& policy,
-		_Iter first, _Size count, const _Val& value) const {
-		return std::fill_n(policy, first, count, value);
-	}
-#endif // WJR_HAS_EXECUTION
+struct fill_n_fn {
 
 	template<typename _Iter, typename _Size, typename _Val>
 	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Size count, const _Val& value) const {
@@ -7751,7 +7652,7 @@ struct _Fill_n_fn {
 
 };
 
-constexpr _Fill_n_fn fill_n{};
+constexpr fill_n_fn fill_n{};
 
 template<typename _Input, typename _Output,
 	typename _Input_ref = iter_ref_t<_Input>,
@@ -7766,13 +7667,7 @@ template<typename _Input, typename _Output,
 template<typename _Input, typename _Output>
 constexpr bool __has_fast_copy_v = __has_fast_copy<_Input, _Output>::value;
 
-struct _Copy_fn {
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _Exec, typename _Iter1, typename _Iter2>
-	_Iter2 operator()(_Exec&& exec, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
-		return std::copy(exec, _First1, _Last1, _First2);
-	}
-#endif // WJR_HAS_EXECUTION
+struct copy_fn {
 
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _First2) const {
@@ -7782,15 +7677,15 @@ struct _Copy_fn {
 				const auto n = std::distance(_First1, _Last1);
 				if (is_unlikely(n == 0)) { return _First2; }
 				if constexpr (!wjr::is_reverse_iterator_v<_Input>) {
-					const auto first1 = wjr::to_address(_First1);
-					const auto first2 = wjr::to_address(_First2);
+					const auto first1 = wjr::get_address(_First1);
+					const auto first2 = wjr::get_address(_First2);
 
 					algo::assign_memcpy(first2, first1, n);
 				}
 				else {
-					const auto first1 = wjr::to_address(_Last1 - 1);
+					const auto first1 = wjr::get_address(_Last1 - 1);
 					const auto _Last2 = _First2 + n;
-					const auto first2 = wjr::to_address(_Last2 - 1);
+					const auto first2 = wjr::get_address(_Last2 - 1);
 
 					algo::assign_memmove(first2, first1, n);
 				}
@@ -7801,15 +7696,9 @@ struct _Copy_fn {
 	}
 };
 
-constexpr _Copy_fn copy{};
+constexpr copy_fn copy{};
 
-struct _Copy_n_fn {
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _Exec, typename _Iter1, typename _Size, typename _Iter2>
-	_Iter2 operator()(_Exec&& exec, _Iter1 _First1, _Size count, _Iter2 _First2) const {
-		return std::copy_n(exec, _First1, count, _First2);
-	}
-#endif // WJR_HAS_EXECUTION
+struct copy_n_fn {
 
 	template<typename _Input, typename _Size, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Size count, _Output _First2) const {
@@ -7823,15 +7712,9 @@ struct _Copy_n_fn {
 	}
 };
 
-constexpr _Copy_n_fn copy_n{};
+constexpr copy_n_fn copy_n{};
 
-struct _Copy_backward_fn {
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _Exec, typename _Iter1, typename _Iter2>
-	_Iter2 operator()(_Exec&& exec, _Iter1 _First1, _Iter1 _Last1, _Iter2 _Last2) const {
-		return std::copy_backward(exec, _First1, _Last1, _Last2);
-	}
-#endif // WJR_HAS_EXECUTION
+struct copy_backward_fn {
 
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _Last2) const {
@@ -7841,15 +7724,9 @@ struct _Copy_backward_fn {
 	}
 };
 
-constexpr _Copy_backward_fn copy_backward{};
+constexpr copy_backward_fn copy_backward{};
 
-struct _Move_fn {
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _Exec, typename _Iter1, typename _Iter2>
-	_Iter2 operator()(_Exec&& exec, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
-		return std::move(exec, _First1, _Last1, _First2);
-	}
-#endif // WJR_HAS_EXECUTION
+struct move_fn {
 
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _First2) const {
@@ -7857,15 +7734,9 @@ struct _Move_fn {
 	}
 };
 
-constexpr _Move_fn move{};
+constexpr move_fn move{};
 
-struct _Move_backward_fn {
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _Exec, typename _Iter1, typename _Iter2>
-	_Iter2 operator()(_Exec&& exec, _Iter1 _First1, _Iter1 _Last1, _Iter2 _Last2) const {
-		return std::move_backward(exec, _First1, _Last1, _Last2);
-	}
-#endif // WJR_HAS_EXECUTION
+struct move_backward_fn {
 
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _Last2) const {
@@ -7873,240 +7744,375 @@ struct _Move_backward_fn {
 	}
 };
 
-constexpr _Move_backward_fn move_backward{};
+constexpr move_backward_fn move_backward{};
 
-template<typename _Iter>
-struct __has_fast_uninitialized_default_construct : std::conjunction<
-	is_bit_default_constructible<remove_ref_t<iter_ref_t<_Iter>>>
-> {};
-
-template<typename _Iter>
-constexpr bool __has_fast_uninitialized_default_construct_v = __has_fast_uninitialized_default_construct<_Iter>::value;
-
-struct _Uninitialized_default_construct_fn {
-#if defined(WJR_HAS_EXECUTION)
-	template<typename _Exec, typename _Iter>
-	void operator()(_Exec&& exec, _Iter _First, _Iter _Last) const {
-		return std::uninitialized_default_construct(exec, _First, _Last);
+struct construct_at_fn {
+	template<typename _Iter, typename...Args, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
+	WJR_CONSTEXPR20 void operator()(_Iter iter, Args&&... args) const {
+		using value_type = iter_val_t<_Iter>;
+		::new (voidify(get_address(iter))) value_type(std::forward<Args>(args)...);
 	}
-#endif // WJR_HAS_EXECUTION
 
-	template<typename _Forward>
-	WJR_CONSTEXPR20 void operator()(_Forward _First, _Forward _Last) const {
-		if constexpr (__has_fast_uninitialized_default_construct_v<_Forward>) {
-			return;
+	template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
+	WJR_CONSTEXPR20 void operator()(_Iter iter, default_construct_tag) const {
+		using value_type = iter_val_t<_Iter>;
+		::new (voidify(get_address(iter))) value_type;
+	}
+
+	template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
+	WJR_CONSTEXPR20 void operator()(_Iter iter, value_construct_tag) const {
+		this->operator()(iter);
+	}
+
+	template<typename Alloc, typename _Iter, typename...Args, std::enable_if_t<!is_iterator_v<Alloc>, int> = 0>
+	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter iter, Args&&...args) const {
+		using pointer = iter_address_t<_Iter>;
+		if constexpr (is_default_allocator_construct_v<Alloc, pointer, Args...>) {
+			this->operator()(iter, std::forward<Args>(args)...);
 		}
-		return std::uninitialized_default_construct(_First, _Last);
+		else {
+			std::allocator_traits<Alloc>::construct(al, get_address(iter), std::forward<Args>(args)...);
+		}
+	}
+
+};
+
+constexpr construct_at_fn construct_at;
+
+struct destroy_at_fn {
+	template<typename _Iter>
+	WJR_CONSTEXPR20 void operator()(_Iter ptr) const {
+		using value_type = iter_val_t<_Iter>;
+		if constexpr (!std::is_trivially_destructible_v<value_type>) {
+			get_address(ptr)->~value_type();
+		}
+	}
+
+	template<typename Alloc, typename _Iter>
+	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter iter) const {
+		if constexpr (is_default_allocator_destroy_v<Alloc, _Iter>) {
+			this->operator()(iter);
+		}
+		else {
+			std::allocator_traits<Alloc>::destroy(al, get_address(iter));
+		}
+	}
+	
+};
+
+constexpr destroy_at_fn destroy_at;
+
+struct destroy_fn {
+	template<typename _Iter>
+	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last) const {
+		using value_type = iter_val_t<_Iter>;
+		if constexpr (!std::is_trivially_destructible_v<value_type>) {
+			for (; _First != _Last; ++_First) {
+				wjr::destroy_at(_First);
+			}
+		}
+	}
+
+	template<typename Alloc, typename _Iter>
+	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Iter _Last) const {
+		using value_type = iter_val_t<_Iter>;
+		if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter> 
+			&& std::is_trivially_destructible_v<value_type>)) {
+			for (; _First != _Last; ++_First) {
+				wjr::destroy_at(al, _First);
+			}
+		}
 	}
 };
 
-constexpr _Uninitialized_default_construct_fn uninitialized_default_construct{};
+constexpr destroy_fn destroy;
 
-template<typename Alloc>
-WJR_CONSTEXPR20 void destroy_at_a(alloc_pointer_t<Alloc> _Where, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_destroy_v<Alloc, pointer>) {
-		std::destroy_at(_Where);
-	}
-	else {
-		std::allocator_traits<Alloc>::destroy(al, std::addressof(*_Where));
-	}
-}
-
-template<typename Alloc>
-WJR_CONSTEXPR20 void destroy_a(alloc_pointer_t<Alloc> _First, alloc_pointer_t<Alloc> _Last, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	using value_type = alloc_value_t<Alloc>;
-	if constexpr (!std::conjunction_v<std::is_trivially_destructible<value_type>,
-		is_default_allocator_destroy<Alloc, pointer>>) {
-		for (; _First != _Last; ++_First) {
-			destroy_at_a(_First, al);
+struct destroy_n_fn {
+	template<typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 void operator()(_Iter _First, const _Diff n) const {
+		using value_type = iter_val_t<_Iter>;
+		if constexpr (!std::is_trivially_destructible_v<value_type>) {
+			for (; n > 0; (void)++_First, --n) {
+				wjr::destroy_at(_First);
+			}
 		}
 	}
-}
 
-template<typename Alloc>
-WJR_CONSTEXPR20 void destroy_n_a(alloc_pointer_t<Alloc> _First, alloc_size_t<Alloc> n, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	using value_type = alloc_value_t<Alloc>;
-	if constexpr (!std::conjunction_v<std::is_trivially_destructible<value_type>,
-		is_default_allocator_destroy<Alloc, pointer>>) {
-		for (; n > 0; --n, ++_First) {
-			destroy_at_a(_First, al);
+	template<typename Alloc, typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Diff n) const {
+		using value_type = iter_val_t<_Iter>;
+		if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter> && std::is_trivially_destructible_v<value_type>)) {
+			for (; n > 0; (void)++_First, --n) {
+				wjr::destroy_at(al, _First);
+			}
 		}
 	}
-}
+};
 
-template<typename Alloc>
-WJR_CONSTEXPR20 void uninitialized_default_construct_a(
-	alloc_pointer_t<Alloc> _First, alloc_pointer_t<Alloc> _Last, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	using value_type = alloc_value_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer>) {
+constexpr destroy_n_fn destroy_n;
+
+struct uninitialized_default_construct_fn {
+
+	template<typename _Iter>
+	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last) const {
 		std::uninitialized_default_construct(_First, _Last);
 	}
-	else {
-		if constexpr (!std::is_trivially_default_constructible_v<value_type>) {
-			for (; _First != _Last; ++_First) {
-				std::allocator_traits<Alloc>::construct(al, std::addressof(*_First));
+
+	template<typename Alloc, typename _Iter>
+	WJR_CONSTEXPR20 void operator()(
+		Alloc& al, _Iter _First, _Iter _Last) const {
+		using value_type = iter_val_t<_Iter>;
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter, default_construct_tag>) {
+			this->operator()(_First, _Last);
+		}
+		else {
+			for (; _First != _Last; (void)++_First) {
+				wjr::construct_at(al, _First, default_construct_tag{});
 			}
 		}
 	}
-}
+};
 
-template<typename Alloc>
-WJR_CONSTEXPR20 void uninitialized_default_construct_n_a(
-	alloc_pointer_t<Alloc> _First, alloc_size_t<Alloc> _Count, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	using value_type = alloc_value_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer>) {
-		std::uninitialized_default_construct_n(_First, _Count);
+constexpr uninitialized_default_construct_fn uninitialized_default_construct;
+
+struct uninitialized_default_construct_n_fn {
+	template<typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, const _Diff n) const {
+		return std::uninitialized_default_construct_n(_First, n);
 	}
-	else {
-		if constexpr (!std::is_trivially_default_constructible_v<value_type>) {
-			for (; _Count > 0; --_Count, ++_First) {
-				std::allocator_traits<Alloc>::construct(al, std::addressof(*_First));
+
+	template<typename Alloc, typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 _Iter operator()(
+		Alloc& al, _Iter _First, _Diff n) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter, default_construct_tag>) {
+			return this->operator()(_First, n);
+		}
+		else {
+			for (; n > 0; (void)++_First, --n) {
+				wjr::construct_at(al, _First, default_construct_tag{});
 			}
+			return _First;
 		}
 	}
-}
+};
 
-template<typename Alloc>
-WJR_CONSTEXPR20 void uninitialized_value_construct_a(
-	alloc_pointer_t<Alloc> _First, alloc_pointer_t<Alloc> _Last, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer>) {
+constexpr uninitialized_default_construct_n_fn uninitialized_default_construct_n;
+
+struct uninitialized_value_construct_fn {
+	template<typename _Iter>
+	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last) const {
 		std::uninitialized_value_construct(_First, _Last);
 	}
-	else {
-		pointer _Next = _First;
-		for (; _Next != _Last; ++_Next) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next));
+
+	template<typename Alloc, typename _Iter>
+	WJR_CONSTEXPR20 void operator()(
+		Alloc& al, _Iter _First, _Iter _Last) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter, value_construct_tag>) {
+			this->operator()(_First, _Last);
+		}
+		else {
+			for (; _First != _Last; (void)++_First) {
+				wjr::construct_at(al, _First, value_construct_tag{});
+			}
 		}
 	}
-}
+};
 
-template<typename Alloc>
-WJR_CONSTEXPR20 alloc_pointer_t<Alloc> uninitialized_value_construct_n_a(
-	alloc_pointer_t<Alloc> _First, alloc_size_t<Alloc> _Count, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer>) {
-		return std::uninitialized_value_construct_n(_First, _Count);
+constexpr uninitialized_value_construct_fn uninitialized_value_construct;
+
+struct uninitialized_value_construct_n_fn {
+	template<typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n) const {
+		return std::uninitialized_value_construct_n(_First, n);
 	}
-	else {
-		pointer _Next = _First;
-		for (; _Count > 0; --_Count) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next));
-			++_Next;
+
+	template<typename Alloc, typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 _Iter operator()(
+		Alloc& al, _Iter _First, _Diff n) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter, value_construct_tag>) {
+			return this->operator()(_First, n);
 		}
-		return _Next;
+		else {
+			for (; n > 0; (void)++_First, --n) {
+				wjr::construct_at(al, _First, value_construct_tag{});
+			}
+			return _First;
+		}
 	}
-}
+};
 
-template<typename iter, typename Alloc, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-WJR_CONSTEXPR20 alloc_pointer_t<Alloc> uninitialized_copy_a(
-	iter _First, iter _Last, alloc_pointer_t<Alloc> _Dest, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer, decltype(*_First)>) {
+constexpr uninitialized_value_construct_n_fn uninitialized_value_construct_n;
+
+struct uninitialized_copy_fn {
+	template<typename _Iter1, typename _Iter2>
+	WJR_CONSTEXPR20 _Iter2 operator()(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
 		return std::uninitialized_copy(_First, _Last, _Dest);
 	}
-	else {
-		pointer _Next = _Dest;
-		for (; _First != _Last; ++_First) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next), *_First);
-			++_Next;
-		}
-		return _Next;
-	}
-}
 
-template<typename iter, typename Alloc, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-WJR_CONSTEXPR20 alloc_pointer_t<Alloc> uninitialized_copy_n_a(
-	iter _First, size_t _Count, alloc_pointer_t<Alloc> _Dest, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer, decltype(*_First)>) {
-		return std::uninitialized_copy_n(_First, _Count, _Dest);
-	}
-	else {
-		pointer _Next = _Dest;
-		for (; _Count > 0; --_Count) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next), *_First);
-			++_Next;
-			++_First;
+	template<typename Alloc, typename _Iter1, typename _Iter2>
+	WJR_CONSTEXPR20 _Iter2 operator()(
+		Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter2, decltype(*_First)>) {
+			return this->operator()(_First, _Last, _Dest);
 		}
-		return _Next;
+		else {
+			for (; _First != _Last; ++_Dest, (void)++_First) {
+				wjr::construct_at(al, _Dest, *_First);
+			}
+		}
 	}
-}
+};
 
-template<typename iter, typename Alloc, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-WJR_CONSTEXPR20 alloc_pointer_t<Alloc> uninitialized_move_a(
-	iter _First, iter _Last, alloc_pointer_t<Alloc> _Dest, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer, decltype(std::move(*_First))>) {
+constexpr uninitialized_copy_fn uninitialized_copy;
+
+struct uninitialized_copy_n_fn {
+	template<typename _Iter1, typename _Diff, typename _Iter2>
+	WJR_CONSTEXPR20 _Iter2 operator()(_Iter1 _First, _Diff n, _Iter2 _Dest) const {
+		return std::uninitialized_copy_n(_First, n, _Dest);
+	}
+
+	template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
+	WJR_CONSTEXPR20 _Iter2 operator()(Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter2, decltype(*_First)>) {
+			return this->operator()(_First, n, _Dest);
+		}
+		else {
+			for (; n > 0; ++_First, (void)++_Dest, --n) {
+				wjr::construct_at(al, _Dest, *_First);
+			}
+		}
+	}
+};
+
+constexpr uninitialized_copy_n_fn uninitialized_copy_n;
+
+struct uninitialized_fill_fn {
+	template<typename _Iter, typename _Val>
+	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, const _Val& val) const {
+		std::uninitialized_fill(_First, _Last, val);
+	}
+
+	template<typename Alloc, typename _Iter, typename _Val>
+	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Iter _Last, const _Val& val) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter, _Val>) {
+			this->operator()(_First, _Last, val);
+		}
+		else {
+			for (; _First != _Last; (void)++_First) {
+				wjr::construct_at(al, _First, val);
+			}
+		}
+	}
+};
+
+constexpr uninitialized_fill_fn uninitialized_fill;
+
+struct uninitialized_fill_n_fn {
+	template<typename _Iter, typename _Diff, typename _Val>
+	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n, const _Val& val) const {
+		return std::uninitialized_fill_n(_First, n, val);
+	}
+
+	template<typename Alloc, typename _Iter, typename _Diff, typename _Val>
+	WJR_CONSTEXPR20 _Iter operator()(Alloc& al, _Iter _First, _Diff n, const _Val& val) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter, _Val>) {
+			return this->operator()(_First, n, val);
+		}
+		else {
+			for (; n > 0; (void)++_First, --n) {
+				wjr::construct_at(al, _First, val);
+			}
+		}
+	}
+};
+
+constexpr uninitialized_fill_n_fn uninitialized_fill_n;
+
+struct uninitialized_move_fn {
+	template<typename _Iter1, typename _Iter2>
+	WJR_CONSTEXPR20 _Iter2 operator()(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
 		return std::uninitialized_move(_First, _Last, _Dest);
 	}
-	else {
-		pointer _Next = _Dest;
-		for (; _First != _Last; ++_First) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next), std::move(*_First));
-			++_Next;
-		}
-		return _Next;
-	}
-}
 
-template<typename iter, typename Alloc, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-WJR_CONSTEXPR20 std::pair<iter, alloc_pointer_t<Alloc>> uninitialized_move_n_a(
-	iter _First, size_t _Count, alloc_pointer_t<Alloc> _Dest, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer, decltype(std::move(*_First))>) {
-		return std::uninitialized_move_n(_First, _Count, _Dest);
-	}
-	else {
-		pointer _Next = _Dest;
-		for (; _Count > 0; --_Count) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next), std::move(*_First));
-			++_Next;
-			++_First;
+	template<typename Alloc, typename _Iter1, typename _Iter2>
+	WJR_CONSTEXPR20 _Iter2 operator()(Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>) {
+			return this->operator()(_First, _Last, _Dest);
 		}
-		return { _First, _Next };
+		else {
+			for (; _First != _Last; ++_Dest, (void)++_First) {
+				wjr::construct_at(al, _Dest, std::move(*_First));
+			}
+			return _Dest;
+		}
 	}
-}
+};
 
-template<typename Alloc, typename ValueType>
-WJR_CONSTEXPR20 void uninitialized_fill_a(
-	alloc_pointer_t<Alloc> _First, alloc_pointer_t<Alloc> _Last,
-	const ValueType& _Val, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer, decltype(_Val)>) {
-		std::uninitialized_fill(_First, _Last, _Val);
-	}
-	else {
-		pointer _Next = _First;
-		for (; _Next != _Last; ++_Next) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next), _Val);
-		}
-	}
-}
+constexpr uninitialized_move_fn uninitialized_move;
 
-template<typename Alloc, typename ValueType>
-WJR_CONSTEXPR20 alloc_pointer_t<Alloc> uninitialized_fill_n_a(
-	alloc_pointer_t<Alloc> _First,
-	alloc_size_t<Alloc> _Count,
-	const ValueType& _Val, Alloc& al) {
-	using pointer = alloc_pointer_t<Alloc>;
-	if constexpr (is_default_allocator_construct_v<Alloc, pointer, decltype(_Val)>) {
-		return std::uninitialized_fill_n(_First, _Count, _Val);
+struct uninitialized_move_n_fn {
+	template<typename _Iter1, typename _Diff, typename _Iter2>
+	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First, _Diff n, _Iter2 _Dest) const {
+		return std::uninitialized_move_n(_First, n, _Dest);
 	}
-	else {
-		pointer _Next = _First;
-		for (; 0 < _Count; --_Count) {
-			std::allocator_traits<Alloc>::construct(al, std::addressof(*_Next), _Val);
-			++_Next;
+
+	template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
+	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(
+		Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) const {
+		if constexpr(is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>){
+			return this->operator()(_First, n, _Dest);
 		}
-		return _Next;
+		else {
+			for (; n > 0; ++_First, (void)++_Dest, --n) {
+				wjr::construct_at(al, _Dest, std::move(*_First));
+			}
+			return std::make_pair(_First, _Dest);
+		}
 	}
-}
+};
+
+constexpr uninitialized_move_n_fn uninitialized_move_n;
+
+template<typename Alloc>
+class temporary_allocator_value {
+public:
+	using value_type = alloc_value_t<Alloc>;
+	using traits = std::allocator_traits<Alloc>;
+
+	template<typename...Args>
+	constexpr explicit temporary_allocator_value(Alloc& al, Args&&...args) noexcept
+		: al(al) {
+		traits::construct(al, get_ptr(), std::forward<Args>(args)...);
+	}
+
+	temporary_allocator_value(const temporary_allocator_value&) = delete;
+	temporary_allocator_value& operator=(const temporary_allocator_value&) = delete;
+
+	~temporary_allocator_value() {
+		wjr::destroy_at(al, get_ptr());
+	}
+
+	constexpr value_type* get_ptr() {
+		return reinterpret_cast<value_type*>(std::addressof(vl));
+	}
+
+	constexpr const value_type* get_ptr() const {
+		return reinterpret_cast<const value_type*>(std::addressof(vl));
+	}
+
+	constexpr value_type& value() {
+		return *get_ptr();
+	}
+
+	constexpr const value_type& value() const {
+		return *get_ptr();
+	}
+
+private:
+
+	Alloc& al;
+	std::aligned_storage_t<sizeof(value_type), alignof(value_type)> vl;
+};
 
 _WJR_END
 
@@ -8210,10 +8216,6 @@ public:
 	}
 
 #if !defined(WJR_CPP_20)
-	WJR_NODISCARD _Ty* allocate(const size_t _Count, const void*) {
-		return allocate(_Count);
-	}
-
 	WJR_NODISCARD size_t max_size() const noexcept {
 		return static_cast<size_t>(-1) / sizeof(_Ty);
 	}
@@ -8266,47 +8268,6 @@ WJR_NODISCARD WJR_CONSTEXPR20 bool operator!=(
 
 template<typename T, size_t _Al, size_t _Off>
 struct is_default_allocator<aligned_allocator<T, _Al, _Off>> : std::true_type {};
-
-template<typename Alloc>
-class temporary_allocator_value {
-public:
-	using value_type = alloc_value_t<Alloc>;
-	using traits = std::allocator_traits<Alloc>;
-
-	template<typename...Args>
-	constexpr explicit temporary_allocator_value(Alloc& al, Args&&...args) noexcept
-		: al(al) {
-		traits::construct(al, get_ptr(), std::forward<Args>(args)...);
-	}
-
-	temporary_allocator_value(const temporary_allocator_value&) = delete;
-	temporary_allocator_value& operator=(const temporary_allocator_value&) = delete;
-
-	~temporary_allocator_value() {
-		destroy_at_a(get_ptr(), al);
-	}
-
-	constexpr value_type* get_ptr() {
-		return reinterpret_cast<value_type*>(std::addressof(vl));
-	}
-
-	constexpr const value_type* get_ptr() const {
-		return reinterpret_cast<const value_type*>(std::addressof(vl));
-	}
-
-	constexpr value_type& value() {
-		return *get_ptr();
-	}
-
-	constexpr const value_type& value() const {
-		return *get_ptr();
-	}
-
-private:
-
-	Alloc& al;
-	std::aligned_storage_t<sizeof(value_type), alignof(value_type)> vl;
-};
 
 _WJR_END
 
@@ -8386,7 +8347,7 @@ struct vector_data {
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_data& _Src, vector_data& _Dest) {
 		auto data = Allocate(al, _Src.size(), _Src.capacity());
-		wjr::uninitialized_copy_a(_Src._Myfirst, _Src._Mylast, data._Myfirst, al);
+		wjr::uninitialized_copy(al, _Src._Myfirst, _Src._Mylast, data._Myfirst);
 		_Dest = data;
 	}
 
@@ -8463,15 +8424,15 @@ public:
 	}
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_static_data& _Src, vector_static_data& _Dest) {
-		wjr::uninitialized_copy_n_a(_Src.data(), _Src.size(), _Dest.data(), al);
+		wjr::uninitialized_copy_n(al, _Src.data(), _Src.size(), _Dest.data());
 		_Dest.set_size(_Src.size());
 	}
 
 	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, vector_static_data&& _Src, vector_static_data& _Dest) {
 		auto n = _Src.size();
 		if (n != 0) {
-			wjr::uninitialized_move_n_a(_Src.data(), n, _Dest.data(), al);
-			wjr::destroy_n_a(_Src.data(), n, al);
+			wjr::uninitialized_move_n(al, _Src.data(), n, _Dest.data());
+			wjr::destroy_n(al, _Src.data(), n);
 			_Src.set_size(0);
 			_Dest.set_size(n);
 		}
@@ -8520,7 +8481,6 @@ public:
 	alignas(_MaxAlignment) size_type _M_size;
 };
 
-
 namespace _Vector_helper {
 	REGISTER_HAS_STATIC_MEMBER_FUNCTION(Swap, Swap);
 	REGISTER_HAS_STATIC_MEMBER_FUNCTION(getGrowthCapacity, getGrowthCapacity);
@@ -8553,9 +8513,9 @@ public:
 			std::forward_as_tuple()) {}
 private:
 	constexpr static bool _IsNoThrowCopyConstruct = 
-		noexcept(copyConstruct(std::declval<_Alty&>(), std::declval<const data_type&>(), std::declval<data_type&>()));
+		noexcept(Data::copyConstruct(std::declval<_Alty&>(), std::declval<const data_type&>(), std::declval<data_type&>()));
 	constexpr static bool _IsNoThrowMoveConstruct =
-		noexcept(moveConstruct(std::declval<_Alty&>(), std::declval<data_type&&>(), std::declval<data_type&>()));
+		noexcept(Data::moveConstruct(std::declval<_Alty&>(), std::declval<data_type&&>(), std::declval<data_type&>()));
 public:
 	template<typename _Alloc>
 	WJR_CONSTEXPR20 vector_core(const vector_core& other, _Alloc&& al)
@@ -8599,7 +8559,7 @@ private:
 				else {
 					set_size(_Size);
 				}
-				wjr::uninitialized_move_n_a(other.data(), _Size, data(), al);
+				wjr::uninitialized_move_n(al, other.data(), _Size, data());
 			}
 		}
 	}
@@ -8623,12 +8583,12 @@ public:
 	}
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const Data& _Src, Data& _Dest)
-		noexcept(noexcept(Data::copyConstruct(al, _Src, _Dest))) {
+		noexcept(_IsNoThrowCopyConstruct) {
 		return Data::copyConstruct(al, _Src, _Dest);
 	}
 
 	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, Data&& _Src, Data& _Dest)
-		noexcept(noexcept(Data::moveConstruct(al, std::move(_Src), _Dest))) {
+		noexcept(_IsNoThrowMoveConstruct) {
 		return Data::moveConstruct(al, std::move(_Src), _Dest);
 	}
 
@@ -8650,7 +8610,7 @@ public:
 	}
 
 	WJR_CONSTEXPR20 static void Destroy(_Alty& al, Data& _Data) noexcept {
-		wjr::destroy_n_a(_Data.data(), _Data.size(), al);
+		wjr::destroy_n(al, _Data.data(), _Data.size());
 	}
 
 	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, Data& _Data)
@@ -8698,7 +8658,7 @@ public:
 			}
 			else {
 				auto _Newdata = Allocate(al, _Oldsize, _Oldsize);
-				wjr::uninitialized_move_n_a(_Data.data(), _Oldsize, _Newdata.data(), al);
+				wjr::uninitialized_move_n(al, _Data.data(), _Oldsize, _Newdata.data());
 				Tidy(al, _Data);
 				moveConstruct(al, std::move(_Newdata), _Data);
 			}
@@ -8984,7 +8944,7 @@ public:
 			const auto _Newcapacity = getGrowthCapacity(_Oldcapacity, n);
 
 			auto _Newdata = Allocate(al, _Oldsize, _Newcapacity);
-			wjr::uninitialized_move_n_a(data(), _Oldsize, _Newdata.data(), al);
+			wjr::uninitialized_move_n(al, data(), _Oldsize, _Newdata.data());
 
 			tidy();
 			moveConstruct(al, std::move(_Newdata), getData());
@@ -9048,7 +9008,7 @@ public:
 		const auto _Mylast = _Myfirst + size();
 		const auto _Myend = _Myfirst + capacity();
 		if (is_likely(_Mylast != _Myend)) {
-			_Alty_traits::construct(al, _Mylast, std::forward<Args>(args)...);
+			wjr::construct_at(al, _Mylast, std::forward<Args>(args)...);
 			inc_size(1);
 		}
 		else {
@@ -9068,7 +9028,7 @@ public:
 	WJR_CONSTEXPR20 void pop_back() noexcept {
 		inc_size(-1);
 		const pointer _Mylast = data() + size();
-		_Alty_traits::destroy(getAllocator(), _Mylast);
+		wjr::destroy_at(getAllocator(), _Mylast);
 	}
 
 	template<typename...Args>
@@ -9189,6 +9149,9 @@ public:
 		return _Mybase::getData();
 	}
 
+	// 非标准扩展函数
+	// English : non-standard extension functions
+
 	WJR_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 		_Mybase::set_size(_Size);
 	}
@@ -9212,13 +9175,13 @@ private:
 			}
 			const pointer _Ptr = data();
 			if constexpr (sizeof...(Args) == 0) {
-				wjr::uninitialized_value_construct_n_a(_Ptr, _Count, al);
+				wjr::uninitialized_value_construct_n(al, _Ptr, _Count);
 			}
 			else if constexpr (sizeof...(Args) == 1) {
-				wjr::uninitialized_fill_n_a(_Ptr, _Count, std::forward<Args>(args)..., al);
+				wjr::uninitialized_fill_n(al, _Ptr, _Count, std::forward<Args>(args)...);
 			}
 			else if constexpr (sizeof...(Args) == 2) {
-				wjr::uninitialized_copy_a(std::forward<Args>(args)..., _Ptr, al);
+				wjr::uninitialized_copy(al, std::forward<Args>(args)..., _Ptr);
 			}
 		}
 	}
@@ -9239,7 +9202,7 @@ private:
 	WJR_CONSTEXPR20 void _M_erase_at_end(pointer _Where) noexcept {
 		const auto _Myfirst = data();
 		const pointer _Mylast = _Myfirst + size();
-		wjr::destroy_a(_Where, _Mylast, getAllocator());
+		wjr::destroy(getAllocator(), _Where, _Mylast);
 		const auto __new_size = static_cast<size_type>(_Where - _Myfirst);
 		set_size(__new_size);
 	}
@@ -9250,7 +9213,7 @@ private:
 		if (_Where + 1 != _Mylast) {
 			wjr::move(_Where + 1, _Mylast, _Where);
 		}
-		wjr::destroy_at_a(_Mylast - 1, getAllocator());
+		wjr::destroy_at(getAllocator(), _Mylast - 1);
 		inc_size(-1);
 		return _Where;
 	}
@@ -9293,15 +9256,15 @@ private:
 				const auto __elements_after = static_cast<size_type>(_Mylast - _Where);
 				auto __old_last = _Mylast;
 				if (__elements_after > n) {
-					wjr::uninitialized_move_a(_Mylast - n, _Mylast, _Mylast, al);
+					wjr::uninitialized_move(al, _Mylast - n, _Mylast, _Mylast);
 					wjr::move_backward(_Where, __old_last - n, __old_last);
 					wjr::copy(_First, _Last, _Where);
 				}
 				else {
 					auto _Mid = _First;
 					std::advance(_Mid, __elements_after);
-					wjr::uninitialized_copy_a(_Mid, _Last, _Mylast, al);
-					wjr::uninitialized_move_a(_Where, __old_last, _Mylast + n - __elements_after, al);
+					wjr::uninitialized_copy(al, _Mid, _Last, _Mylast);
+					wjr::uninitialized_move(al, _Where, __old_last, _Mylast + n - __elements_after);
 					wjr::copy(_First, _Mid, _Where);
 				}
 				inc_size(n);
@@ -9313,9 +9276,9 @@ private:
 				auto _Newdata = Allocate(al, __old_size + n, _Newcapacity);
 				const pointer _Newfirst = _Newdata.data();
 
-				wjr::uninitialized_copy_a(_First, _Last, _Newfirst + __old_pos, al);
-				wjr::uninitialized_move_a(_Myfirst, _Where, _Newfirst, al);
-				wjr::uninitialized_move_a(_Where, _Mylast, _Newfirst + __old_pos + n, al);
+				wjr::uninitialized_copy(al, _First, _Last, _Newfirst + __old_pos);
+				wjr::uninitialized_move(al, _Myfirst, _Where, _Newfirst);
+				wjr::uninitialized_move(al, _Where, _Mylast, _Newfirst + __old_pos + n);
 
 				tidy();
 				moveConstruct(al, std::move(_Newdata), getData());
@@ -9342,7 +9305,7 @@ private:
 			const auto __rest = static_cast<size_type>(_Myend - _Mylast);
 
 			if (__rest >= n) {
-				wjr::uninitialized_copy_a(_First, _Last, _Mylast, al);
+				wjr::uninitialized_copy(al, _First, _Last, _Mylast);
 				inc_size(n);
 			}
 			else {
@@ -9352,8 +9315,8 @@ private:
 				auto _Newdata = Allocate(al, __old_size + n, _Newcapacity);
 				const pointer _Newfirst = _Newdata.data();
 
-				wjr::uninitialized_copy_a(_First, _Last, _Newfirst + __old_size, al);
-				wjr::uninitialized_move_a(_Myfirst, _Mylast, _Newfirst, al);
+				wjr::uninitialized_copy(al, _First, _Last, _Newfirst + __old_size);
+				wjr::uninitialized_move(al, _Myfirst, _Mylast, _Newfirst);
 
 				tidy();
 				moveConstruct(al, std::move(_Newdata), getData());
@@ -9386,11 +9349,11 @@ private:
 			tidy();
 			auto _Data = Allocate(al, _Count, _Count);
 			moveConstruct(al, std::move(_Data), getData());
-			wjr::uninitialized_fill_n_a(data(), _Count, _Val, al);
+			wjr::uninitialized_fill_n(al, data(), _Count, _Val);
 		}
 		else if (_Count > size()) {
 			wjr::fill(begin(), end(), _Val);
-			wjr::uninitialized_fill_n_a(end(), _Count - size(), _Val, al);
+			wjr::uninitialized_fill_n(al, end(), _Count - size(), _Val);
 			set_size(_Count);
 		}
 		else {
@@ -9413,14 +9376,14 @@ private:
 			auto _Mid = _First;
 			std::advance(_Mid, size());
 			wjr::copy(_First, _Mid, begin());
-			wjr::uninitialized_copy_a(_Mid, _Last, _Mylast, al);
+			wjr::uninitialized_copy(al, _Mid, _Last, _Mylast);
 			set_size(_Count);
 		}
 		else {
 			auto _Newcapacity = getGrowthCapacity(capacity(), _Count);
 			auto _Newdata = Allocate(al, _Count, _Newcapacity);
 			const pointer _Newfirst = _Newdata.data();
-			wjr::uninitialized_copy_a(_First, _Last, _Newfirst, al);
+			wjr::uninitialized_copy(al, _First, _Last, _Newfirst);
 
 			tidy();
 			moveConstruct(al, std::move(_Newdata), getData());
@@ -9465,10 +9428,10 @@ private:
 		const pointer _Newfirst = _Newdata.data();
 		const pointer _Newwhere = _Newfirst + __old_pos;
 
-		_Alty_traits::construct(al, _Newwhere, std::forward<Args>(args)...);
+		wjr::construct_at(al, _Newwhere, std::forward<Args>(args)...);
 
-		wjr::uninitialized_move_a(_Myfirst, _Where, _Newfirst, al);
-		wjr::uninitialized_move_a(_Where, _Mylast, _Newwhere + 1, al);
+		wjr::uninitialized_move(al, _Myfirst, _Where, _Newfirst);
+		wjr::uninitialized_move(al, _Where, _Mylast, _Newwhere + 1);
 
 		tidy();
 		moveConstruct(al, std::move(_Newdata), getData());
@@ -9488,9 +9451,9 @@ private:
 		const pointer _Newfirst = _Newdata.data();
 
 		const pointer _Newwhere = _Newfirst + __old_size;
-		_Alty_traits::construct(al, _Newwhere, std::forward<Args>(args)...);
+		wjr::construct_at(al, _Newwhere, std::forward<Args>(args)...);
 
-		wjr::uninitialized_move_n_a(_Myfirst, __old_size, _Newfirst, al);
+		wjr::uninitialized_move_n(al, _Myfirst, __old_size, _Newfirst);
 
 		tidy();
 		moveConstruct(al, std::move(_Newdata), getData());
@@ -9513,13 +9476,13 @@ private:
 			auto& _Copy = _Tmp.value();
 			const auto __elements_after = static_cast<size_type>(_Mylast - _Where);
 			if (__elements_after > n) {
-				wjr::uninitialized_move_a(_Mylast - n, _Mylast, _Mylast, al);
+				wjr::uninitialized_move(al, _Mylast - n, _Mylast, _Mylast);
 				wjr::move_backward(_Where, _Mylast - n, _Mylast);
 				wjr::fill_n(_Where, n, _Copy);
 			}
 			else {
-				wjr::uninitialized_fill_n_a(_Mylast, n - __elements_after, _Copy, al);
-				wjr::uninitialized_move_a(_Where, _Mylast, _Where + n, al);
+				wjr::uninitialized_fill_n(al, _Mylast, n - __elements_after, _Copy);
+				wjr::uninitialized_move(al, _Where, _Mylast, _Where + n);
 				wjr::fill(_Where, _Mylast, _Copy);
 			}
 			inc_size(n);
@@ -9531,9 +9494,9 @@ private:
 
 			const auto __old_pos = static_cast<size_type>(_Where - _Myfirst);
 
-			wjr::uninitialized_fill_n_a(_Newfirst + __old_pos, n, _Val, al);
-			wjr::uninitialized_move_a(_Myfirst, _Where, _Newfirst, al);
-			wjr::uninitialized_move_a(_Where, _Mylast, _Newfirst + __old_pos + n, al);
+			wjr::uninitialized_fill_n(al, _Newfirst + __old_pos, n, _Val);
+			wjr::uninitialized_move(al, _Myfirst, _Where, _Newfirst);
+			wjr::uninitialized_move(al, _Where, _Mylast, _Newfirst + __old_pos + n);
 
 			tidy();
 			moveConstruct(al, std::move(_Newdata), getData());
@@ -9554,7 +9517,7 @@ private:
 		const auto _Newsize = _Oldsize + n;
 
 		if (__rest >= n) {
-			wjr::uninitialized_fill_n_a(_Mylast, n, _Val, al);
+			wjr::uninitialized_fill_n(al, _Mylast, n, _Val);
 			set_size(_Newsize);
 		}
 		else {
@@ -9562,8 +9525,8 @@ private:
 			auto _Newdata = Allocate(al, _Newsize, _Newcapacity);
 			const pointer _Newfirst = _Newdata.data();
 
-			wjr::uninitialized_fill_n_a(_Newfirst + _Oldsize, n, _Val, al);
-			wjr::uninitialized_move_a(_Myfirst, _Mylast, _Newfirst, al);
+			wjr::uninitialized_fill_n(al, _Newfirst + _Oldsize, n, _Val);
+			wjr::uninitialized_move(al, _Myfirst, _Mylast, _Newfirst);
 
 			tidy();
 			moveConstruct(al, std::move(_Newdata), getData());
@@ -9575,7 +9538,7 @@ private:
 		auto& al = getAllocator();
 		const pointer _Mylast = data() + size();
 
-		_Alty_traits::construct(al, _Mylast, std::move(*(_Mylast - 1)));
+		wjr::construct_at(al, _Mylast, std::move(*(_Mylast - 1)));
 
 		wjr::move_backward(_Where, _Mylast - 1, _Mylast);
 		*_Where = std::forward<Args>(args);
@@ -9594,7 +9557,7 @@ private:
 
 		if (_Mylast != _Myend) {
 			if (_Where == _Mylast) {
-				_Alty_traits::construct(al, _Mylast, std::forward<Args>(args)...);
+				wjr::construct_at(al, _Mylast, std::forward<Args>(args)...);
 				inc_size(1);
 			}
 			else {
