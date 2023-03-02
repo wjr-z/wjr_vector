@@ -130,7 +130,7 @@
 #define __HAS_FAST_MEMCMP
 #define __HAS_FAST_MEMMIS
 //#define __HAS_FAST_MEMCNT
-#define __HAS_FAST_MEMSET
+//#define __HAS_FAST_MEMSET
 //#define __HAS_FAST_MEMCPY
 #endif // __SSE2__
 
@@ -1575,31 +1575,7 @@ namespace std {
 #define __WJR_ALGO_ALOG_H
 
 #pragma once
-#pragma once
-#include <array>
 
-
-_WJR_BEGIN
-
-template<size_t N>
-using byte_array = std::array<uint8_t, N>;
-
-template<typename T>
-constexpr byte_array<sizeof(T)> to_byte_array(const T& _Val) {
-	auto ptr = reinterpret_cast<const uint8_t*>(&_Val);
-	byte_array<sizeof(T)> ret;
-	for(size_t i = 0;i < sizeof(T);++i) {
-		ret[i] = ptr[i];
-	}
-	return ret;
-}
-
-template<size_t M, size_t N, std::enable_if_t<is_any_index_of_v<M, 1, 2, 4, 8>, int> = 0>
-constexpr uint_t<M * 8> to_uint(const byte_array<N>& _Val) {
-	return *reinterpret_cast<const uint_t<M * 8>*>(_Val.data());
-}
-
-_WJR_END
 
 _WJR_BEGIN
 
@@ -1611,10 +1587,11 @@ constexpr size_t _Get_max_bytes_num() {
 	else return 1;
 }
 
-template<size_t N>
-size_t _Get_bytes_num(const byte_array<N>& a) {
+template<typename _Ty>
+size_t _Get_bytes_num(const _Ty& val) {
+	constexpr size_t N = sizeof(_Ty);
 	constexpr size_t M = _Get_max_bytes_num<N>();
-	auto ptr = a.data();
+	const auto ptr = reinterpret_cast<const uint8_t*>(&val);
 	if constexpr (N == 1) {
 		return 1;
 	}
@@ -1643,7 +1620,7 @@ size_t _Get_bytes_num(const byte_array<N>& a) {
 		return ((x >> 8) == (x & 0x00FFFFFFFFFFFFFF)) ? 1 : 8;
 	}
 	else {
-		if (!is_constant_p(a)) {
+		if (!is_constant_p(val)) {
 			return 0;
 		}
 		else {
@@ -1673,9 +1650,6 @@ template<typename T, typename U,
 struct __is_byte_constructible {
 	constexpr static bool is_copy = sizeof(T) == sizeof(U);
 	constexpr static bool is_fill = true;
-	constexpr static byte_array<sizeof(T)> get(const U& src) {
-		return to_byte_array(static_cast<T>(src));
-	}
 };
 
 template<typename T, bool = 
@@ -1684,9 +1658,6 @@ template<typename T, bool =
 struct __is_byte_copy_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
-	constexpr static byte_array<sizeof(T)> get(const T& src) {
-		return to_byte_array(src);
-	}
 };
 
 template<typename T>
@@ -1701,9 +1672,6 @@ template<typename T, bool =
 struct __is_byte_move_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
-	constexpr static byte_array<sizeof(T)> get(const T& src) {
-		return to_byte_array(src);
-	}
 };
 
 template<typename T>
@@ -7169,41 +7137,37 @@ constexpr bool __has_fast_memset_helper_v = __has_fast_memset_helper<TEST, T, U>
 
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
 static void __memset_helper(T* s, const U& val, size_t n) {
-	auto __byte_array = TEST<T, const U&>::get(val);
-
-	if (is_constant_p(n) && n <= 4) {
+	
+	if (is_constant_p(n) && n <= 4 / sizeof(T)) {
 		std::fill_n(s, n, val);
 		return;
 	}
+
+	auto __bytes_num = _Get_bytes_num(static_cast<T>(val));
 
 #if defined(__HAS_FAST_MEMSET)
-	constexpr auto _max_bytes_num = _Get_max_bytes_num<sizeof(T)>();
-	auto _bytes_num = _Get_bytes_num(__byte_array);
-
-	if (_bytes_num == 0) {
+	constexpr auto __max_bytes_num = _Get_max_bytes_num<sizeof(T)>();
+	if (__bytes_num == 0) {
 		std::fill_n(s, n, val);
 		return;
 	}
-
-	using value_type = uint_t<_max_bytes_num * 8>;
-	auto __s = reinterpret_cast<value_type*>(s);
-	auto __val = to_uint<_max_bytes_num>(__byte_array);
-	static_assert(std::is_same_v<decltype(__val), value_type>, "type mismatch");
-	__memset(__s, __val, n * (sizeof(T) / _max_bytes_num));
 #else
-	constexpr auto _max_bytes_num = 1;
-	auto _bytes_num = _Get_bytes_num(__byte_array);
-
-	if (_bytes_num != 1) {
+	constexpr auto __max_bytes_num = 1;
+	if (__bytes_num != 1) {
 		std::fill_n(s, n, val);
 		return;
 	}
+#endif 
 
-	using value_type = uint_t<_max_bytes_num * 8>;
+	using value_type = uint_t<__max_bytes_num * 8>;
 	auto __s = reinterpret_cast<value_type*>(s);
-	auto __val = to_uint<_max_bytes_num>(__byte_array);
+	auto __val = *reinterpret_cast<const value_type*>(&val);
 	static_assert(std::is_same_v<decltype(__val), value_type>, "type mismatch");
-	::memset(__s, __val, n * (sizeof(T) / _max_bytes_num));
+	
+#if defined(__HAS_FAST_MEMSET)
+	__memset(__s, __val, n * (sizeof(T) / __max_bytes_num));
+#else
+	::memset(__s, __val, n * (sizeof(T) / __max_bytes_num));
 #endif
 }
 
