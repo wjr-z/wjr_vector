@@ -1615,7 +1615,34 @@ template<size_t N>
 size_t _Get_bytes_num(const byte_array<N>& a) {
 	constexpr size_t M = _Get_max_bytes_num<N>();
 	auto ptr = a.data();
-	if constexpr (N > 8) {
+	if constexpr (N == 1) {
+		return 1;
+	}
+	else if constexpr (N == 2) {
+		return (ptr[0] == ptr[1]) ? 1 : 2;
+	}
+	else if constexpr (N == 3) {
+		return (*reinterpret_cast<const uint16_t*>(ptr) == *reinterpret_cast<const uint16_t*>(ptr + 1)) ? 1 : 0;
+	}
+	else if constexpr (N == 4) {
+		auto x = *reinterpret_cast<const uint32_t*>(ptr);
+		return ((x >> 8) == (x & 0x00FFFFFF)) ? 1 : 4;
+	}
+	else if constexpr (N == 5) {
+		return (*reinterpret_cast<const uint32_t*>(ptr) == *reinterpret_cast<const uint32_t*>(ptr + 1)) ? 1 : 0;
+	}else if constexpr(N == 6){
+		return (*reinterpret_cast<const uint32_t*>(ptr) == *reinterpret_cast<const uint32_t*>(ptr + 2)) ? 2 : 6;
+	}
+	else if constexpr (N == 7) {
+		auto x = *reinterpret_cast<const uint32_t*>(ptr);
+		auto y = *reinterpret_cast<const uint32_t*>(ptr + 4);
+		return ((x >> 8) == (x & 0x00FFFFFF)) && ((y >> 8) == (y & 0x00FFFFFF)) ? 1 : 0;
+	}
+	else if constexpr(N == 8) {
+		auto x = *reinterpret_cast<const uint64_t*>(ptr);
+		return ((x >> 8) == (x & 0x00FFFFFFFFFFFFFF)) ? 1 : 8;
+	}
+	else {
 		if (!is_constant_p(a)) {
 			return 0;
 		}
@@ -1632,33 +1659,6 @@ size_t _Get_bytes_num(const byte_array<N>& a) {
 			}
 			return 1;
 		}
-	}
-	if constexpr (M == 1) {
-		return 1;
-	}
-	else if constexpr (M == 2) {
-		return (ptr[0] == ptr[1]) ? 1 : 2;
-	}
-	else if constexpr (M == 3) {
-		return (*reinterpret_cast<const uint16_t*>(ptr) == *reinterpret_cast<const uint16_t*>(ptr + 1)) ? 1 : 0;
-	}
-	else if constexpr (M == 4) {
-		auto x = *reinterpret_cast<const uint32_t*>(ptr);
-		return ((x >> 8) == (x & 0x00FFFFFF)) ? 1 : 4;
-	}
-	else if constexpr (M == 5) {
-		return (*reinterpret_cast<const uint32_t*>(ptr) == *reinterpret_cast<const uint32_t*>(ptr + 1)) ? 1 : 0;
-	}else if constexpr(M == 6){
-		return (*reinterpret_cast<const uint32_t*>(ptr) == *reinterpret_cast<const uint32_t*>(ptr + 2)) ? 2 : 6;
-	}
-	else if constexpr (M == 7) {
-		auto x = *reinterpret_cast<const uint32_t*>(ptr);
-		auto y = *reinterpret_cast<const uint32_t*>(ptr + 4);
-		return ((x >> 8) == (x & 0x00FFFFFF)) && ((y >> 8) == (y & 0x00FFFFFF)) ? 1 : 0;
-	}
-	else {
-		auto x = *reinterpret_cast<const uint64_t*>(ptr);
-		return ((x >> 8) == (x & 0x00FFFFFFFFFFFFFF)) ? 1 : 8;
 	}
 }
 
@@ -7170,6 +7170,12 @@ constexpr bool __has_fast_memset_helper_v = __has_fast_memset_helper<TEST, T, U>
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
 static void __memset_helper(T* s, const U& val, size_t n) {
 	auto __byte_array = TEST<T, const U&>::get(val);
+
+	if (is_constant_p(n) && n <= 4) {
+		std::fill_n(s, n, val);
+		return;
+	}
+
 #if defined(__HAS_FAST_MEMSET)
 	constexpr auto _max_bytes_num = _Get_max_bytes_num<sizeof(T)>();
 	auto _bytes_num = _Get_bytes_num(__byte_array);
@@ -7178,7 +7184,7 @@ static void __memset_helper(T* s, const U& val, size_t n) {
 		std::fill_n(s, n, val);
 		return;
 	}
-	
+
 	using value_type = uint_t<_max_bytes_num * 8>;
 	auto __s = reinterpret_cast<value_type*>(s);
 	auto __val = to_uint<_max_bytes_num>(__byte_array);
