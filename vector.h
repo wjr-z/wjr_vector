@@ -1670,7 +1670,7 @@ template<typename T, typename U,
 	!std::is_volatile_v<T> && 
 	!std::is_volatile_v<std::remove_reference_t<U>>
 >
-struct __is_bit_constructible {
+struct __is_byte_constructible {
 	constexpr static bool is_copy = sizeof(T) == sizeof(U);
 	constexpr static bool is_fill = true;
 	constexpr static byte_array<sizeof(T)> get(const U& src) {
@@ -1681,7 +1681,7 @@ struct __is_bit_constructible {
 template<typename T, bool = 
 	std::is_trivially_copyable_v<T> &&
 	!std::is_volatile_v<T>>
-struct __is_bit_copy_constructible_helper {
+struct __is_byte_copy_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
 	constexpr static byte_array<sizeof(T)> get(const T& src) {
@@ -1690,7 +1690,7 @@ struct __is_bit_copy_constructible_helper {
 };
 
 template<typename T>
-struct __is_bit_copy_constructible_helper<T, false> {
+struct __is_byte_copy_constructible_helper<T, false> {
 	constexpr static bool is_copy = false;
 	constexpr static bool is_fill = false;
 };
@@ -1698,7 +1698,7 @@ struct __is_bit_copy_constructible_helper<T, false> {
 template<typename T, bool =
 	std::is_trivially_copyable_v<T> &&
 	!std::is_volatile_v<T>>
-struct __is_bit_move_constructible_helper {
+struct __is_byte_move_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
 	constexpr static byte_array<sizeof(T)> get(const T& src) {
@@ -1707,37 +1707,37 @@ struct __is_bit_move_constructible_helper {
 };
 
 template<typename T>
-struct __is_bit_move_constructible_helper<T, false> {
+struct __is_byte_move_constructible_helper<T, false> {
 	constexpr static bool is_copy = false;
 	constexpr static bool is_fill = false;
 };
 
 template<typename T, typename U>
-struct __is_bit_constructible<T, U, false> {
+struct __is_byte_constructible<T, U, false> {
 	constexpr static bool is_copy = false;
 	constexpr static bool is_fill = false;
 };
 
 template<typename T>
-struct __is_bit_constructible<T, T, false> : __is_bit_copy_constructible_helper<T> {};
+struct __is_byte_constructible<T, T, false> : __is_byte_copy_constructible_helper<T> {};
 
 template<typename T>
-struct __is_bit_constructible<T, const T, false> : __is_bit_copy_constructible_helper<T> {};
+struct __is_byte_constructible<T, const T, false> : __is_byte_copy_constructible_helper<T> {};
 
 template<typename T>
-struct __is_bit_constructible<T, T&, false> : __is_bit_copy_constructible_helper<T> {};
+struct __is_byte_constructible<T, T&, false> : __is_byte_copy_constructible_helper<T> {};
 
 template<typename T>
-struct __is_bit_constructible<T, const T&, false> : __is_bit_copy_constructible_helper<T> {};
+struct __is_byte_constructible<T, const T&, false> : __is_byte_copy_constructible_helper<T> {};
 
 template<typename T>
-struct __is_bit_constructible<T, T&&, false> : __is_bit_move_constructible_helper<T> {};
+struct __is_byte_constructible<T, T&&, false> : __is_byte_move_constructible_helper<T> {};
 
 template<typename T, typename U>
-struct is_bit_constructible : __is_bit_constructible<std::remove_reference_t<T>, U> {};
+struct is_byte_constructible : __is_byte_constructible<std::remove_reference_t<T>, U> {};
 
 template<typename T, typename U>
-struct is_bit_assignable : __is_bit_constructible<std::remove_reference_t<T>, U> {};
+struct is_byte_assignable : __is_byte_constructible<std::remove_reference_t<T>, U> {};
 
 _WJR_END
 
@@ -7202,25 +7202,25 @@ static void __memset_helper(T* s, const U& val, size_t n) {
 }
 
 template<typename T, typename U>
-struct __has_fast_construct_memset : __has_fast_memset_helper<is_bit_constructible, T, U> {};
+struct __has_fast_construct_memset : __has_fast_memset_helper<is_byte_constructible, T, U> {};
 
 template<typename T, typename U>
 constexpr bool __has_fast_construct_memset_v = __has_fast_construct_memset<T, U>::value;
 
 template<typename T, typename U>
 void construct_memset(T* s, const U& val, size_t n) {
-	__memset_helper<is_bit_constructible>(s, val, n);
+	__memset_helper<is_byte_constructible>(s, val, n);
 }
 
 template<typename T, typename U>
-struct __has_fast_assign_memset : __has_fast_memset_helper<is_bit_assignable, T, U> {};
+struct __has_fast_assign_memset : __has_fast_memset_helper<is_byte_assignable, T, U> {};
 
 template<typename T, typename U>
 constexpr bool __has_fast_assign_memset_v = __has_fast_assign_memset<T, U>::value;
 
 template<typename T, typename U>
 void assign_memset(T* s, const U& val, size_t n) {
-	__memset_helper<is_bit_assignable>(s, val, n);
+	__memset_helper<is_byte_assignable>(s, val, n);
 }
 
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
@@ -7250,35 +7250,35 @@ static void __memmove_helper(T* s, const U* t, size_t n) {
 }
 
 template<typename T, typename U>
-struct __has_fast_construct_memcpy : __has_fast_memcpy_helper<is_bit_constructible, T, U> {};
+struct __has_fast_construct_memcpy : __has_fast_memcpy_helper<is_byte_constructible, T, U> {};
 
 template<typename T, typename U>
 constexpr bool __has_fast_construct_memcpy_v = __has_fast_construct_memcpy<T, U>::value;
 
 template<typename T, typename U>
 void construct_memcpy(T* s, const U* t, size_t n) {
-	__memcpy_helper<is_bit_constructible>(s, t, n);
+	__memcpy_helper<is_byte_constructible>(s, t, n);
 }
 
 template<typename T, typename U>
 void construct_memmove(T* s, const U* t, size_t n) {
-	__memmove_helper<is_bit_constructible>(s, t, n);
+	__memmove_helper<is_byte_constructible>(s, t, n);
 }
 
 template<typename T, typename U>
-struct __has_fast_assign_memcpy : __has_fast_memcpy_helper<is_bit_assignable, T, U> {};
+struct __has_fast_assign_memcpy : __has_fast_memcpy_helper<is_byte_assignable, T, U> {};
 
 template<typename T, typename U>
 constexpr bool __has_fast_assign_memcpy_v = __has_fast_assign_memcpy<T, U>::value;
 
 template<typename T, typename U>
 void assign_memcpy(T* s, const U* t, size_t n) {
-	__memcpy_helper<is_bit_assignable>(s, t, n);
+	__memcpy_helper<is_byte_assignable>(s, t, n);
 }
 
 template<typename T, typename U>
 void assign_memmove(T* s, const U* t, size_t n) {
-	__memmove_helper<is_bit_assignable>(s, t, n);
+	__memmove_helper<is_byte_assignable>(s, t, n);
 }
 
 _WJR_ALGO_END
@@ -7339,7 +7339,6 @@ struct find_fn {
 constexpr find_fn find{};
 
 struct find_if_fn {
-
 	template<typename _Iter, typename _Pr>
 	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, _Pr _Pred) const {
 		return std::find_if(_First, _Last, _Pred);
@@ -7349,7 +7348,6 @@ struct find_if_fn {
 constexpr find_if_fn find_if{};
 
 struct find_if_not_fn {
-
 	template<typename _Iter, typename _Pr>
 	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, _Pr _Pred) const {
 		return std::find_if_not(_First, _Last, _Pred);
@@ -7560,7 +7558,6 @@ template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_lexicographical_compare_v = __has_fast_lexicographical_compare<_Iter1, _Iter2, _Pred>::value;
 
 struct lexicographical_compare_fn {
-
 	template<typename _ExPolicy, typename _Iter1, typename _Iter2>
 	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
 		return this->operator()(_Policy, _First1, _Last1, _First2, _Last2, std::less<>{});
@@ -7611,7 +7608,6 @@ template<typename _Iter, typename _Val>
 constexpr bool __has_fast_fill_v = __has_fast_fill<_Iter, _Val>::value;
 
 struct fill_fn {
-
 	template<typename _Iter, typename _Val>
 	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, const _Val& value) const {
 		if (!wjr::is_constant_evaluated()) {
@@ -7637,7 +7633,6 @@ struct fill_fn {
 constexpr fill_fn fill{};
 
 struct fill_n_fn {
-
 	template<typename _Iter, typename _Size, typename _Val>
 	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Size count, const _Val& value) const {
 		if (!wjr::is_constant_evaluated()) {
@@ -7668,7 +7663,6 @@ template<typename _Input, typename _Output>
 constexpr bool __has_fast_copy_v = __has_fast_copy<_Input, _Output>::value;
 
 struct copy_fn {
-
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _First2) const {
 		static_assert(!std::is_const_v<iter_ref_t<_Output>>, "Output iterator must not be const");
@@ -7699,7 +7693,6 @@ struct copy_fn {
 constexpr copy_fn copy{};
 
 struct copy_n_fn {
-
 	template<typename _Input, typename _Size, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Size count, _Output _First2) const {
 		if (!wjr::is_constant_evaluated()) {
@@ -7715,19 +7708,17 @@ struct copy_n_fn {
 constexpr copy_n_fn copy_n{};
 
 struct copy_backward_fn {
-
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _Last2) const {
 		return wjr::copy(std::make_reverse_iterator(_Last1),
 			std::make_reverse_iterator(_First1),
-			std::make_reverse_iterator(_Last2));
+			std::make_reverse_iterator(_Last2)).base();
 	}
 };
 
 constexpr copy_backward_fn copy_backward{};
 
 struct move_fn {
-
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _First2) const {
 		return wjr::copy(std::make_move_iterator(_First1), std::make_move_iterator(_Last1), _First2);
@@ -7737,7 +7728,6 @@ struct move_fn {
 constexpr move_fn move{};
 
 struct move_backward_fn {
-
 	template<typename _Input, typename _Output>
 	WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _Last2) const {
 		return wjr::copy_backward(std::make_move_iterator(_First1), std::make_move_iterator(_Last1), _Last2);
@@ -7992,6 +7982,16 @@ struct uninitialized_fill_fn {
 		std::uninitialized_fill(_First, _Last, val);
 	}
 
+	template<typename _Iter>
+	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, default_construct_tag) const {
+		wjr::uninitialized_default_construct(_First, _Last);
+	}
+
+	template<typename _Iter>
+	WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, value_construct_tag) const {
+		wjr::uninitialized_value_construct(_First, _Last);
+	}
+
 	template<typename Alloc, typename _Iter, typename _Val>
 	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Iter _Last, const _Val& val) const {
 		if constexpr (is_default_allocator_construct_v<Alloc, _Iter, _Val>) {
@@ -8011,6 +8011,16 @@ struct uninitialized_fill_n_fn {
 	template<typename _Iter, typename _Diff, typename _Val>
 	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n, const _Val& val) const {
 		return std::uninitialized_fill_n(_First, n, val);
+	}
+
+	template<typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n, default_construct_tag) const {
+		return wjr::uninitialized_default_construct_n(_First, n);
+	}
+
+	template<typename _Iter, typename _Diff>
+	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n, value_construct_tag) const {
+		return wjr::uninitialized_value_construct_n(_First, n);
 	}
 
 	template<typename Alloc, typename _Iter, typename _Diff, typename _Val>
@@ -8443,9 +8453,7 @@ public:
 	}
 
 	WJR_CONSTEXPR20 static void shrinkToFit(_Alty& al, vector_static_data& _Data) {
-#ifndef _WJR_NOEXCEPTION
 		throw std::logic_error("vector_static_data does not support shrink_to_fit");
-#endif // !_WJR_NOEXCEPTION
 		unreachable();
 	}
 
@@ -8762,7 +8770,7 @@ public:
 
 	WJR_CONSTEXPR20 explicit vector(const size_type _Count, const allocator_type& al = allocator_type())
 		: _Mybase(al) {
-		_M_construct_n(_Count);
+		_M_construct_n(_Count, value_construct_tag{});
 	}
 
 	WJR_CONSTEXPR20 vector(size_type _Count, const value_type& _Val, const allocator_type& al = allocator_type())
@@ -8907,20 +8915,11 @@ public:
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type _Newsize) {
-		auto& al = getAllocator();
-		temporary_allocator_value<Alloc> _Tmp(al);
-		resize(_Newsize, _Tmp.value());
+		_M_resize(_Newsize, value_construct_tag{});
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type _Newsize, const value_type& _Val) {
-		const auto _Oldsize = size();
-		if (_Newsize > _Oldsize) {
-			_M_append(_Newsize - _Oldsize, _Val);
-		}
-		else if (_Newsize < _Oldsize) {
-			_M_erase_at_end(data() + _Newsize);
-		}
-		assume(size() == _Newsize);
+		_M_resize(_Newsize, _Val);
 	}
 
 	WJR_CONSTEXPR20 void shrink_to_fit() {
@@ -9160,9 +9159,27 @@ public:
 		_Mybase::inc_size(_Size);
 	}
 
+	WJR_CONSTEXPR20 vector(const size_type _Count, default_construct_tag, const allocator_type& al = allocator_type())
+		: _Mybase(al) {
+		_M_construct_n(_Count, default_construct_tag{});
+	}
+
+	WJR_CONSTEXPR20 vector(const size_type _Count, value_construct_tag, const allocator_type& al = allocator_type())
+		: _Mybase(al) {
+		_M_construct_n(_Count, value_construct_tag{});
+	}
+
+	WJR_CONSTEXPR20 void resize(const size_type _Newsize, default_construct_tag) {
+		_M_resize(_Newsize, default_construct_tag{});
+	}
+
+	WJR_CONSTEXPR20 void resize(const size_type _Newsize, value_construct_tag) {
+		_M_resize(_Newsize, value_construct_tag{});
+	}
+
 private:
 
-	template<typename...Args, std::enable_if_t<sizeof...(Args) <= 2, int> = 0>
+	template<typename...Args, std::enable_if_t<is_any_index_of_v<sizeof...(Args),1,2>, int> = 0>
 	WJR_CONSTEXPR20 void _M_construct_n(const size_type _Count, Args&&... args) {
 		if (_Count != 0) {
 			auto& al = getAllocator();
@@ -9174,10 +9191,7 @@ private:
 				set_size(_Count);
 			}
 			const pointer _Ptr = data();
-			if constexpr (sizeof...(Args) == 0) {
-				wjr::uninitialized_value_construct_n(al, _Ptr, _Count);
-			}
-			else if constexpr (sizeof...(Args) == 1) {
+			if constexpr (sizeof...(Args) == 1) {
 				wjr::uninitialized_fill_n(al, _Ptr, _Count, std::forward<Args>(args)...);
 			}
 			else if constexpr (sizeof...(Args) == 2) {
@@ -9503,7 +9517,19 @@ private:
 		}
 	}
 
-	WJR_CONSTEXPR20 void _M_append(size_type n, const value_type& _Val) {
+	template<typename _Ty>
+	WJR_CONSTEXPR20 void _M_resize(const size_type _Newsize, const _Ty& _Val) {
+		const auto _Oldsize = size();
+		if (_Newsize > _Oldsize) {
+			_M_append(_Newsize - _Oldsize, _Val);
+		}
+		else if (_Newsize < _Oldsize) {
+			_M_erase_at_end(data() + _Newsize);
+		}
+	}
+
+	template<typename _Ty>
+	WJR_CONSTEXPR20 void _M_append(size_type n, const _Ty& _Val) {
 		auto& al = getAllocator();
 
 		const auto _Oldsize = size();
