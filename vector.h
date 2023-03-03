@@ -126,13 +126,31 @@
 #endif
 
 #if defined(__SSE2__)
-#define __HAS_FAST_MEMCHR
-#define __HAS_FAST_MEMCMP
-#define __HAS_FAST_MEMMIS
-//#define __HAS_FAST_MEMCNT
-#define __HAS_FAST_MEMSET
-//#define __HAS_FAST_MEMCPY
+#define _WJR_FAST_MEMCHR
+#define _WJR_FAST_MEMCMP
+#define _WJR_FAST_MEMMIS
+//#define _WJR_FAST_MEMCNT
+#define _WJR_FAST_MEMSET
+//#define _WJR_FAST_MEMCPY
 #endif // __SSE2__
+
+#if defined(NWJR_FAST_MEMCHR)
+#undef _WJR_FAST_MEMCHR
+#endif
+#if defined(NWJR_FAST_MEMCMP)
+#undef _WJR_FAST_MEMCMP
+#endif
+#if defined(NWJR_FAST_MEMMIS)
+#undef _WJR_FAST_MEMMIS
+#endif
+#if defined(NWJR_FAST_MEMCNT)
+#undef _WJR_FAST_MEMCNT
+#endif
+#if defined(NWJR_FAST_MEMSET)
+#udnef _WJR_FAST_MEMSET
+#endif
+#if defined(NWJR_FAST_MEMCPY)
+#endif
 
 #if defined(__clang__)
 #define WJR_COMPILER_CLANG
@@ -298,16 +316,6 @@
 #error "ARM is not supported"
 #endif
 
-// judge if CPU is intel
-#if defined(__INTEL_COMPILER) || defined(__ICC) || defined(__ECC) || defined(__ICL)
-#define WJR_INTEL
-#endif
-
-// judge if CPU is AMD
-#if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || defined(_M_X64) || defined(_M_AMD64)
-#define WJR_AMD
-#endif
-
 #if SIZE_MAX == 0xffffffffffffffffull
 #define WJR_X64
 #else
@@ -344,8 +352,12 @@
 #endif // WJR_COMPILER_GCC
 #endif
 
-#if (defined(WJR_INLINE_ASM) && defined(WJR_INTEL))
-#define WJR_ENHANCED_REP
+#if defined(WJR_INLINE_ASM)
+#define _WJR_ENHANCED_REP
+#endif
+
+#if defined(NWJR_ENHANCED_REP)
+#define _WJR_ENHANCED_REP
 #endif
 
 #define _WJR_BEGIN namespace wjr{
@@ -5072,7 +5084,7 @@ _WJR_SIMD_END
 
 #endif // __WJR_SIMD_SIMD_INTRIN_H
 
-#if defined(__HAS_FAST_MEMCHR)
+#if defined(_WJR_FAST_MEMCHR)
 
 #define __WJR_MEMCHR_ONE(st, _s)	                            \
 	auto r = st::cmp(x, y, pred, T());	                        \
@@ -5328,7 +5340,7 @@ _WJR_ALGO_END
 #undef __WJR_MEMCHR_FOUR
 #undef __WJR_MEMCHR_ONE
 
-#endif // __HAS_FAST_MEMCHR
+#endif // _WJR_FAST_MEMCHR
 
 #endif // WJR_ALGO_MEMCHR_H
 #pragma once
@@ -5338,7 +5350,7 @@ _WJR_ALGO_END
 
 
 
-#if defined(__HAS_FAST_MEMCHR)
+#if defined(_WJR_FAST_MEMCHR)
 
 #define __WJR_MEMRCHR_ONE(st, _s)	                            \
 	auto r = st::cmp(x, y, pred, T());	                        \
@@ -5599,7 +5611,7 @@ _WJR_ALGO_END
 #undef __WJR_MEMRCHR_FOUR
 #undef __WJR_MEMRCHR_ONE
 
-#endif // __HAS_FAST_MEMCHR
+#endif // _WJR_FAST_MEMCHR
 
 #endif // __WJR_ALGO_MEMRCHR_H
 #pragma once
@@ -5609,7 +5621,7 @@ _WJR_ALGO_END
 
 
 
-#if defined(__HAS_FAST_MEMCMP)
+#if defined(_WJR_FAST_MEMCMP)
 
 #define __WJR_MEMCMP_ONE_NORMAL(st)														\
 	auto r = st::cmp(x, y, pred, T());	                                                \
@@ -5950,7 +5962,7 @@ _WJR_ALGO_END
 
 
 
-#if defined(__HAS_FAST_MEMMIS)
+#if defined(_WJR_FAST_MEMMIS)
 
 #define __WJR_MEMMIS_ONE(st, _s)														\
 	auto r = st::cmp(x, y, pred, T());	                                                \
@@ -6258,7 +6270,7 @@ _WJR_ALGO_END
 #undef __WJR_MEMMIS_FOUR
 #undef __WJR_MEMMIS_ONE
 
-#endif // __HAS_FAST_MEMMIS
+#endif // _WJR_FAST_MEMMIS
 
 #endif // __WJR_ALGO_MEMMIS_H
 #pragma once
@@ -6268,7 +6280,7 @@ _WJR_ALGO_END
 
 
 
-#if defined(__HAS_FAST_MEMMIS)
+#if defined(_WJR_FAST_MEMMIS)
 
 #define __WJR_MEMRMIS_ONE(st, _s)														\
 	auto r = st::cmp(x, y, pred, T());	                                                \
@@ -6579,7 +6591,7 @@ _WJR_ALGO_END
 #undef __WJR_MEMRMIS_FOUR
 #undef __WJR_MEMRMIS_ONE
 
-#endif // __HAS_FAST_MEMMIS
+#endif // _WJR_FAST_MEMMIS
 
 #endif // __WJR_ALGO_MEMRMIS_H
 #pragma once
@@ -6589,7 +6601,7 @@ _WJR_ALGO_END
 
 
 
-#if defined(__HAS_FAST_MEMCNT)
+#if defined(_WJR_FAST_MEMCNT)
 
 #define __WJR_MEMCNT_SMALL_INIT_BEGIN(...)	size_t cnt = 0;
 #define __WJR_MEMCNT_SMALL_INIT_END(...) return cnt;
@@ -6679,7 +6691,7 @@ size_t __memcnt(const T* s, T val, size_t n) {
 
 _WJR_ALGO_END
 
-#endif // __HAS_FAST_MEMCNT
+#endif // _WJR_FAST_MEMCNT
 
 #endif // __WJR_ALGO_MEMCNT_H
 #pragma once
@@ -6689,7 +6701,7 @@ _WJR_ALGO_END
 
 
 
-#if defined(__HAS_FAST_MEMSET)
+#if defined(_WJR_FAST_MEMSET)
 
 _WJR_ALGO_BEGIN
 
@@ -6715,10 +6727,16 @@ void __memset(T* s, T val, size_t n) {
 		}
 	}
 
-	constexpr size_t __nt_threshold = 6_MiB / _Mysize;
-	constexpr size_t __rep_threshold = 2_KiB / _Mysize;
+	constexpr size_t __constant_threshold = 4_KiB / _Mysize;
 
-	if(is_constant_p(n) && n <= 4_KiB / _Mysize){
+	const size_t __nt_threshold = 6_MiB / _Mysize;
+#if defined(_WJR_ENHANCED_REP)
+	const size_t __rep_threshold = 256 / _Mysize;
+#else
+	const size_t __rep_threshold = __nt_threshold;
+#endif
+
+	if(is_constant_p(n) && n <= __constant_threshold){
 		for (size_t i = 0; i < n; ++i) {
 			s[i] = val;
 		}
@@ -6733,7 +6751,7 @@ void __memset(T* s, T val, size_t n) {
 			if (_Mysize == 1 || 
 				(is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0))) {
 
-				if (is_unlikely(n >= __nt_threshold)) {
+				if (is_unlikely(n >= __rep_threshold)) {
 					
 					// align(64)
 					if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 64) &&
@@ -6755,6 +6773,20 @@ void __memset(T* s, T val, size_t n) {
 						n -= __align_s / _Mysize;
 					}
 
+#if defined(_WJR_ENHANCED_REP)
+					if (n < __nt_threshold) {
+						size_t m = (n & (-(64 / _Mysize))) / 8;
+						n = n % (64 / _Mysize);
+						asm volatile(
+							"rep stosq"
+							: "+D"(s), "+c"(n)
+							: "a"(broadcast<uint64_t, T>(val))
+							: "memory"
+						);
+						goto WJR_MACRO_LABEL(aft_align);
+					}
+#endif
+					
 					do {
 						simd_t::stream(reinterpret_cast<sint*>(s), q);
 						simd_t::stream(reinterpret_cast<sint*>(s + width), q);
@@ -6888,13 +6920,13 @@ void __memset(T* s, T val, size_t n) {
 
 _WJR_ALGO_END
 
-#endif // __HAS_FAST_MEMSET
+#endif // _WJR_FAST_MEMSET
 
 #endif // __WJR_ALGO_MEMSET_H
 
 _WJR_ALGO_BEGIN
 
-#if defined(__HAS_FAST_MEMCHR)
+#if defined(_WJR_FAST_MEMCHR)
 template<typename T, typename U, typename _Pred>
 struct __has_fast_memchr : std::conjunction<
 	is_any_of<_Pred, std::equal_to<>, std::not_equal_to<>>,
@@ -6989,9 +7021,9 @@ const T* memchr(const T* s, U val, size_t n, _Pred pred) {
 	}
 }
 
-#endif // __HAS_FAST_MEMCHR
+#endif // _WJR_FAST_MEMCHR
 
-#if defined(__HAS_FAST_MEMCMP)
+#if defined(_WJR_FAST_MEMCMP)
 template<typename T, typename U, typename _Pred>
 struct __has_fast_memcmp : std::conjunction<
 	is_memory_comparable<T, U, _Pred>,
@@ -7045,9 +7077,9 @@ bool memcmp(const T* s0, const U* s1, size_t n, _Pred pred) {
 	return ::memcmp(s0, s1, n * sizeof(T)) == 0;
 }
 
-#endif // __HAS_FAST_MEMCMP
+#endif // _WJR_FAST_MEMCMP
 
-#if defined(__HAS_FAST_MEMMIS)
+#if defined(_WJR_FAST_MEMMIS)
 template<typename T, typename U, typename _Pred>
 struct __has_fast_memmis : std::conjunction<
 	is_memory_comparable<T, U, _Pred>,
@@ -7128,9 +7160,9 @@ struct __has_fast_memrmis : __has_fast_memmis<T, U, _Pred> {};
 template<typename T, typename U, typename _Pred>
 constexpr bool __has_fast_memrmis_v = __has_fast_memrmis<T, U, _Pred>::value;
 
-#endif // __HAS_FAST_MEMMIS
+#endif // _WJR_FAST_MEMMIS
 
-#if defined(__HAS_FAST_MEMCNT)
+#if defined(_WJR_FAST_MEMCNT)
 template<typename T, typename U>
 struct __has_fast_memcnt : std::conjunction<
 	is_comparable<T, U, std::equal_to<>>,
@@ -7160,7 +7192,7 @@ struct __has_fast_memcnt : std::false_type {};
 template<typename T, typename U>
 constexpr bool __has_fast_memcnt_v = __has_fast_memcnt<T, U>::value;
 
-#endif // __HAS_FAST_MEMCNT
+#endif // _WJR_FAST_MEMCNT
 
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
 struct __has_fast_memset_helper : std::conjunction<
@@ -7182,7 +7214,7 @@ static void __memset_helper(T* s, const U& val, size_t n) {
 
 	auto __bytes_num = _Get_bytes_num<sizeof(T)>(_Val);
 
-#if defined(__HAS_FAST_MEMSET)
+#if defined(_WJR_FAST_MEMSET)
 	constexpr auto __max_bytes_num = _Get_max_bytes_num<sizeof(T)>();
 	if (__bytes_num == 0) {
 		std::fill_n(s, n, val);
@@ -7201,7 +7233,7 @@ static void __memset_helper(T* s, const U& val, size_t n) {
 	auto __val = *reinterpret_cast<const value_type*>(&_Val);
 	static_assert(std::is_same_v<decltype(__val), value_type>, "type mismatch");
 	
-#if defined(__HAS_FAST_MEMSET)
+#if defined(_WJR_FAST_MEMSET)
 	__memset(__s, __val, n * (sizeof(T) / __max_bytes_num));
 #else
 	::memset(__s, __val, n * (sizeof(T) / __max_bytes_num));
@@ -7241,7 +7273,7 @@ constexpr bool __has_fast_memcpy_helper_v = __has_fast_memcpy_helper<TEST, T, U>
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
 static void __memcpy_helper(T* s, const U* t, size_t n) {
 	static_assert(sizeof(T) == sizeof(U), "type mismatch");
-#if defined(__HAS_FAST_MEMCPY)
+#if defined(_WJR_FAST_MEMCPY)
 #else
 	::memcpy(s, t, n * sizeof(T));
 #endif
@@ -7250,7 +7282,7 @@ static void __memcpy_helper(T* s, const U* t, size_t n) {
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
 static void __memmove_helper(T* s, const U* t, size_t n) {
 	static_assert(sizeof(T) == sizeof(U), "type mismatch");
-#if defined(__HAS_FAST_MEMCPY)
+#if defined(_WJR_FAST_MEMCPY)
 #else
 	::memmove(s, t, n * sizeof(T));
 #endif
@@ -7320,12 +7352,12 @@ struct find_fn {
 					const auto first = wjr::get_address(_First);
 					return _First + (algo::memchr(first, _Val, n, pred) - first);
 				}
-#if defined(__HAS_FAST_MEMCHR) // use algo::memchr
+#if defined(_WJR_FAST_MEMCHR) // use algo::memchr
 				else {
 					const auto first = wjr::get_address(_Last - 1);
 					return _Last - (algo::memrchr(first, _Val, n, pred) - first);
 				}
-#endif // __HAS_FAST_MEMCHR
+#endif // _WJR_FAST_MEMCHR
 			}
 		}
 		if constexpr (std::is_same_v<_Pred, std::equal_to<>>) {
@@ -7379,7 +7411,7 @@ struct count_fn {
 	WJR_CONSTEXPR20 typename std::iterator_traits<_Iter>::difference_type
 		operator()(_Iter _First, _Iter _Last, const _Ty& _Val) const {
 		if (!wjr::is_constant_evaluated()) {
-#if defined(__HAS_FAST_MEMCNT)
+#if defined(_WJR_FAST_MEMCNT)
 			if constexpr (__has_fast_count_v<_Iter, _Ty>) {
 				const auto n = _Last - _First;
 				if constexpr (!wjr::is_reverse_iterator_v<_Iter>) {
@@ -7391,7 +7423,7 @@ struct count_fn {
 					return algo::memcnt(first, _Val, n);
 				}
 			}
-#endif // __HAS_FAST_MEMCNT
+#endif // _WJR_FAST_MEMCNT
 		}
 		return std::count(_First, _Last, _Val);
 	}
@@ -7460,7 +7492,7 @@ struct mismatch_fn {
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
 		if(!wjr::is_constant_evaluated()){
-#if defined(__HAS_FAST_MEMMIS)
+#if defined(_WJR_FAST_MEMMIS)
 			if constexpr (__has_fast_mismatch_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = std::distance(_First1, _Last1);
 				if (is_unlikely(n == 0)) { return std::make_pair(_First1, _First2); }
@@ -7480,7 +7512,7 @@ struct mismatch_fn {
 					return std::make_pair(_First1 + pos, _First2 + pos);
 				}
 			}
-#endif // __HAS_FAST_MEMMIS
+#endif // _WJR_FAST_MEMMIS
 		}
 		return std::mismatch(_First1, _Last1, _First2, pred);
 	}
@@ -8191,12 +8223,12 @@ public:
 	using propagate_on_container_move_assignment = std::true_type;
 	using is_always_equal = std::true_type;
 
-#if !defined(WJR_CPP_20)
 	template <typename _Other>
 	struct rebind {
 		using other = aligned_allocator<_Other, _Al, _Off>;
 	};
 
+#if !defined(WJR_CPP_20)
 	WJR_NODISCARD _Ty* address(_Ty& _Val) const noexcept {
 		return std::addressof(_Val);
 	}
@@ -8369,6 +8401,7 @@ struct vector_data {
 	WJR_CONSTEXPR20 vector_data() = default;
 	vector_data(const vector_data&) = delete;
 	vector_data& operator=(const vector_data&) = delete;
+	~vector_data() = default;
 
 	WJR_CONSTEXPR20 vector_data(
 		_Alty& al, 
@@ -8459,6 +8492,7 @@ struct vector_static_data {
 	vector_static_data() {}
 	vector_static_data(const vector_static_data&) = delete;
 	vector_static_data& operator=(const vector_static_data&) = delete;
+	~vector_static_data() = default;
 
 	WJR_CONSTEXPR20 static void _lengthError(const size_type _Newcapacity){
 		std::string str = "vector_static_data is too small to hold the requested data";
@@ -9255,7 +9289,7 @@ private:
 		_M_construct_n(_Count, _First, _Last);
 	}
 
-	WJR_CONSTEXPR20 void _M_erase_at_end(pointer _Where) noexcept {
+	WJR_CONSTEXPR20 void _M_erase_at_end(const pointer _Where) noexcept {
 		const auto _Myfirst = data();
 		const pointer _Mylast = _Myfirst + size();
 		wjr::destroy(getAllocator(), _Where, _Mylast);
