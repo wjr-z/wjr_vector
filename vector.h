@@ -130,7 +130,7 @@
 #define __HAS_FAST_MEMCMP
 #define __HAS_FAST_MEMMIS
 //#define __HAS_FAST_MEMCNT
-//#define __HAS_FAST_MEMSET
+#define __HAS_FAST_MEMSET
 //#define __HAS_FAST_MEMCPY
 #endif // __SSE2__
 
@@ -377,11 +377,7 @@
 #define _WJR_RELEASE
 #endif
 
-#endif
-
-_WJR_BEGIN
-
-#define REGISTER_HAS_MEMBER_FUNCTION(FUNC, NAME)								\
+#define WJR_REGISTER_HAS_MEMBER_FUNCTION(FUNC, NAME)							\
 template<typename Enable, typename T, typename...Args>							\
 struct __has_member_function_##NAME : std::false_type {};						\
 template<typename T, typename...Args>											\
@@ -395,7 +391,7 @@ template<typename T, typename...Args>											\
 constexpr bool has_member_function_##NAME##_v =									\
 	has_member_function_##NAME<T, Args...>::value;
 
-#define REGISTER_HAS_STATIC_MEMBER_FUNCTION(FUNC, NAME)							\
+#define WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(FUNC, NAME)						\
 template<typename Enable, typename T, typename...Args>							\
 struct __has_static_member_function_##NAME : std::false_type {};				\
 template<typename T, typename...Args>											\
@@ -409,7 +405,7 @@ template<typename T, typename...Args>											\
 constexpr bool has_static_member_function_##NAME##_v =							\
 	has_static_member_function_##NAME<T, Args...>::value;
 
-#define REGISTER_HAS_GLOBAL_FUNCTION(FUNC, NAME)								\
+#define WJR_REGISTER_HAS_GLOBAL_FUNCTION(FUNC, NAME)							\
 template<typename Enable, typename...Args>										\
 struct __has_global_function_##NAME : std::false_type {};						\
 template<typename...Args>														\
@@ -423,7 +419,7 @@ template<typename...Args>														\
 constexpr bool has_global_function_##NAME##_v =									\
 	has_global_function_##NAME<Args...>::value;
 
-#define REGISTER_HAS_GLOBAL_BINARY_OPERATOR(OP, NAME)							\
+#define WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(OP, NAME)						\
 template<typename Enable, typename T, typename U>								\
 struct __has_global_binary_operator_##NAME : std::false_type {};				\
 template<typename T, typename U>												\
@@ -440,7 +436,7 @@ template<typename T, typename U>												\
 struct has_global_binary_operator<T, U, std:: NAME<>> :							\
 	has_global_binary_operator_##NAME<T, U> {};
 
-#define REGISTER_HAS_GLOBAL_UNARY_OPERATOR(OP, NAME)							\
+#define WJR_REGISTER_HAS_GLOBAL_UNARY_OPERATOR(OP, NAME)							\
 template<typename Enable, typename T>											\
 struct __has_global_unary_operator_##NAME : std::false_type {};					\
 template<typename T>															\
@@ -454,7 +450,7 @@ template<typename T>															\
 constexpr bool has_global_unary_operator_##NAME##_v =							\
 	has_global_unary_operator_##NAME<T>::value;
 
-#define REGISTER_HAS_TYPE(TYPE, NAME)											\
+#define WJR_REGISTER_HAS_TYPE(TYPE, NAME)										\
 template<typename Enable, typename T>							                \
 struct __has_type_##NAME : std::false_type {};				                    \
 template<typename T>											                \
@@ -468,7 +464,7 @@ template<typename T>											                \
 constexpr bool has_type_##NAME##_v =							                \
 	has_type_##NAME<T>::value;
 
-#define REGISTER_HAS_TYPE_ARGS(TYPE, NAME)										\
+#define WJR_REGISTER_HAS_TYPE_ARGS(TYPE, NAME)									\
 template<typename Enable, typename T, typename...Args>							\
 struct __has_type_##NAME : std::false_type {};				                    \
 template<typename T, typename...Args>											\
@@ -481,6 +477,10 @@ struct has_type_##NAME :										                \
 template<typename T, typename...Args>											\
 constexpr bool has_type_##NAME##_v =							                \
 	has_type_##NAME<T, Args...>::value;
+
+#endif
+
+_WJR_BEGIN
 
 WJR_INTRINSIC_CONSTEXPR bool is_likely(bool f) noexcept {
 #if WJR_HAS_BUILTIN(__builtin_expect) || WJR_HAS_GCC(7,1,0) || WJR_HAS_CLANG(5,0,0)
@@ -552,6 +552,9 @@ WJR_INTRINSIC_CONSTEXPR bool is_constant_p(T x) noexcept {
 
 struct disable_tag {};
 
+struct reduce_tag {};
+struct move_tag {};
+
 struct default_construct_tag {};
 struct value_construct_tag {};
 
@@ -563,23 +566,23 @@ struct has_global_binary_operator : std::false_type {};
 template<typename T, typename U, typename _Pred>
 constexpr bool has_global_binary_operator_v = has_global_binary_operator<T, U, _Pred>::value;
 
-REGISTER_HAS_MEMBER_FUNCTION(operator(), call_operator);
-REGISTER_HAS_MEMBER_FUNCTION(operator[], subscript_operator);
-REGISTER_HAS_MEMBER_FUNCTION(operator->, point_to_operator);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(+, plus);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(-, minus);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(&, bit_and);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(| , bit_or);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(^, bit_xor);
-REGISTER_HAS_GLOBAL_UNARY_OPERATOR(~, bit_not);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(== , equal_to);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(!= , not_equal_to);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(> , greater);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(>= , greater_equal);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(< , less);
-REGISTER_HAS_GLOBAL_BINARY_OPERATOR(<= , less_equal);
-REGISTER_HAS_STATIC_MEMBER_FUNCTION(min, min);
-REGISTER_HAS_STATIC_MEMBER_FUNCTION(max, max);
+WJR_REGISTER_HAS_MEMBER_FUNCTION(operator(), call_operator);
+WJR_REGISTER_HAS_MEMBER_FUNCTION(operator[], subscript_operator);
+WJR_REGISTER_HAS_MEMBER_FUNCTION(operator->, point_to_operator);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(+, plus);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(-, minus);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(&, bit_and);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(| , bit_or);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(^, bit_xor);
+WJR_REGISTER_HAS_GLOBAL_UNARY_OPERATOR(~, bit_not);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(== , equal_to);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(!= , not_equal_to);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(> , greater);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(>= , greater_equal);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(< , less);
+WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(<= , less_equal);
+WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(min, min);
+WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(max, max);
 
 template<typename T, typename...Args>
 struct is_any_of : std::disjunction<std::is_same<T, Args>...> {};
@@ -981,7 +984,7 @@ namespace enum_ops {
 }
 
 namespace _To_address_helper {
-	REGISTER_HAS_STATIC_MEMBER_FUNCTION(to_address, to_address);
+	WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(to_address, to_address);
 }
 
 template<typename T>
@@ -1130,8 +1133,8 @@ struct is_default_allocator<std::allocator<T>> : std::true_type {};
 template<typename T>
 constexpr bool is_default_allocator_v = is_default_allocator<T>::value;
 
-REGISTER_HAS_MEMBER_FUNCTION(destroy, destroy);
-REGISTER_HAS_MEMBER_FUNCTION(construct, construct);
+WJR_REGISTER_HAS_MEMBER_FUNCTION(destroy, destroy);
+WJR_REGISTER_HAS_MEMBER_FUNCTION(construct, construct);
 
 // Use the default destructor, which is beneficial for optimization.
 // But if the destructor of the allocator has side effects, then do not use this allocator.
@@ -1153,18 +1156,18 @@ constexpr bool is_default_allocator_destroy_v = is_default_allocator_destroy<All
 _WJR_END
 
 namespace std {
-	REGISTER_HAS_GLOBAL_FUNCTION(begin, begin);
-	REGISTER_HAS_GLOBAL_FUNCTION(cbegin, cbegin);
-	REGISTER_HAS_GLOBAL_FUNCTION(end, end);
-	REGISTER_HAS_GLOBAL_FUNCTION(cend, cend);
-	REGISTER_HAS_GLOBAL_FUNCTION(rbegin, rbegin);
-	REGISTER_HAS_GLOBAL_FUNCTION(crbegin, crbegin);
-	REGISTER_HAS_GLOBAL_FUNCTION(rend, rend);
-	REGISTER_HAS_GLOBAL_FUNCTION(crend, crend);
-	REGISTER_HAS_GLOBAL_FUNCTION(data, data);
-	REGISTER_HAS_GLOBAL_FUNCTION(size, size);
-	REGISTER_HAS_MEMBER_FUNCTION(size, size);
-	REGISTER_HAS_GLOBAL_FUNCTION(swap, swap);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(begin, begin);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(cbegin, cbegin);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(end, end);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(cend, cend);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(rbegin, rbegin);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(crbegin, crbegin);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(rend, rend);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(crend, crend);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(data, data);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(size, size);
+	WJR_REGISTER_HAS_MEMBER_FUNCTION(size, size);
+	WJR_REGISTER_HAS_GLOBAL_FUNCTION(swap, swap);
 }
 
 _WJR_BEGIN
@@ -7974,6 +7977,7 @@ struct uninitialized_copy_n_fn {
 			for (; n > 0; ++_First, (void)++_Dest, --n) {
 				wjr::construct_at(al, _Dest, *_First);
 			}
+			return _Dest;
 		}
 	}
 };
@@ -8291,20 +8295,29 @@ _WJR_BEGIN
 
 /*
 * vector_data ->
-* vector_data must be shallow copy in copy constructor and copy assignment operator,
-* but deep copy in copy_construct, move_construct can be shallow copy/deep copy
-* 1.static vector_data Allocate(_Al& al, size_t _Size, size_t _Capacity)
-* 2.static void copyConstruct(_Al& al, const vector_data& _Src, vector_data& _Dest)
-* 3.static void moveConstruct(_Al& al, vector_data&& _Src, vector_data& _Dest)
-* 5.static void Swap(_Al& al, vector_data& _Left, vector_data& _Right) [noexcept] [optional]
-* 7.static void Deallocate(_Al& al, vector_data& _Data)
-* 9.static size_t getGrowthCapacity(const size_t _Oldcapacity, const size_t _Newsize) [optinal]
-* 10.static void shrinkToFit(_Al&al, vector_data& _Data) [optional]
-* 11.size_t size() const;
-* 12.size_t capacity() const;
-* 13.[const] _Ty* data() [const]
-* 14.const _Ty* cdata() const
-* 15._Ty* mutable_data() [TODO]
+* 1.vector_data() 
+* 2.vector_data(_Al&al, const size_t _Newsize, const size_t _Newcapacity)
+* 分配一个容量至少为_Newcapacity的data，设置size为_Newsize
+* 3.vector_data(_Al&al, const vector_data& _Src, const size_t _Newsize, const size_t _Newcapacity)
+* 可能根据_Src的状态分配一个容量至少为_Newcapacity的data，设置size为_Newsize
+* _Newcapacity一定大于_Src的容量
+* 例如vector_static_data使用此函数应该直接抛出异常
+* 4.vector_data(const vector_data&) = delete
+* 5.vector_data(vector_data&&) = delete
+* 
+* 6.static void copyConstruct(_Al& al, const vector_data& _Src, vector_data& _Dest)
+* 7.static void moveConstruct(_Al& al, vector_data&& _Src, vector_data& _Dest)
+* 6,7均要求_Dest为空，要求无任何数据，并且内存也要已经回收
+* 复杂度要求 O(1) 或者 O(n) ，尽可能的令n = 0
+* 8.static void Swap(_Al& al, vector_data& _Left, vector_data& _Right) [noexcept] [optional]
+* 9.static void Deallocate(_Al& al, vector_data& _Data)
+* 回收_Data的内存
+* 10.static size_t getGrowthCapacity(const size_t _Oldcapacity, const size_t _Newsize) [optinal]
+* 11.static void shrinkToFit(_Al&al, vector_data& _Data) [optional]
+* 12.size_t size() const;
+* 13.size_t capacity() const;
+* 14.[const] _Ty* data() [const]
+* 15.const _Ty* cdata() const
 * 16.void set_size(const size_type);
 * 17.void inc_size(const difference_type);
 */
@@ -8319,7 +8332,6 @@ _WJR_BEGIN
 * 6.vector_core& operator=(const vector_core&) = delete;
 * 7.vector_core& operator=(vector_core&&) = delete;
 * 8.~vector_core() [noexcept];
-* 9.static vector_core Allocate(_Al& al, size_t _Size, size_t _Capacity);
 * 10.static void copyConstruct(_Al& al, const vector_data& _Src, vector_data& _Dest)
 * 11.static void moveConstruct(_Al& al, vector_data&& _Src, vector_data& _Dest)
 * 14.static void Swap(_Al& al, vector_data& _Left, vector_data& _Right) [noexcept]
@@ -8354,19 +8366,38 @@ struct vector_data {
 	using size_type = typename _Alty_traits::size_type;
 	using difference_type = typename _Alty_traits::difference_type;
 
-	WJR_CONSTEXPR20 static vector_data Allocate(_Alty& al, size_type _Size, size_type _Capacity) {
-		auto ptr = _Alty_traits::allocate(al, _Capacity);
-		return { ptr, ptr + _Size, ptr + _Capacity };
+	WJR_CONSTEXPR20 vector_data() = default;
+	vector_data(const vector_data&) = delete;
+	vector_data& operator=(const vector_data&) = delete;
+
+	WJR_CONSTEXPR20 vector_data(
+		_Alty& al, 
+		const size_type _Newsize,
+		const size_type _Newcapacity)
+		: _Myfirst(_Alty_traits::allocate(al, _Newcapacity)),
+		_Mylast(_Myfirst + _Newsize),
+		_Myend(_Myfirst + _Newcapacity) {
 	}
 
+	WJR_CONSTEXPR20 vector_data(
+		_Alty& al, 
+		const vector_data& _Src, 
+		const size_type _Newsize,
+		const size_type _Newcapacity)
+		: vector_data(al, _Newsize, _Newcapacity) {}
+
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_data& _Src, vector_data& _Dest) {
-		auto data = Allocate(al, _Src.size(), _Src.capacity());
+		vector_data data(al, _Src.size(), _Src.capacity());
 		wjr::uninitialized_copy(al, _Src._Myfirst, _Src._Mylast, data._Myfirst);
-		_Dest = data;
+		_Dest._Myfirst = data._Myfirst;
+		_Dest._Mylast = data._Mylast;
+		_Dest._Myend = data._Myend;
 	}
 
 	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, vector_data&& _Src, vector_data& _Dest) noexcept {
-		_Dest = _Src;
+		_Dest._Myfirst = _Src._Myfirst;
+		_Dest._Mylast = _Src._Mylast;
+		_Dest._Myend = _Src._Myend;
 		_Src._Myfirst = _Src._Mylast = _Src._Myend = nullptr;
 	}
 
@@ -8420,21 +8451,40 @@ struct vector_static_data {
 
 	static_assert(N > 0, "N must be greater than 0");
 
-private:
-	constexpr static size_t _MaxAlignment = std::max(alignof(T), std::max(alignof(size_type), alignof(max_align_t)));
+	constexpr static size_t _MaxAlignment = std::max(alignof(T), alignof(size_type));
 	constexpr static size_t _MaxMemroy = (sizeof(T) * N + _MaxAlignment - 1) & (~(_MaxAlignment - 1));
 	constexpr static size_t _MaxCapacity = _MaxMemroy / sizeof(T);
 	static_assert(_MaxCapacity >= N, "");
-public:
 
-	WJR_CONSTEXPR20 static vector_static_data Allocate(_Alty& al, size_type _Size, size_type _Capacity) {
+	vector_static_data() {}
+	vector_static_data(const vector_static_data&) = delete;
+	vector_static_data& operator=(const vector_static_data&) = delete;
+
+	WJR_CONSTEXPR20 static void _lengthError(const size_type _Newcapacity){
 		std::string str = "vector_static_data is too small to hold the requested data";
 		str += "\n old capacity = " + std::to_string(_MaxCapacity);
-		str += "\n allocate new size = " + std::to_string(_Size);
-		str += "\n allocate new capacity = " + std::to_string(_Capacity);
+		str += "\n allocate new capacity = " + std::to_string(_Newcapacity);
 		throw std::length_error(str);
 		unreachable();
-		return vector_static_data{};
+	}
+
+	WJR_CONSTEXPR20 vector_static_data(
+		_Alty& al, 
+		const size_type _Newsize,
+		const size_type _Newcapacity) 
+		: _M_size(_Newsize) {
+		if (_Newcapacity > _MaxCapacity) {
+			_lengthError(_Newcapacity);
+		}
+	}
+
+	WJR_CONSTEXPR20 vector_static_data(
+		_Alty& al, 
+		const vector_static_data& _Src, 
+		const size_type _Newsize,
+		const size_type _Newcapacity) 
+		: _M_size(_Newsize) {
+		_lengthError(_Newcapacity);
 	}
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_static_data& _Src, vector_static_data& _Dest) {
@@ -8453,12 +8503,11 @@ public:
 	}
 
 	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, vector_static_data& _Data) noexcept {
-		// do nothing
+		_Data.set_size(0);
 	}
 
 	WJR_CONSTEXPR20 static void shrinkToFit(_Alty& al, vector_static_data& _Data) {
-		throw std::logic_error("vector_static_data does not support shrink_to_fit");
-		unreachable();
+		// do nothing
 	}
 
 	WJR_CONSTEXPR20 size_type size() const noexcept {
@@ -8489,14 +8538,14 @@ public:
 		_M_size += _Size;
 	}
 
+	size_type _M_size = 0;
 	alignas(_MaxAlignment) uint8_t _M_storage[_MaxMemroy];
-	alignas(_MaxAlignment) size_type _M_size;
 };
 
 namespace _Vector_helper {
-	REGISTER_HAS_STATIC_MEMBER_FUNCTION(Swap, Swap);
-	REGISTER_HAS_STATIC_MEMBER_FUNCTION(getGrowthCapacity, getGrowthCapacity);
-	REGISTER_HAS_STATIC_MEMBER_FUNCTION(shrinkToFit, shrinkToFit);
+	WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(Swap, Swap);
+	WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(getGrowthCapacity, getGrowthCapacity);
+	WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(shrinkToFit, shrinkToFit);
 }
 
 template<typename T, typename Alloc, typename Data = vector_data<T, Alloc>>
@@ -8563,14 +8612,13 @@ private:
 		}
 		else {
 			const auto _Size = other.size();
-			if (is_likely(_Size != 0)) {
-				if (capacity() < _Size) {
-					auto _Data = Allocate(al, _Size, _Size);
+			if (_Size != 0) {
+				const auto _Oldcapacity = capacity();
+				if (_Oldcapacity < _Size) {
+					Data _Data(al, getData(), 0, _Size);
 					moveConstruct(al, std::move(_Data), getData());
 				}
-				else {
-					set_size(_Size);
-				}
+				set_size(_Size);
 				wjr::uninitialized_move_n(al, other.data(), _Size, data());
 			}
 		}
@@ -8587,11 +8635,6 @@ public:
 
 	WJR_CONSTEXPR20 ~vector_core() noexcept {
 		tidy();
-	}
-
-	WJR_CONSTEXPR20 static Data Allocate(_Alty& al, size_type _Count, size_type _Capacity)
-		noexcept(noexcept(Data::Allocate(al, _Count, _Capacity))) {
-		return Data::Allocate(al, _Count, _Capacity);
 	}
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const Data& _Src, Data& _Dest)
@@ -8669,7 +8712,7 @@ public:
 				Tidy(al, _Data);
 			}
 			else {
-				auto _Newdata = Allocate(al, _Oldsize, _Oldsize);
+				_D _Newdata(al, _Oldsize, _Oldsize);
 				wjr::uninitialized_move_n(al, _Data.data(), _Oldsize, _Newdata.data());
 				Tidy(al, _Data);
 				moveConstruct(al, std::move(_Newdata), _Data);
@@ -8946,7 +8989,7 @@ public:
 			const auto _Oldsize = size();
 			const auto _Newcapacity = getGrowthCapacity(_Oldcapacity, n);
 
-			auto _Newdata = Allocate(al, _Oldsize, _Newcapacity);
+			data_type _Newdata(al, getData(), _Oldsize, _Newcapacity);
 			wjr::uninitialized_move_n(al, data(), _Oldsize, _Newdata.data());
 
 			tidy();
@@ -9097,10 +9140,6 @@ public:
 
 	// unstandard functions
 
-	WJR_CONSTEXPR20 static data_type Allocate(_Alty& al, size_type _Newsize, size_type _Newcapacity) {
-		return _Mybase::Allocate(al, _Newsize, _Newcapacity);
-	}
-
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const data_type& _Src, data_type& _Dest) {
 		_Mybase::copyConstruct(al, _Src, _Dest);
 	}
@@ -9187,13 +9226,12 @@ private:
 	WJR_CONSTEXPR20 void _M_construct_n(const size_type _Count, Args&&... args) {
 		if (_Count != 0) {
 			auto& al = getAllocator();
-			if (capacity() < _Count) {
-				auto _Newdata = Allocate(al, _Count, _Count);
+			const auto _Oldcapacity = capacity();
+			if (_Oldcapacity < _Count) {
+				data_type _Newdata(al, getData(), 0, _Count);
 				moveConstruct(al, std::move(_Newdata), getData());
 			}
-			else {
-				set_size(_Count);
-			}
+			set_size(_Count);
 			const pointer _Ptr = data();
 			if constexpr (sizeof...(Args) == 1) {
 				wjr::uninitialized_fill_n(al, _Ptr, _Count, std::forward<Args>(args)...);
@@ -9291,7 +9329,7 @@ private:
 				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
 				const auto __old_pos = static_cast<size_type>(_Where - _Myfirst);
 				const auto _Newcapacity = getGrowthCapacity(capacity(), __old_size + n);
-				auto _Newdata = Allocate(al, __old_size + n, _Newcapacity);
+				data_type _Newdata(al, getData(), __old_size + n, _Newcapacity);
 				const pointer _Newfirst = _Newdata.data();
 
 				wjr::uninitialized_copy(al, _First, _Last, _Newfirst + __old_pos);
@@ -9330,7 +9368,7 @@ private:
 				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
 				const auto _Newcapacity = getGrowthCapacity(capacity(), __old_size + n);
 
-				auto _Newdata = Allocate(al, __old_size + n, _Newcapacity);
+				data_type _Newdata(al, getData(), __old_size + n, _Newcapacity);
 				const pointer _Newfirst = _Newdata.data();
 
 				wjr::uninitialized_copy(al, _First, _Last, _Newfirst + __old_size);
@@ -9365,11 +9403,12 @@ private:
 		auto& al = getAllocator();
 		if (_Count > capacity()) {
 			tidy();
-			auto _Data = Allocate(al, _Count, _Count);
-			moveConstruct(al, std::move(_Data), getData());
+			data_type _Newdata(al, getData(), _Count, _Count);
+			moveConstruct(al, std::move(_Newdata), getData());
 			wjr::uninitialized_fill_n(al, data(), _Count, _Val);
+			return;
 		}
-		else if (_Count > size()) {
+		if (_Count > size()) {
 			wjr::fill(begin(), end(), _Val);
 			wjr::uninitialized_fill_n(al, end(), _Count - size(), _Val);
 			set_size(_Count);
@@ -9399,7 +9438,7 @@ private:
 		}
 		else {
 			auto _Newcapacity = getGrowthCapacity(capacity(), _Count);
-			auto _Newdata = Allocate(al, _Count, _Newcapacity);
+			data_type _Newdata(al, getData(), _Count, _Newcapacity);
 			const pointer _Newfirst = _Newdata.data();
 			wjr::uninitialized_copy(al, _First, _Last, _Newfirst);
 
@@ -9441,7 +9480,7 @@ private:
 		const auto __new_size = __old_size + 1;
 		const auto _Newcapacity = getGrowthCapacity(__old_size, __new_size);
 
-		auto _Newdata = Allocate(al, __new_size, _Newcapacity);
+		data_type _Newdata(al, getData(), __new_size, _Newcapacity);
 
 		const pointer _Newfirst = _Newdata.data();
 		const pointer _Newwhere = _Newfirst + __old_pos;
@@ -9465,7 +9504,7 @@ private:
 		const auto __new_size = __old_size + 1;
 		const auto _Newcapacity = getGrowthCapacity(__old_size, __new_size);
 
-		auto _Newdata = Allocate(al, __new_size, _Newcapacity);
+		data_type _Newdata(al, getData(), __new_size, _Newcapacity);
 		const pointer _Newfirst = _Newdata.data();
 
 		const pointer _Newwhere = _Newfirst + __old_size;
@@ -9507,7 +9546,7 @@ private:
 		}
 		else {
 			const auto _Newcapacity = getGrowthCapacity(capacity(), size() + n);
-			auto _Newdata = Allocate(al, size() + n, _Newcapacity);
+			data_type _Newdata(al, getData(), size() + n, _Newcapacity);
 			const pointer _Newfirst = _Newdata.data();
 
 			const auto __old_pos = static_cast<size_type>(_Where - _Myfirst);
@@ -9552,7 +9591,7 @@ private:
 		}
 		else {
 			auto _Newcapacity = getGrowthCapacity(_Oldcapacity, _Newsize);
-			auto _Newdata = Allocate(al, _Newsize, _Newcapacity);
+			data_type _Newdata(al, getData(), _Newsize, _Newcapacity);
 			const pointer _Newfirst = _Newdata.data();
 
 			wjr::uninitialized_fill_n(al, _Newfirst + _Oldsize, n, _Val);
