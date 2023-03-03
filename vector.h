@@ -6732,6 +6732,7 @@ void __memset(T* s, T val, size_t n) {
 	const size_t __nt_threshold = 6_MiB / _Mysize;
 #if defined(_WJR_ENHANCED_REP)
 	const size_t __rep_threshold = 256 / _Mysize;
+	const size_t __rep_noaligned_threshold = 1024 / _Mysize;
 #else
 	const size_t __rep_threshold = __nt_threshold;
 #endif
@@ -6752,6 +6753,31 @@ void __memset(T* s, T val, size_t n) {
 				(is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0))) {
 
 				if (is_unlikely(n >= __rep_threshold)) {
+
+#if defined(_WJR_ENHANCED_REP)
+					auto u64v = broadcast<uint64_t, T>(val);
+					if (n < __rep_noaligned_threshold) {
+						if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 8) &&
+							reinterpret_cast<uintptr_t>(s) % 8 == 0) {
+						}
+						else {
+							*reinterpret_cast<uint64_t*>(s) = u64v;
+							auto __align_s = 8 - reinterpret_cast<uintptr_t>(s) % 8;
+							s += __align_s / _Mysize;
+							n -= __align_s / _Mysize;
+						}
+						*reinterpret_cast<uint64_t*>(s + n - 8 / _Mysize) = u64v;
+						n &= -(8 / _Mysize);
+						n /= (8 / _Mysize);
+						asm volatile(
+							"rep stosq"
+							: "+D"(s), "+c"(n)
+							: "a"(u64v)
+							: "memory"
+							);
+						return;
+					}
+#endif
 					
 					// align(64)
 					if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 64) &&
@@ -6775,15 +6801,26 @@ void __memset(T* s, T val, size_t n) {
 
 #if defined(_WJR_ENHANCED_REP)
 					if (n < __nt_threshold) {
-						size_t m = (n & (-(64 / _Mysize))) / 8;
-						n = n % (64 / _Mysize);
+
+#if defined(__AVX2__)
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
+#else // SSE2
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 4), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 3), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
+#endif // __AVX2__
+
+						n &= -(64 / _Mysize);
+						n /= (8 / _Mysize);
 						asm volatile(
 							"rep stosq"
 							: "+D"(s), "+c"(n)
 							: "a"(broadcast<uint64_t, T>(val))
 							: "memory"
 						);
-						goto WJR_MACRO_LABEL(aft_align);
+						return;
 					}
 #endif
 					
