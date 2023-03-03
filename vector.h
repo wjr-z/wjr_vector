@@ -352,12 +352,12 @@
 #endif // WJR_COMPILER_GCC
 #endif
 
-#if defined(WJR_INLINE_ASM)
+#if defined(WJR_INLINE_ASM) && defined(WJR_INTEL)
 #define _WJR_ENHANCED_REP
 #endif
 
 #if defined(NWJR_ENHANCED_REP)
-#define _WJR_ENHANCED_REP
+#undef _WJR_ENHANCED_REP
 #endif
 
 #define _WJR_BEGIN namespace wjr{
