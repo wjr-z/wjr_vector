@@ -528,7 +528,8 @@ _WJR_BEGIN
 extern const cpu_features::X86Info cpuinfo;
 extern const cpu_features::CacheInfo cacheinfo;
 extern const cpu_features::X86Microarchitecture microarchitecture;
-extern const size_t max_cache_size;
+
+extern const size_t __max_cache_size;
 extern const bool __is_intel;
 extern const bool __is_amd;
 
@@ -656,6 +657,8 @@ struct move_tag {};
 struct default_construct_tag {};
 struct value_construct_tag {};
 
+struct extend_tag {};
+
 constexpr size_t byte_width = WJR_BYTE_WIDTH;
 
 template<typename T, typename U, typename _Pred>
@@ -710,13 +713,13 @@ template<typename T>
 using add_cref_t = add_lref_t<std::add_const_t<T>>;
 
 template<typename T>
-struct is_standard_comparator :
-	is_any_of<remove_cvref_t<T>,
-	std::less<>,
-	std::less_equal<>,
-	std::equal_to<>,
+struct is_standard_comparator : 
+	is_any_of<remove_cvref_t<T>, 
+	std::less<>, 
+	std::less_equal<>, 
+	std::equal_to<>, 
 	std::not_equal_to<>,
-	std::greater<>,
+	std::greater<>, 
 	std::greater_equal<>
 	> {};
 
@@ -834,7 +837,7 @@ template<typename T>
 constexpr bool is_random_iter_v = is_random_iter<T>::value;
 
 template<size_t n>
-struct __uint_helper {};
+struct __uint_helper{};
 
 template<>
 struct __uint_helper<8> {
@@ -853,7 +856,7 @@ struct __uint_helper<64> {
 	using type = unsigned long long;
 };
 
-template<size_t n>
+template<size_t n> 
 using uint_t = typename __uint_helper<n>::type;
 
 template<size_t n>
@@ -943,7 +946,7 @@ enum class ipmc_result {
 	exit
 };
 
-template<typename T, typename U, typename _Pred,
+template<typename T, typename U, typename _Pred, 
 	std::enable_if_t<is_any_of_v<_Pred, std::equal_to<>, std::not_equal_to<>>, int> = 0>
 constexpr ipmc_result is_possible_memory_comparable(const U& v, _Pred pred) {
 	static_assert(std::is_integral_v<T> && std::is_integral_v<U>, "T and U must be integral types");
@@ -958,13 +961,13 @@ constexpr ipmc_result is_possible_memory_comparable(const U& v, _Pred pred) {
 				|| _Val <= std::numeric_limits<nt>::max()) ? ipmc_result::exit : ipmc_result::none;
 		}
 		else {
-			return (std::numeric_limits<nt>::max() < _Val && _Val < std::numeric_limits<nt>::min()) ?
+			return (std::numeric_limits<nt>::max() < _Val && _Val < std::numeric_limits<nt>::min()) ? 
 				ipmc_result::all : ipmc_result::exit;
 		}
 	}
 	else {
 		if constexpr (std::is_same_v<_Pred, std::equal_to<>>) {
-			return (std::numeric_limits<nt>::min() <= _Val && _Val <= std::numeric_limits<nt>::max()) ?
+			return (std::numeric_limits<nt>::min() <= _Val && _Val <= std::numeric_limits<nt>::max()) ? 
 				ipmc_result::exit : ipmc_result::none;
 		}
 		else {
@@ -1142,7 +1145,7 @@ template<typename T>
 void _Test_default_convertible(const T&);
 
 template<typename T>
-struct _Is_default_convertible < T, std::void_t<decltype(_Test_default_convertible<T>({})) >> : std::true_type{};
+struct _Is_default_convertible<T, std::void_t<decltype(_Test_default_convertible<T>({}))>> : std::true_type{};
 
 template<typename T>
 using is_default_convertible = _Is_default_convertible<T>;
@@ -1182,14 +1185,14 @@ template<typename T, typename U>
 constexpr bool is_nothrow_swappable_with_v = is_nothrow_swappable_with<T, U>::value;
 
 template<typename T>
-struct is_nothrow_swappable :
+struct is_nothrow_swappable : 
 	is_nothrow_swappable_with<std::add_lvalue_reference_t<T>, std::add_lvalue_reference_t<T>> {};
 
 template<typename T>
 constexpr bool is_nothrow_swappable_v = is_nothrow_swappable<T>::value;
 
 template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-struct __make_iter_wrapper : public std::tuple<iter, iter> {
+struct __make_iter_wrapper : public std::tuple<iter, iter>{
 	using _Mybase = std::tuple<iter, iter>;
 	using _Mybase::_Mybase;
 	using _Mybase::operator=;
@@ -1271,7 +1274,7 @@ namespace std {
 _WJR_BEGIN
 
 template<typename _Container>
-constexpr auto size(const _Container& c) {
+constexpr auto size(const _Container& c){
 	if constexpr (std::has_member_function_size_v<_Container>) {
 		return c.size();
 	}
@@ -1295,208 +1298,208 @@ _WJR_BEGIN
 
 template<size_t index, typename T>
 struct _Pair_wrapper1 {
-	template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
-	constexpr _Pair_wrapper1() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
-		: val() {}
-	template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
-	constexpr _Pair_wrapper1(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
-		: val(other) {}
-	template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
-	constexpr _Pair_wrapper1(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
-		: val(std::forward<_Ty>(other)) {}
-	template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
-	constexpr _Pair_wrapper1(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
-		: val(std::forward<Args>(args)...) {}
-	_Pair_wrapper1(const _Pair_wrapper1&) = default;
-	_Pair_wrapper1(_Pair_wrapper1&&) noexcept = default;
-	_Pair_wrapper1& operator=(const _Pair_wrapper1&) = default;
+    template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
+    constexpr _Pair_wrapper1() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
+        : val() {}
+    template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
+    constexpr _Pair_wrapper1(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
+        : val(other) {}
+    template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
+    constexpr _Pair_wrapper1(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
+        : val(std::forward<_Ty>(other)) {}
+    template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
+    constexpr _Pair_wrapper1(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+        : val(std::forward<Args>(args)...) {}
+    _Pair_wrapper1(const _Pair_wrapper1&) = default;
+    _Pair_wrapper1(_Pair_wrapper1&&) noexcept = default;
+    _Pair_wrapper1& operator=(const _Pair_wrapper1&) = default;
 	_Pair_wrapper1& operator=(_Pair_wrapper1&&) noexcept = default;
-	constexpr T& value() noexcept { return val; }
-	constexpr const T& value() const noexcept { return val; }
+    constexpr T& value() noexcept { return val; }
+    constexpr const T& value() const noexcept { return val; }
 private:
-	T val;
+    T val;
 };
 
 template<size_t index, typename T>
-struct _Pair_wrapper2 : private T {
-	using _Mybase = T;
-	template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
-	constexpr _Pair_wrapper2() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
-		: _Mybase() {}
-	template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
-	constexpr _Pair_wrapper2(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
-		: _Mybase(other) {}
-	template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
-	constexpr _Pair_wrapper2(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
-		: _Mybase(std::forward<_Ty>(other)) {}
-	template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
-	constexpr _Pair_wrapper2(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
-		: _Mybase(std::forward<Args>(args)...) {}
-	_Pair_wrapper2(const _Pair_wrapper2&) = default;
-	_Pair_wrapper2(_Pair_wrapper2&&) noexcept = default;
+struct _Pair_wrapper2 : private T{
+    using _Mybase = T;
+    template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
+    constexpr _Pair_wrapper2() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
+        : _Mybase() {}
+    template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
+    constexpr _Pair_wrapper2(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
+        : _Mybase(other) {}
+    template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
+    constexpr _Pair_wrapper2(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
+        : _Mybase(std::forward<_Ty>(other)) {}
+    template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
+    constexpr _Pair_wrapper2(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+        : _Mybase(std::forward<Args>(args)...) {}
+    _Pair_wrapper2(const _Pair_wrapper2&) = default;
+    _Pair_wrapper2(_Pair_wrapper2&&) noexcept= default;
 	_Pair_wrapper2& operator=(const _Pair_wrapper2&) = default;
 	_Pair_wrapper2& operator=(_Pair_wrapper2&&) noexcept = default;
-	constexpr T& value() noexcept { return *this; }
-	constexpr const T& value() const noexcept { return *this; }
+    constexpr T& value() noexcept { return *this; }
+    constexpr const T& value() const noexcept { return *this; }
 };
 
 template<size_t index, typename T>
 using _Pair_wrapper = std::conditional_t<
-	std::conjunction_v<std::is_class<T>, std::is_empty<T>, std::negation<std::is_final<T>>>,
-	_Pair_wrapper2<index, T>,
-	_Pair_wrapper1<index, T>
+    std::conjunction_v<std::is_class<T>, std::is_empty<T>, std::negation<std::is_final<T>>>,
+    _Pair_wrapper2<index, T>,
+    _Pair_wrapper1<index, T>
 >;
 
 template<typename T, typename U>
 class pair : private _Pair_wrapper<0, T>, private _Pair_wrapper<1, U> {
 
-	template<typename _Ty, typename _Uy>
-	using _Is_default_constructible = std::conjunction <
-		std::is_default_constructible<_Ty>,
-		std::is_default_constructible<_Uy>>;
-	template<typename _Ty, typename _Uy>
+    template<typename _Ty, typename _Uy>
+    using _Is_default_constructible = std::conjunction <
+        std::is_default_constructible<_Ty>,
+        std::is_default_constructible<_Uy>>;
+    template<typename _Ty, typename _Uy>
 	using _Is_default_convertible = std::conjunction <
 		is_default_convertible<_Ty>,
 		is_default_convertible<_Uy>>;
 
-	template<typename _Ty, typename _Uy>
+    template<typename _Ty, typename _Uy>
 	using _Is_copy_constructible = std::conjunction <
 		std::is_copy_constructible<_Ty>,
 		std::is_copy_constructible<_Uy>>;
 
 	template<typename _Ty, typename _Uy, typename _Vty, typename _Wuy>
 	using _Is_convertible = std::conjunction <
-		std::is_convertible<_Vty, _Ty>,
+        std::is_convertible<_Vty, _Ty>,
 		std::is_convertible<_Wuy, _Uy>>;
-
-	template<typename _Ty, typename _Uy, typename _Vty, typename _Wuy>
-	using _Is_constructible = std::conjunction<
-		std::is_constructible<_Ty, _Vty>,
-		std::is_constructible<_Uy, _Wuy>>;
-
+		
+    template<typename _Ty, typename _Uy, typename _Vty, typename _Wuy>
+    using _Is_constructible = std::conjunction<
+        std::is_constructible<_Ty, _Vty>,
+        std::is_constructible<_Uy, _Wuy>>;
+    
 public:
-	using _Mybase1 = _Pair_wrapper<0, T>;
-	using _Mybase2 = _Pair_wrapper<1, U>;
+    using _Mybase1 = _Pair_wrapper<0, T>;
+    using _Mybase2 = _Pair_wrapper<1, U>;
 
-	using first_type = T;
+    using first_type = T;
 	using second_type = U;
 
-	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
+    template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
 		std::conjunction_v<_Is_default_constructible<_Ty, _Uy>,
-		_Is_default_convertible<_Ty, _Uy>>, bool> = true>
-		constexpr pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
-			std::is_nothrow_default_constructible<_Uy>>)
-		: _Mybase1(), _Mybase2() {}
-
-	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
-		std::conjunction_v<_Is_default_constructible<_Ty, _Uy>,
-		std::negation<_Is_default_convertible<_Ty, _Uy>>>, bool> = false>
-	constexpr explicit pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
+        _Is_default_convertible<_Ty, _Uy>>, bool> = true>
+	constexpr pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
 		std::is_nothrow_default_constructible<_Uy>>)
 		: _Mybase1(), _Mybase2() {}
 
 	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
-		std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
-		_Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>, bool> = true>
-		constexpr pair(const T& _First, const U& _Second)
-		noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
-		: _Mybase1(_First), _Mybase2(_Second) {}
+        std::conjunction_v<_Is_default_constructible<_Ty, _Uy>,
+        std::negation<_Is_default_convertible<_Ty, _Uy>>>, bool> = false>
+    constexpr explicit pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
+        std::is_nothrow_default_constructible<_Uy>>)
+        : _Mybase1(), _Mybase2() {}
 
-	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
-		std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
-		std::negation<_Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>>, bool> = false>
-	constexpr explicit pair(const T& _First, const U& _Second)
-		noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
-		: _Mybase1(_First), _Mybase2(_Second) {}
+    template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
+        std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
+        _Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>, bool> = true>
+    constexpr pair(const T& _First, const U& _Second)
+        noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
+        : _Mybase1(_First), _Mybase2(_Second) {}
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+    template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
+        std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
+        std::negation<_Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>>, bool> = false>
+    constexpr explicit pair(const T& _First, const U& _Second)
+        noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
+        : _Mybase1(_First), _Mybase2(_Second) {}
+
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
 		_Is_convertible<T, U, _Other1, _Other2>>, bool> = true>
-		constexpr pair(_Other1&& _First, _Other2&& _Second)
-		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-		: _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
+	constexpr pair(_Other1&& _First, _Other2&& _Second)
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+        : _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
-		std::negation<_Is_convertible<T, U, _Other1, _Other2>>>, bool> = false>
-	constexpr explicit pair(_Other1&& _First, _Other2&& _Second)
-		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-		: _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+        std::negation<_Is_convertible<T, U, _Other1, _Other2>>>, bool> = false>
+    constexpr explicit pair(_Other1&& _First, _Other2&& _Second)
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+        : _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
 
-	pair(const pair&) = default;
-	pair(pair&&) noexcept = default;
+    pair(const pair&) = default;
+    pair(pair&&) noexcept = default;
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+        std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
 		_Is_convertible<T, U, const _Other1&, const _Other2&>>, bool> = true>
-		constexpr pair(const pair<_Other1, _Other2>& other)
-		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
-		: _Mybase1(other.first()), _Mybase2(other.second()) {}
+    constexpr pair(const pair<_Other1, _Other2>& other)
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
+        : _Mybase1(other.first()), _Mybase2(other.second()) {}
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
-		std::negation<_Is_convertible<T, U, const _Other1&, const _Other2&>>>, bool> = false>
-	constexpr explicit pair(const pair<_Other1, _Other2>& other)
-		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
-		: _Mybase1(other.first()), _Mybase2(other.second()) {}
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+        std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
+        std::negation<_Is_convertible<T, U, const _Other1&, const _Other2&>>>, bool> = false>
+    constexpr explicit pair(const pair<_Other1, _Other2>& other)
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
+        : _Mybase1(other.first()), _Mybase2(other.second()) {}
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
 		_Is_convertible<T, U, _Other1, _Other2>>, bool> = true>
-		constexpr pair(pair<_Other1, _Other2>&& other)
-		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-		: _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
+    constexpr pair(pair<_Other1, _Other2>&& other)
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+        : _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
 		std::negation<_Is_convertible<T, U, _Other1, _Other2>>>, bool> = false>
-	constexpr explicit pair(pair<_Other1, _Other2>&& other)
-		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-		: _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
+    constexpr explicit pair(pair<_Other1, _Other2>&& other)
+        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+        : _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
 
-	template<typename _Tuple1, typename _Tuple2, size_t...N1, size_t...N2>
-	constexpr pair(_Tuple1& tp1, _Tuple2& tp2, std::index_sequence<N1...>, std::index_sequence<N2...>)
-		: _Mybase1(std::get<N1>(std::move(tp1))...), _Mybase2(std::get<N2>(std::move(tp2))...) {}
+    template<typename _Tuple1, typename _Tuple2, size_t...N1, size_t...N2>
+    constexpr pair(_Tuple1& tp1, _Tuple2& tp2, std::index_sequence<N1...>, std::index_sequence<N2...>)
+        : _Mybase1(std::get<N1>(std::move(tp1))...), _Mybase2(std::get<N2>(std::move(tp2))...) {}
 
-	template<typename...Args1, typename...Args2>
-	constexpr pair(std::piecewise_construct_t, std::tuple<Args1...> tp1, std::tuple<Args2...> tp2)
-		: pair(tp1, tp2, std::index_sequence_for<Args1...>{}, std::index_sequence_for<Args2...>{}) {}
+    template<typename...Args1, typename...Args2>
+    constexpr pair(std::piecewise_construct_t, std::tuple<Args1...> tp1, std::tuple<Args2...> tp2)
+        : pair(tp1, tp2, std::index_sequence_for<Args1...>{}, std::index_sequence_for<Args2...>{}) {}
 
-	constexpr pair&
-		operator=(std::conditional_t<std::conjunction_v<std::is_copy_assignable<T>,
-			std::is_copy_assignable<U>>, const pair&, const wjr::disable_tag&> other)
-		noexcept(std::conjunction_v<std::is_nothrow_copy_assignable<T>, std::is_nothrow_copy_assignable<U>>) {
-		first() = other.first();
-		second() = other.second();
-		return *this;
-	}
+    constexpr pair& 
+        operator=(std::conditional_t<std::conjunction_v<std::is_copy_assignable<T>,
+            std::is_copy_assignable<U>>,const pair&, const wjr::disable_tag&> other)
+        noexcept(std::conjunction_v<std::is_nothrow_copy_assignable<T>, std::is_nothrow_copy_assignable<U>>) {
+        first() = other.first();
+        second() = other.second();
+        return *this;
+    }
 
-	constexpr pair&
-		operator=(std::conditional_t<std::conjunction_v<std::is_move_assignable<T>,
-			std::is_move_assignable<U>>, pair&&, wjr::disable_tag&&> other)
-		noexcept(std::conjunction_v<std::is_nothrow_move_assignable<T>, std::is_nothrow_move_assignable<U>>) {
-		first() = std::forward<T>(other.first());
-		second() = std::forward<U>(other.second());
-		return *this;
-	}
+    constexpr pair& 
+        operator=(std::conditional_t<std::conjunction_v<std::is_move_assignable<T>,
+            std::is_move_assignable<U>>, pair&&, wjr::disable_tag&&> other)
+        noexcept(std::conjunction_v<std::is_nothrow_move_assignable<T>, std::is_nothrow_move_assignable<U>>) {
+        first() = std::forward<T>(other.first());
+        second() = std::forward<U>(other.second());
+        return *this;
+    }
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>,
-		std::is_assignable<T&, const _Other1&>,
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>, 
+        std::is_assignable<T&, const _Other1&>,
 		std::is_assignable<U&, const _Other2&>>, int> = 0>
-		constexpr pair& operator=(const pair<_Other1, _Other2>& other)
-		noexcept(std::conjunction_v<std::is_nothrow_assignable<T&, const _Other1&>,
-			std::is_nothrow_assignable<U&, const _Other2&>>) {
+	constexpr pair& operator=(const pair<_Other1, _Other2>& other)
+		noexcept(std::conjunction_v<std::is_nothrow_assignable<T&, const _Other1&>, 
+            std::is_nothrow_assignable<U&, const _Other2&>>) {
 		first() = other.first();
 		second() = other.second();
 		return *this;
 	}
 
-	template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>,
+    template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>, 
 		std::is_assignable<T&, _Other1>,
 		std::is_assignable<U&, _Other2>>, int> = 0>
-		constexpr pair& operator=(pair<_Other1, _Other2>&& other)
+    constexpr pair& operator=(pair<_Other1, _Other2>&& other)
 		noexcept(std::conjunction_v<std::is_nothrow_assignable<T&, _Other1>,
 			std::is_nothrow_assignable<U&, _Other2>>) {
 		first() = std::forward<_Other1>(other.first());
@@ -1511,15 +1514,15 @@ public:
 		swap(second(), other.second());
 	}
 
-	constexpr T& first() noexcept { return _Mybase1::value(); }
-	constexpr const T& first() const noexcept { return _Mybase1::value(); }
-	constexpr U& second() noexcept { return _Mybase2::value(); }
-	constexpr const U& second() const noexcept { return _Mybase2::value(); }
+    constexpr T& first() noexcept { return _Mybase1::value(); }
+    constexpr const T& first() const noexcept { return _Mybase1::value(); }
+    constexpr U& second() noexcept { return _Mybase2::value(); }
+    constexpr const U& second() const noexcept { return _Mybase2::value(); }
 };
 
 #ifdef WJR_CPP17
 template<typename T, typename U>
-pair(T, U) -> pair<T, U>;
+pair(T, U)->pair<T, U>;
 #endif
 
 template<typename T, typename U>
@@ -1553,7 +1556,7 @@ WJR_NODISCARD constexpr bool operator>=(const pair<T, U>& lhs, const pair<T, U>&
 }
 
 template<typename T, typename U>
-WJR_NODISCARD constexpr pair<unrefwrap_t<T>, unrefwrap_t<U>> make_pair(T&& t, U&& u)
+WJR_NODISCARD constexpr pair<unrefwrap_t<T>, unrefwrap_t<U>> make_pair(T&& t, U&& u) 
 noexcept(std::conjunction_v<std::is_nothrow_constructible<unrefwrap_t<T>, T>,
 	std::is_nothrow_constructible<unrefwrap_t<U>, U>>) {
 	return pair<unrefwrap_t<T>, unrefwrap_t<U>>(std::forward<T>(t), std::forward<U>(u));
@@ -1563,9 +1566,9 @@ _WJR_END
 
 namespace std {
 
-	template<typename T, typename U>
-	using _Wjr_pair = wjr::pair<T, U>;
-
+    template<typename T, typename U>
+    using _Wjr_pair = wjr::pair<T, U>;
+	
 	template<typename T, typename U, enable_if_t<conjunction_v<wjr::is_swappable<T>, wjr::is_swappable<U>>, int> = 0>
 	void swap(_Wjr_pair<T, U>& lhs, _Wjr_pair<T, U>& rhs)
 		noexcept(noexcept(lhs.swap(rhs))) {
@@ -1580,84 +1583,84 @@ namespace std {
 		using type = conditional_t<I == 0, T, U>;
 	};
 
-	template<typename _Ret, typename _Pair>
+    template<typename _Ret, typename _Pair>
 	WJR_NODISCARD constexpr _Ret& _Wjr_pair_get(_Pair& p, integral_constant<size_t, 0>) noexcept {
 		return p.first();
 	}
 
 	template<typename _Ret, typename _Pair>
-	WJR_NODISCARD constexpr _Ret& _Wjr_pair_get(_Pair& p, integral_constant<size_t, 1>) noexcept {
-		return p.second();
-	}
+    WJR_NODISCARD constexpr _Ret& _Wjr_pair_get(_Pair& p, integral_constant<size_t, 1>) noexcept {
+        return p.second();
+    }
 
-	template<size_t I, typename T, typename U>
+    template<size_t I, typename T, typename U>
 	WJR_NODISCARD constexpr tuple_element_t<I, _Wjr_pair<T, U>>& get(_Wjr_pair<T, U>& p) noexcept {
 		using _Ret = tuple_element_t<I, _Wjr_pair<T, U>>&;
-		return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
+        return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
 	}
 
 	template<typename T, typename U>
 	WJR_NODISCARD constexpr T& get(_Wjr_pair<T, U>& p) noexcept {
-		return get<0>(p);
+        return get<0>(p);
 	}
 
 	template<typename U, typename T>
 	WJR_NODISCARD constexpr U& get(_Wjr_pair<T, U>& p) noexcept {
-		return get<1>(p);
+        return get<1>(p);
 	}
 
-	template<size_t I, typename T, typename U>
-	WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>& get(const _Wjr_pair<T, U>& p) noexcept {
-		using _Ret = const tuple_element_t<I, _Wjr_pair<T, U>>&;
-		return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
-	}
+    template<size_t I, typename T, typename U>
+    WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>& get(const _Wjr_pair<T, U>& p) noexcept {
+        using _Ret = const tuple_element_t<I, _Wjr_pair<T, U>>&;
+        return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
+    }
 
-	template<typename T, typename U>
-	WJR_NODISCARD constexpr const T& get(const _Wjr_pair<T, U>& p) noexcept {
-		return get<0>(p);
-	}
+    template<typename T, typename U>
+    WJR_NODISCARD constexpr const T& get(const _Wjr_pair<T, U>& p) noexcept {
+        return get<0>(p);
+    }
 
-	template<typename U, typename T>
-	WJR_NODISCARD constexpr const U& get(const _Wjr_pair<T, U>& p) noexcept {
-		return get<1>(p);
-	}
+    template<typename U, typename T>
+    WJR_NODISCARD constexpr const U& get(const _Wjr_pair<T, U>& p) noexcept {
+        return get<1>(p);
+    }
 
 
-	template <size_t I, typename T, typename U>
-	WJR_NODISCARD constexpr tuple_element_t<I, _Wjr_pair<T, U>>&& get(
-		_Wjr_pair<T, U>&& p) noexcept {
-		using _RRtype = tuple_element_t<I, _Wjr_pair<T, U>>&&;
-		return forward<_RRtype>(get<I>(p));
-	}
+    template <size_t I, typename T, typename U>
+    WJR_NODISCARD constexpr tuple_element_t<I, _Wjr_pair<T, U>>&& get(
+        _Wjr_pair<T, U>&& p) noexcept {
+        using _RRtype = tuple_element_t<I, _Wjr_pair<T, U>>&&;
+        return forward<_RRtype>(get<I>(p));
+    }
 
-	template <typename T, typename U>
-	WJR_NODISCARD constexpr T&& get(_Wjr_pair<T, U>&& p) noexcept {
-		return get<0>(move(p));
-	}
+    template <typename T, typename U>
+    WJR_NODISCARD constexpr T&& get(_Wjr_pair<T, U>&& p) noexcept {
+        return get<0>(move(p));
+    }
 
-	template <typename U, typename T>
-	WJR_NODISCARD constexpr U&& get(_Wjr_pair<T, U>&& p) noexcept {
-		return get<1>(move(p));
-	}
+    template <typename U, typename T>
+    WJR_NODISCARD constexpr U&& get(_Wjr_pair<T, U>&& p) noexcept {
+        return get<1>(move(p));
+    }
 
-	template <size_t I, typename T, typename U>
-	WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>&& get(
-		const _Wjr_pair<T, U>&& p) noexcept {
-		using _RRtype = const tuple_element_t<I, _Wjr_pair<T, U>>&&;
-		return forward<_RRtype>(get<I>(p));
-	}
+    template <size_t I, typename T, typename U>
+    WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>&& get(
+        const _Wjr_pair<T, U>&& p) noexcept { 
+        using _RRtype = const tuple_element_t<I, _Wjr_pair<T, U>>&&;
+        return forward<_RRtype>(get<I>(p));
+    }
 
-	template <typename T, typename U>
-	WJR_NODISCARD constexpr const T&& get(
-		const _Wjr_pair<T, U>&& p) noexcept {
-		return get<0>(move(p));
-	}
+    template <typename T, typename U>
+    WJR_NODISCARD constexpr const T&& get(
+        const _Wjr_pair<T, U>&& p) noexcept {
+        return get<0>(move(p));
+    }
 
-	template <typename U, typename T>
-	WJR_NODISCARD constexpr const U&& get(
-		const _Wjr_pair<T, U>&& p) noexcept {
-		return get<1>(move(p));
-	}
+    template <typename U, typename T>
+    WJR_NODISCARD constexpr const U&& get(
+        const _Wjr_pair<T, U>&& p) noexcept {
+        return get<1>(move(p));
+    }
 
 }
 
@@ -1676,6 +1679,21 @@ namespace std {
 #define __WJR_ALGO_ALOG_H
 
 #pragma once
+#ifndef __WJR_OPTIMIZER_H
+#define __WJR_OPTIMIZER_H
+
+// 1. fill dst with val (memset)
+// The minimum cycle section length must be 1, 2, 4, 8 when _WJR_FAST_MEMSET defined
+// and must be 1 when NWJR_FAST_MEMSET defined
+// Get the bytes to be filled through the get function
+// 2. copy src to dst (memcpy)
+
+// TODO 
+// 1. fill a constant value when default-construct (memset)
+// 2. fill a constant value when value-cosntruct (memset)
+// 3. relocate , copy src to dst, and then fill dst with a constant value (memcpy and memset)
+// 4. reloacte , copy src to dst, and then run a function on dst (memcpy and run func(User defined))
+
 
 
 _WJR_BEGIN
@@ -1684,11 +1702,11 @@ template<size_t N>
 constexpr size_t _Get_max_bytes_num() {
 #if defined(WJR_X86_64)
 	if constexpr (N % 8 == 0)return 8;
-	else
+	else 
 #endif
-		if constexpr (N % 4 == 0)return 4;
-		else if constexpr (N % 2 == 0)return 2;
-		else return 1;
+	if constexpr (N % 4 == 0)return 4;
+	else if constexpr (N % 2 == 0)return 2;
+	else return 1;
 }
 
 template<size_t C, typename _Ty>
@@ -1769,9 +1787,9 @@ size_t _Get_bytes_num(const _Ty& val) {
 template<typename T, typename U,
 	bool =
 	std::is_same_v<bool, std::remove_reference_t<U>> >= std::is_same_v<bool, T> &&
-	((std::is_integral_v<T>&& std::is_integral_v<std::remove_reference_t<U>>) ||
+	((std::is_integral_v<T> && std::is_integral_v<std::remove_reference_t<U>>) ||
 		(std::is_floating_point_v<T> && std::is_floating_point_v<std::remove_reference_t<U>>)) &&
-	!std::is_volatile_v<T> &&
+	!std::is_volatile_v<T> && 
 	!std::is_volatile_v<std::remove_reference_t<U>>
 >
 struct __is_byte_constructible {
@@ -1782,13 +1800,13 @@ struct __is_byte_constructible {
 	}
 };
 
-template<typename T, bool =
+template<typename T, bool = 
 	std::is_trivially_copyable_v<T> &&
 	!std::is_volatile_v<T>>
-	struct __is_byte_copy_constructible_helper {
+struct __is_byte_copy_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
-	constexpr static const T& get(const T& val) {
+	constexpr static const T& get(const T& val){
 		return val;
 	}
 };
@@ -1802,7 +1820,7 @@ struct __is_byte_copy_constructible_helper<T, false> {
 template<typename T, bool =
 	std::is_trivially_copyable_v<T> &&
 	!std::is_volatile_v<T>>
-	struct __is_byte_move_constructible_helper {
+struct __is_byte_move_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
 	constexpr static const T& get(const T& val) {
@@ -1845,9 +1863,7 @@ struct is_byte_assignable : __is_byte_constructible<std::remove_reference_t<T>, 
 
 _WJR_END
 
-#pragma once
-#ifndef __WJR_ALGO_MEMCHR_H__
-#define __WJR_ALGO_MEMCHR_H__
+#endif // __WJR_OPTIMIZER_H
 
 #pragma once
 
@@ -1873,6 +1889,1423 @@ _WJR_LITERALS_END
 #define __WJR_SIMD_SIMD_INTRIN_H
 
 #pragma once
+#ifndef __WJR_SIMD_SIMD_CAST_H__
+#define __WJR_SIMD_SIMD_CAST_H__
+
+
+
+_WJR_SIMD_BEGIN
+
+struct lo {};
+struct hi {};
+
+template<typename T, typename U>
+WJR_INTRINSIC_INLINE T simd_cast(U);
+
+/* TODO */
+template<typename T1, typename T2, typename U>
+WJR_INTRINSIC_INLINE U simd_cast(U, T2);
+
+#if WJR_SSE
+#endif // WJR_SSE
+
+#if WJR_SSE2
+
+template<>
+WJR_INTRINSIC_INLINE __m128 simd_cast<__m128>(__m128i v) {
+	return _mm_castsi128_ps(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(__m128 v) {
+	return _mm_castps_si128(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m128d simd_cast<__m128d>(__m128 v) {
+	return _mm_castps_pd(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m128 simd_cast<__m128>(__m128d v) {
+	return _mm_castpd_ps(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(__m128d v) {
+	return _mm_castpd_si128(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m128d simd_cast<__m128d>(__m128i v) {
+	return _mm_castsi128_pd(v);
+}
+
+#define __WJR_REGISTER_SIMD_CAST_WITH_INTEGER(IT, SUF)	            \
+template<>	                                                        \
+WJR_INTRINSIC_INLINE IT simd_cast<IT>(__m128i v){	                \
+	return static_cast<IT>(_mm_cvtsi128_si##SUF(v));	            \
+}	                                                                \
+template<>	                                                        \
+WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(IT v){	            \
+	return _mm_cvtsi##SUF##_si128(v);	                            \
+}
+
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int8_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int16_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int32_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int64_t, 64);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint8_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint16_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint32_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint64_t, 64);
+
+#undef __WJR_REGISTER_SIMD_CAST_WITH_INTEGER
+
+#endif // WJR_SSE2
+
+#if WJR_AVX2
+
+template<>
+WJR_INTRINSIC_INLINE __m256 simd_cast<__m256>(__m256i v) {
+	return _mm256_castsi256_ps(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(__m256 v) {
+	return _mm256_castps_si256(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m256d simd_cast<__m256d>(__m256 v) {
+	return _mm256_castps_pd(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m256 simd_cast<__m256>(__m256d v) {
+	return _mm256_castpd_ps(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(__m256d v) {
+	return _mm256_castpd_si256(v);
+}
+template<>
+WJR_INTRINSIC_INLINE __m256d simd_cast<__m256d>(__m256i v) {
+	return _mm256_castsi256_pd(v);
+}
+
+template<>
+WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(__m128i v) {
+	return _mm256_castsi128_si256(v);
+}
+
+template<>
+WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(__m256i v) {
+	return _mm256_castsi256_si128(v);
+}
+
+#define __WJR_REGISTER_SIMD_CAST_WITH_INTEGER(IT, SUF)	            \
+template<>	                                                        \
+WJR_INTRINSIC_INLINE IT simd_cast<IT>(__m256i v){	                \
+	return simd_cast<IT>(simd_cast<__m128i>(v));					\
+}	                                                                \
+template<>	                                                        \
+WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(IT v){	            \
+	return simd_cast<__m256i>(simd_cast<__m128i>(v));				\
+}
+
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int8_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int16_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int32_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int64_t, 64);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint8_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint16_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint32_t, 32);
+__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint64_t, 64);
+
+#undef __WJR_REGISTER_SIMD_CAST_WITH_INTEGER
+
+#endif // WJR_AVX
+
+_WJR_SIMD_END
+
+#endif // __WJR_SIMD_SIMD_CAST_H__
+
+_WJR_SIMD_BEGIN
+
+#if WJR_SSE2
+
+WJR_INTRINSIC_INLINE static __m128i mm_loadu_si16(void const* p);
+
+WJR_INTRINSIC_INLINE static __m128i mm_loadu_si32(void const* p);
+
+WJR_INTRINSIC_INLINE static __m128i mm_loadu_si64(void const* p);
+
+#endif // WJR_SSE2
+
+struct sse {
+	using mask_type = uint16_t;
+#if WJR_SSE
+	using float_type = __m128;
+#endif // WJR_SSE
+#if WJR_SSE2
+	using int_type = __m128i;
+	using double_type = __m128d;
+#endif // WJR_SSE2
+
+	constexpr static size_t width();
+
+	constexpr static mask_type mask();
+
+#if WJR_SSE
+	WJR_INTRINSIC_INLINE static mask_type movemask_ps(__m128 v);
+
+	WJR_INTRINSIC_INLINE static void sfence();
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128 shuffle_ps(__m128 a, __m128 b);
+#endif // WJR_SSE
+
+#if WJR_SSE2
+
+	WJR_INTRINSIC_INLINE static __m128i add_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i add_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i add_epi32(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i add_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static int8_t add_epi8(__m128i a);
+	WJR_INTRINSIC_INLINE static int16_t add_epi16(__m128i a);
+	WJR_INTRINSIC_INLINE static int32_t add_epi32(__m128i a);
+	WJR_INTRINSIC_INLINE static int64_t add_epi64(__m128i a);
+
+	WJR_INTRINSIC_INLINE static uint8_t add_epu8(__m128i a);
+	WJR_INTRINSIC_INLINE static uint16_t add_epu16(__m128i a);
+	WJR_INTRINSIC_INLINE static uint32_t add_epu32(__m128i a);
+	WJR_INTRINSIC_INLINE static uint64_t add_epu64(__m128i a);
+
+	WJR_INTRINSIC_INLINE static int8_t add(__m128i a, int8_t);
+	WJR_INTRINSIC_INLINE static int16_t add(__m128i a, int16_t);
+	WJR_INTRINSIC_INLINE static int32_t add(__m128i a, int32_t);
+	WJR_INTRINSIC_INLINE static int64_t add(__m128i a, int64_t);
+	WJR_INTRINSIC_INLINE static uint8_t add(__m128i a, uint8_t);
+	WJR_INTRINSIC_INLINE static uint16_t add(__m128i a, uint16_t);
+	WJR_INTRINSIC_INLINE static uint32_t add(__m128i a, uint32_t);
+	WJR_INTRINSIC_INLINE static uint64_t add(__m128i a, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i adds_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i adds_epi16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i adds_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i adds_epu16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, uint16_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i alignr_epi16(__m128i a, __m128i b, int c);
+	WJR_INTRINSIC_INLINE static __m128i alignr_epi32(__m128i a, __m128i b, int c);
+	WJR_INTRINSIC_INLINE static __m128i alignr_epi64(__m128i a, __m128i b, int c);
+
+	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i And(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i AndNot(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i avg_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i avg_epu16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, uint16_t);
+
+	// notice that mask must be 0 or 255(every byte)
+	WJR_INTRINSIC_INLINE static __m128i blendv_epi8(__m128i a, __m128i b, __m128i mask);
+	WJR_INTRINSIC_INLINE static __m128i blendv_epi16(__m128i a, __m128i b, __m128i mask);
+	WJR_INTRINSIC_INLINE static __m128i blendv_epi32(__m128i a, __m128i b, __m128i mask);
+
+	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, uint32_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i bslli(__m128i val);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i bsrli(__m128i val);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpge_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpge_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpge_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpge_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpge_epu16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpge_epu32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpgt_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt_epu16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt_epu32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i cmple_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmple_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmple_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmple_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmple_epu16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmple_epu32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i cmplt_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmplt_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmplt_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmplt_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmplt_epu16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmplt_epu32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpne_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpne_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i cmpne_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, uint32_t);
+
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::equal_to<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::not_equal_to<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::greater<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::greater_equal<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::less<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::less_equal<>, T);
+
+	WJR_INTRINSIC_INLINE static __m128i concat(uint64_t lo, uint64_t hi);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract_epi8(__m128i a);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract_epi16(__m128i a);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract_epi32(__m128i a);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int64_t extract_epi64(__m128i a);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m128i a, int8_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m128i a, int16_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m128i a, int32_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int64_t extract(__m128i a, int64_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m128i a, uint8_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m128i a, uint16_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m128i a, uint32_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int64_t extract(__m128i a, uint64_t);
+
+	WJR_INTRINSIC_INLINE static uint64_t getlow(__m128i v);
+	WJR_INTRINSIC_INLINE static uint64_t gethigh(__m128i v);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert_epi16(__m128i a, int i);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, int16_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, uint16_t);
+
+	WJR_INTRINSIC_INLINE static void lfence();
+
+	WJR_INTRINSIC_INLINE static __m128i load(const __m128i* ptr);
+	WJR_INTRINSIC_INLINE static __m128i loadu(const __m128i* ptr);
+	WJR_INTRINSIC_INLINE static __m128i loadu_si16(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i loadu_si32(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i loadu_si64(const void* ptr);
+
+	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
+	WJR_INTRINSIC_INLINE static __m128i logical_and(__m128i a, __m128i b, T);
+
+	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
+	WJR_INTRINSIC_INLINE static __m128i logical_not(__m128i v, T);
+
+	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
+	WJR_INTRINSIC_INLINE static __m128i logical_or(__m128i a, __m128i b, T);
+
+	WJR_INTRINSIC_INLINE static __m128i madd_epi16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static void maskmoveu(__m128i a, __m128i mask, char* mem_addr);
+
+	WJR_INTRINSIC_INLINE static __m128i max_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i max_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i max_epi32(__m128i a, __m128i b);
+	
+	WJR_INTRINSIC_INLINE static __m128i max_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i max_epu16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i max_epu32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static int8_t max_epi8(__m128i a);
+	WJR_INTRINSIC_INLINE static int16_t max_epi16(__m128i a);
+	WJR_INTRINSIC_INLINE static int32_t max_epi32(__m128i a);
+	
+	WJR_INTRINSIC_INLINE static uint8_t max_epu8(__m128i a);
+	WJR_INTRINSIC_INLINE static uint16_t max_epu16(__m128i a);
+	WJR_INTRINSIC_INLINE static uint32_t max_epu32(__m128i a);
+
+	WJR_INTRINSIC_INLINE static int8_t max(__m128i a, int8_t);
+	WJR_INTRINSIC_INLINE static int16_t max(__m128i a, int16_t);
+	WJR_INTRINSIC_INLINE static int32_t max(__m128i a, int32_t);
+	WJR_INTRINSIC_INLINE static uint8_t max(__m128i a, uint8_t);
+	WJR_INTRINSIC_INLINE static uint16_t max(__m128i a, uint16_t);
+	WJR_INTRINSIC_INLINE static uint32_t max(__m128i a, uint32_t);
+
+	WJR_INTRINSIC_INLINE static void mfence();
+
+	WJR_INTRINSIC_INLINE static __m128i min_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i min_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i min_epi32(__m128i a, __m128i b);
+	
+	WJR_INTRINSIC_INLINE static __m128i min_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i min_epu16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i min_epu32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static int8_t min_epi8(__m128i a);
+	WJR_INTRINSIC_INLINE static int16_t min_epi16(__m128i a);
+	WJR_INTRINSIC_INLINE static int32_t min_epi32(__m128i a);
+	
+	WJR_INTRINSIC_INLINE static uint8_t min_epu8(__m128i a);
+	WJR_INTRINSIC_INLINE static uint16_t min_epu16(__m128i a);
+	WJR_INTRINSIC_INLINE static uint32_t min_epu32(__m128i a);
+
+	WJR_INTRINSIC_INLINE static int8_t min(__m128i a, int8_t);
+	WJR_INTRINSIC_INLINE static int16_t min(__m128i a, int16_t);
+	WJR_INTRINSIC_INLINE static int32_t min(__m128i a, int32_t);
+	
+	WJR_INTRINSIC_INLINE static uint8_t min(__m128i a, uint8_t);
+	WJR_INTRINSIC_INLINE static uint16_t min(__m128i a, uint16_t);
+	WJR_INTRINSIC_INLINE static uint32_t min(__m128i a, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i move_epi64(__m128i a);
+
+	WJR_INTRINSIC_INLINE static mask_type movemask_epi8(__m128i a);
+	WJR_INTRINSIC_INLINE static mask_type movemask_pd(__m128d v);
+
+	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int8_t);
+	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int32_t);
+	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int64_t);
+	
+	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint8_t);
+	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint32_t);
+	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i mul_epu32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i mulhi_epi16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i mulhi_epu16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i mullo_epi16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i negate_epi8(__m128i a);
+	WJR_INTRINSIC_INLINE static __m128i negate_epi16(__m128i a);
+	WJR_INTRINSIC_INLINE static __m128i negate_epi32(__m128i a);
+	WJR_INTRINSIC_INLINE static __m128i negate_epi64(__m128i a);
+
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i Not(__m128i v);
+
+	WJR_INTRINSIC_INLINE static __m128i Or(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i packs_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i packs_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i packus_epi16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si16(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si32(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si48(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si64(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si80(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si96(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si112(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si128(const void* ptr);
+
+	WJR_INTRINSIC_INLINE static __m128i preloadu_si16x(const void* ptr, int n);
+
+	WJR_INTRINSIC_INLINE static __m128i sad_epu8(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i zeros();
+	WJR_INTRINSIC_INLINE static __m128i ones();
+
+	WJR_INTRINSIC_INLINE static __m128i set_epi8(
+		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0);
+
+	WJR_INTRINSIC_INLINE static __m128i set_epi16(
+		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0);
+	WJR_INTRINSIC_INLINE static __m128i set_epi32(int e3, int e2, int e1, int e0);
+	WJR_INTRINSIC_INLINE static __m128i set_epi64x(long long e1, long long e0);
+
+	WJR_INTRINSIC_INLINE static __m128i setr_epi8(
+		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0);
+
+	WJR_INTRINSIC_INLINE static __m128i setr_epi16(
+		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0);
+	WJR_INTRINSIC_INLINE static __m128i setr_epi32(int e3, int e2, int e1, int e0);
+
+	WJR_INTRINSIC_INLINE static __m128i set1_epi8(int8_t val);
+	WJR_INTRINSIC_INLINE static __m128i set1_epi16(int16_t val);
+	WJR_INTRINSIC_INLINE static __m128i set1_epi32(int32_t val);
+	WJR_INTRINSIC_INLINE static __m128i set1_epi64(int64_t val);
+
+	WJR_INTRINSIC_INLINE static __m128i set1(int8_t val, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i set1(int16_t val, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i set1(int32_t val, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i set1(int64_t val, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i set1(uint8_t val, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i set1(uint16_t val, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i set1(uint32_t val, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i set1(uint64_t val, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i setmin_epi8();
+	WJR_INTRINSIC_INLINE static __m128i setmin_epi16();
+	WJR_INTRINSIC_INLINE static __m128i setmin_epi32();
+
+	WJR_INTRINSIC_INLINE static __m128i setmin(int8_t);
+	WJR_INTRINSIC_INLINE static __m128i setmin(int16_t);
+	WJR_INTRINSIC_INLINE static __m128i setmin(int32_t);
+	WJR_INTRINSIC_INLINE static __m128i setmin(uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i setmin(uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i setmin(uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i setmax_epi8();
+	WJR_INTRINSIC_INLINE static __m128i setmax_epi16();
+	WJR_INTRINSIC_INLINE static __m128i setmax_epi32();
+
+	WJR_INTRINSIC_INLINE static __m128i setmax(int8_t);
+	WJR_INTRINSIC_INLINE static __m128i setmax(int16_t);
+	WJR_INTRINSIC_INLINE static __m128i setmax(int32_t);
+	WJR_INTRINSIC_INLINE static __m128i setmax(uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i setmax(uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i setmax(uint32_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i shuffle_epi32(__m128i v);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i shufflehi_epi16(__m128i v);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i shufflelo_epi16(__m128i v);
+
+	WJR_INTRINSIC_INLINE static __m128i sll_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sll_epi32(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sll_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, uint64_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i slli(__m128i v);
+	WJR_INTRINSIC_INLINE static __m128i slli_epi16(__m128i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m128i slli_epi32(__m128i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m128i slli_epi64(__m128i a, int imm8);
+
+	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i sra_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sra_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i sra(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i sra(__m128i a, __m128i b, int32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i srai_epi16(__m128i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m128i srai_epi32(__m128i a, int imm8);
+
+	WJR_INTRINSIC_INLINE static __m128i srai(__m128i a, int imm8, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i srai(__m128i a, int imm8, int32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i srl_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i srl_epi32(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i srl_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, uint64_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i srli(__m128i v);
+	WJR_INTRINSIC_INLINE static __m128i srli_epi16(__m128i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m128i srli_epi32(__m128i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m128i srli_epi64(__m128i a, int imm8);
+
+	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, uint64_t);
+
+	WJR_INTRINSIC_INLINE static void stream(__m128i* ptr, __m128i v);
+
+	WJR_INTRINSIC_INLINE static void store(__m128i* ptr, __m128i val);
+	WJR_INTRINSIC_INLINE static void storeu(__m128i* ptr, __m128i val);
+
+	WJR_INTRINSIC_INLINE static __m128i sub_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sub_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sub_epi32(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sub_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i subs_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i subs_epi16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i subs_epu8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i subs_epu16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, uint16_t);
+
+	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi32(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi32(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i Xor(__m128i a, __m128i b);
+
+#endif // WJR_SSE2
+
+#if WJR_SSE3
+	WJR_INTRINSIC_INLINE static __m128i lddqu(const __m128i* ptr);
+#endif // WJR_SSE3
+
+#if WJR_SSSE3
+
+	WJR_INTRINSIC_INLINE static __m128i abs_epi8(__m128i val);
+	WJR_INTRINSIC_INLINE static __m128i abs_epi16(__m128i val);
+	WJR_INTRINSIC_INLINE static __m128i abs_epi32(__m128i val);
+
+	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m128i shuffle_epi8(__m128i v, __m128i imm8);
+
+	WJR_INTRINSIC_INLINE static __m128i sign_epi8(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sign_epi16(__m128i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m128i sign_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, uint32_t);
+
+#endif // WJR_SSSE3
+
+#if WJR_SSE4_1
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i blend_epi16(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi64(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int64_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert_epi8(__m128i a, int i);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert_epi32(__m128i a, int i);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert_epi64(__m128i a, int64_t i);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, int8_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, int32_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int64_t i, int64_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, uint8_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, uint32_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int64_t i, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m128i minpos_epu16(__m128i a);
+
+	WJR_INTRINSIC_INLINE static __m128i mul_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i mullo_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i packus_epi32(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m128i stream_load(__m128i* p);
+
+	WJR_INTRINSIC_INLINE static int test_all_ones(__m128i a);
+
+	WJR_INTRINSIC_INLINE static int test_all_zeros(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static int test_all_zeros(__m128i a);
+
+	WJR_INTRINSIC_INLINE static int test_mix_ones_zeros(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static int testc(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static int testnzc(__m128i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static int testz(__m128i a, __m128i b);
+#endif // WJR_SSE4_1
+
+};
+
+struct avx {
+	using mask_type = uint32_t;
+#if WJR_AVX
+	using float_type = __m256;
+	using int_type = __m256i;
+	using double_type = __m256d;
+#endif // WJR_AVX
+
+	constexpr static size_t width();
+
+	constexpr static mask_type mask();
+
+#if WJR_AVX
+
+	WJR_INTRINSIC_INLINE static __m256i concat(__m128i a, __m128i b);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract_epi32(__m256i v);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int64_t extract_epi64(__m256i v);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m256i v, int32_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int64_t extract(__m256i v, int64_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m128i extract_si128(__m256i v);
+
+	WJR_INTRINSIC_INLINE static __m128i getlow(__m256i a);
+
+	WJR_INTRINSIC_INLINE static __m128i gethigh(__m256i a);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i insert_epi8(__m256i v, int8_t i);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i insert_epi16(__m256i v, int16_t i);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i insert_epi32(__m256i v, int32_t i);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i insert_epi64(__m256i v, int64_t i);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i insert_si128(__m256i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m256i load(const __m256i* p);
+	WJR_INTRINSIC_INLINE static __m256i loadu(const __m256i* p);
+
+	WJR_INTRINSIC_INLINE static __m256i ones();
+
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si16(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si32(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si48(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si64(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si80(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si96(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si112(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si128(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si144(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si160(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si176(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si192(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si208(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si224(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si240(const void* ptr);
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si256(const void* ptr);
+
+	WJR_INTRINSIC_INLINE static __m256i preloadu_si16x(const void* ptr, int n);
+
+	WJR_INTRINSIC_INLINE static __m256i set_epi8(
+		char e31, char e30, char e29, char e28, char e27, char e26, char e25, char e24,
+		char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
+		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0);
+	
+	WJR_INTRINSIC_INLINE static __m256i set_epi16(
+		short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
+		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0);
+
+	WJR_INTRINSIC_INLINE static __m256i set_epi32(
+		int e7, int e6, int e5, int e4, int e3, int e2, int e1, int e0);
+
+	WJR_INTRINSIC_INLINE static __m256i set_epi64x(
+		long long e3, long long e2, long long e1, long long e0);
+
+	WJR_INTRINSIC_INLINE static __m256i setr_epi8(
+		char e31, char e30, char e29, char e28, char e27, char e26, char e25, char e24,
+		char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
+		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0);
+	
+	WJR_INTRINSIC_INLINE static __m256i setr_epi16(
+		short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
+		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0);
+
+	WJR_INTRINSIC_INLINE static __m256i setr_epi32(
+		int e7, int e6, int e5, int e4, int e3, int e2, int e1, int e0);
+	
+	WJR_INTRINSIC_INLINE static __m256i setr_epi64x(
+		long long e3, long long e2, long long e1, long long e0);
+
+	WJR_INTRINSIC_INLINE static __m256i set1_epi8(int8_t a);
+	WJR_INTRINSIC_INLINE static __m256i set1_epi16(int16_t a);
+	WJR_INTRINSIC_INLINE static __m256i set1_epi32(int32_t a);
+	WJR_INTRINSIC_INLINE static __m256i set1_epi64(int64_t a);
+
+	WJR_INTRINSIC_INLINE static __m256i set1(int8_t a, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i set1(int16_t a, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i set1(int32_t a, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i set1(int64_t a, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i set1(uint8_t a, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i set1(uint16_t a, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i set1(uint32_t a, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i set1(uint64_t a, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i setmin_epi8();
+	WJR_INTRINSIC_INLINE static __m256i setmin_epi16();
+	WJR_INTRINSIC_INLINE static __m256i setmin_epi32();
+	WJR_INTRINSIC_INLINE static __m256i setmin_epi64();
+
+	WJR_INTRINSIC_INLINE static __m256i setmin(int8_t);
+	WJR_INTRINSIC_INLINE static __m256i setmin(int16_t);
+	WJR_INTRINSIC_INLINE static __m256i setmin(int32_t);
+	WJR_INTRINSIC_INLINE static __m256i setmin(int64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i setmax_epi8();
+	WJR_INTRINSIC_INLINE static __m256i setmax_epi16();
+	WJR_INTRINSIC_INLINE static __m256i setmax_epi32();
+	WJR_INTRINSIC_INLINE static __m256i setmax_epi64();
+
+	WJR_INTRINSIC_INLINE static __m256i setmax(int8_t);
+	WJR_INTRINSIC_INLINE static __m256i setmax(int16_t);
+	WJR_INTRINSIC_INLINE static __m256i setmax(int32_t);
+	WJR_INTRINSIC_INLINE static __m256i setmax(int64_t);
+
+	WJR_INTRINSIC_INLINE static void stream(__m256i* p, __m256i a);
+
+	WJR_INTRINSIC_INLINE static void store(__m256i* p, const __m256i& a);
+	WJR_INTRINSIC_INLINE static void storeu(__m256i* p, const __m256i& a);
+
+	WJR_INTRINSIC_INLINE static int test_all_zeros(__m256i a);
+
+	WJR_INTRINSIC_INLINE static int testc(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static int testnzc(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static int testz(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i zeros();
+#endif // WJR_AVX
+
+#if WJR_AVX2
+	WJR_INTRINSIC_INLINE static __m256i And(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i AndNot(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i Or(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i Xor(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i Not(__m256i v);
+
+	WJR_INTRINSIC_INLINE static __m256i abs_epi8(__m256i v);
+	WJR_INTRINSIC_INLINE static __m256i abs_epi16(__m256i v);
+	WJR_INTRINSIC_INLINE static __m256i abs_epi32(__m256i v);
+
+	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i add_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i add_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i add_epi32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i add_epi64(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static uint8_t add_epu8(__m256i v);
+	WJR_INTRINSIC_INLINE static uint16_t add_epu16(__m256i v);
+	WJR_INTRINSIC_INLINE static uint32_t add_epu32(__m256i v);
+	WJR_INTRINSIC_INLINE static uint64_t add_epu64(__m256i v);
+	
+	WJR_INTRINSIC_INLINE static int8_t add_epi8(__m256i v);
+	WJR_INTRINSIC_INLINE static int16_t add_epi16(__m256i v);
+	WJR_INTRINSIC_INLINE static int32_t add_epi32(__m256i v);
+	WJR_INTRINSIC_INLINE static int64_t add_epi64(__m256i v);
+
+	WJR_INTRINSIC_INLINE static int8_t add(__m256i v, int8_t);
+	WJR_INTRINSIC_INLINE static int16_t add(__m256i v, int16_t);
+	WJR_INTRINSIC_INLINE static int32_t add(__m256i v, int32_t);
+	WJR_INTRINSIC_INLINE static int64_t add(__m256i v, int64_t);
+	WJR_INTRINSIC_INLINE static uint8_t add(__m256i v, uint8_t);
+	WJR_INTRINSIC_INLINE static uint16_t add(__m256i v, uint16_t);
+	WJR_INTRINSIC_INLINE static uint32_t add(__m256i v, uint32_t);
+	WJR_INTRINSIC_INLINE static uint64_t add(__m256i v, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i adds_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i adds_epi16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i adds_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i adds_epu16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, uint16_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i alignr_epi16(__m256i a, __m256i b, int c);
+	WJR_INTRINSIC_INLINE static __m256i alignr_epi32(__m256i a, __m256i b, int c);
+	WJR_INTRINSIC_INLINE static __m256i alignr_epi64(__m256i a, __m256i b, int c);
+
+	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i avg_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i avg_epu16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, uint16_t);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i blend_epi16(__m256i a, __m256i b);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i blend_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i blendv_epi8(__m256i a, __m256i b, __m256i mask);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i bslli_epi128(__m256i a);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i bsrli_epi128(__m256i a);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi64(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpge_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpge_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpge_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpge_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpge_epu16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpge_epu32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi64(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu64(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i cmple_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmple_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmple_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmple_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmple_epu16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmple_epu32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i cmplt_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmplt_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmplt_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmplt_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmplt_epu16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmplt_epu32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpne_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpne_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i cmpne_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, uint32_t);
+
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::equal_to<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::not_equal_to<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::greater<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::greater_equal<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::less<>, T);
+	template<typename T>
+	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::less_equal<>, T);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract_epi8(__m256i v);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract_epi16(__m256i v);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m256i v, int8_t);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static int extract(__m256i v, int16_t);
+
+	WJR_INTRINSIC_INLINE static __m256i hadd_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i hadd_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i hadd(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i hadd(__m256i a, __m256i b, int32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i hadds_epi16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i hsub_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i hsub_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i hsub(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i hsub(__m256i a, __m256i b, int32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i hsubs_epi16(__m256i a, __m256i b);
+
+	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
+	WJR_INTRINSIC_INLINE static __m256i logical_and(__m256i a, __m256i b, T);
+
+	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
+	WJR_INTRINSIC_INLINE static __m256i logical_not(__m256i v, T);
+
+	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
+	WJR_INTRINSIC_INLINE static __m256i logical_or(__m256i a, __m256i b, T);
+
+	WJR_INTRINSIC_INLINE static __m256i madd_epi16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i max_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i max_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i max_epi32(__m256i a, __m256i b);
+	
+	WJR_INTRINSIC_INLINE static __m256i max_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i max_epu16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i max_epu32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static int8_t max_epi8(__m256i a);
+	WJR_INTRINSIC_INLINE static int16_t max_epi16(__m256i a);
+	WJR_INTRINSIC_INLINE static int32_t max_epi32(__m256i a);
+	WJR_INTRINSIC_INLINE static uint8_t max_epu8(__m256i a);
+	WJR_INTRINSIC_INLINE static uint16_t max_epu16(__m256i a);
+	WJR_INTRINSIC_INLINE static uint32_t max_epu32(__m256i a);
+
+	WJR_INTRINSIC_INLINE static int8_t max(__m256i a, int8_t);
+	WJR_INTRINSIC_INLINE static int16_t max(__m256i a, int16_t);
+	WJR_INTRINSIC_INLINE static int32_t max(__m256i a, int32_t);
+	
+	WJR_INTRINSIC_INLINE static uint8_t max(__m256i a, uint8_t);
+	WJR_INTRINSIC_INLINE static uint16_t max(__m256i a, uint16_t);
+	WJR_INTRINSIC_INLINE static uint32_t max(__m256i a, uint32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i min_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i min_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i min_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i min_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i min_epu16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i min_epu32(__m256i a, __m256i b);
+	
+	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, uint32_t);
+
+	WJR_INTRINSIC_INLINE static int8_t min_epi8(__m256i a);
+	WJR_INTRINSIC_INLINE static int16_t min_epi16(__m256i a);
+	WJR_INTRINSIC_INLINE static int32_t min_epi32(__m256i a);
+	
+	WJR_INTRINSIC_INLINE static uint8_t min_epu8(__m256i a);
+	WJR_INTRINSIC_INLINE static uint16_t min_epu16(__m256i a);
+	WJR_INTRINSIC_INLINE static uint32_t min_epu32(__m256i a);
+
+	WJR_INTRINSIC_INLINE static int8_t min(__m256i a, int8_t);
+	WJR_INTRINSIC_INLINE static int16_t min(__m256i a, int16_t);
+	WJR_INTRINSIC_INLINE static int32_t min(__m256i a, int32_t);
+	WJR_INTRINSIC_INLINE static uint8_t min(__m256i a, uint8_t);
+	WJR_INTRINSIC_INLINE static uint16_t min(__m256i a, uint16_t);
+	WJR_INTRINSIC_INLINE static uint32_t min(__m256i a, uint32_t);
+
+	WJR_INTRINSIC_INLINE static mask_type movemask_epi8(__m256i a);
+
+	WJR_INTRINSIC_INLINE static __m256i mul_epi32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i mul_epu32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i mulhi_epi16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i mulhi_epu16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i mullo_epi16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i packs_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i packs_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i packus_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i packus_epi32(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i shuffle_epi8(__m256i a, __m256i b);
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i shuffle_epi32(__m256i a);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i shufflehi_epi16(__m256i a);
+
+	template<int imm8>
+	WJR_INTRINSIC_INLINE static __m256i shufflelo_epi16(__m256i a);
+
+	WJR_INTRINSIC_INLINE static __m256i sll_epi16(__m256i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m256i sll_epi32(__m256i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m256i sll_epi64(__m256i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i slli_epi16(__m256i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m256i slli_epi32(__m256i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m256i slli_epi64(__m256i a, int imm8);
+
+	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i sra_epi16(__m256i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m256i sra_epi32(__m256i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m256i sra(__m256i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i sra(__m256i a, __m128i b, int32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i srai_epi16(__m256i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m256i srai_epi32(__m256i a, int imm8);
+
+	WJR_INTRINSIC_INLINE static __m256i srai(__m256i a, int imm8, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i srai(__m256i a, int imm8, int32_t);
+
+	WJR_INTRINSIC_INLINE static __m256i stream_load(__m256i const* p);
+
+	WJR_INTRINSIC_INLINE static __m256i srl_epi16(__m256i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m256i srl_epi32(__m256i a, __m128i b);
+	WJR_INTRINSIC_INLINE static __m256i srl_epi64(__m256i a, __m128i b);
+
+	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i srli_epi16(__m256i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m256i srli_epi32(__m256i a, int imm8);
+	WJR_INTRINSIC_INLINE static __m256i srli_epi64(__m256i a, int imm8);
+
+	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i sub_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i sub_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i sub_epi32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i sub_epi64(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i subs_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i subs_epi16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i subs_epu8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i subs_epu16(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, uint16_t);
+
+	WJR_INTRINSIC_INLINE static int test_all_ones(__m256i a);
+
+	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi64(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint32_t);
+	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint64_t);
+
+	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi8(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi16(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi32(__m256i a, __m256i b);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi64(__m256i a, __m256i b);
+
+	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int8_t);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int16_t);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int32_t);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int64_t);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, uint8_t);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, uint16_t);
+	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, uint32_t);
+#endif // WJR_AVX2
+
+};
+
+_WJR_SIMD_END
+
+#ifndef __WJR_SIMD_SIMD_INTRIN_H
+#error "This file should not be included directly. Include <wjr/simd/simd_intrin.h> instead."
+#endif 
+
+#pragma once
 #ifndef __WJR_MATH_H__
 #define __WJR_MATH_H__
 
@@ -1880,11 +3313,11 @@ _WJR_LITERALS_END
 #ifndef __WJR_ASM_ASM_H
 #define __WJR_ASM_ASM_H
 
-#pragma once
-#ifndef __WJR_ASM_ADC_H
-#define __WJR_ASM_ADC_H
 
 
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
 
 _WJR_ASM_BEGIN
 
@@ -1975,7 +3408,7 @@ WJR_INTRINSIC_INLINE static T __wjr_msvc_adc(T a, T b, T carry_in, T* carry_out)
 #endif
 
 template<typename T, std::enable_if_t<wjr::is_unsigned_integral_v<T>, int> = 0>
-WJR_INTRINSIC_CONSTEXPR20 static T __adc(T a, T b, T carry_in, T* carry_out) {
+WJR_INTRINSIC_CONSTEXPR20 T adc(T a, T b, T carry_in, T* carry_out) {
 	if (!wjr::is_constant_evaluated()) {
 		if (!((is_constant_p(a) && is_constant_p(b)) || (is_constant_p(carry_in) && carry_in == 0))) {
 #if WJR_HAS_BUILTIN(__builtin_addc) || WJR_HAS_CLANG(5, 0, 0)
@@ -2011,29 +3444,10 @@ WJR_INTRINSIC_CONSTEXPR20 static T __adc(T a, T b, T carry_in, T* carry_out) {
 	return a;
 }
 
-WJR_INTRINSIC_CONSTEXPR20 uint8_t adc(uint8_t a, uint8_t b, uint8_t carry_in, uint8_t* carry_out) {
-	return __adc(a, b, carry_in, carry_out);
-}
-WJR_INTRINSIC_CONSTEXPR20 uint16_t adc(uint16_t a, uint16_t b, uint16_t carry_in, uint16_t* carry_out) {
-	return __adc(a, b, carry_in, carry_out);
-}
-WJR_INTRINSIC_CONSTEXPR20 uint32_t adc(uint32_t a, uint32_t b, uint32_t carry_in, uint32_t* carry_out) {
-	return __adc(a, b, carry_in, carry_out);
-}
-#if defined(WJR_X86_64)
-WJR_INTRINSIC_CONSTEXPR20 uint64_t adc(uint64_t a, uint64_t b, uint64_t carry_in, uint64_t* carry_out) {
-	return __adc(a, b, carry_in, carry_out);
-}
-#endif // WJR_X86_64
-
 _WJR_ASM_END
-
-#endif // __WJR_ASM_ADC_H
-#pragma once
-#ifndef __WJR_ASM_SBB_H
-#define __WJR_ASM_SBB_H
-
-
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
 
 _WJR_ASM_BEGIN
 
@@ -2124,7 +3538,7 @@ WJR_INTRINSIC_INLINE static T __wjr_msvc_sbb(T a, T b, T carry_in, T* carry_out)
 #endif
 
 template<typename T, std::enable_if_t<wjr::is_unsigned_integral_v<T>, int> = 0>
-WJR_INTRINSIC_CONSTEXPR20 static T __sbb(T a, T b, T carry_in, T* carry_out) {
+WJR_INTRINSIC_CONSTEXPR20 static T sbb(T a, T b, T carry_in, T* carry_out) {
 	if (!wjr::is_constant_evaluated()) {
 		if (!((is_constant_p(a) && is_constant_p(b)) || (is_constant_p(carry_in) && carry_in == 0))) {
 #if WJR_HAS_BUILTIN(__builtin_subc) || WJR_HAS_CLANG(5, 0, 0)
@@ -2160,29 +3574,11 @@ WJR_INTRINSIC_CONSTEXPR20 static T __sbb(T a, T b, T carry_in, T* carry_out) {
 	return a;
 }
 
-WJR_INTRINSIC_CONSTEXPR20 uint8_t sbb(uint8_t a, uint8_t b, uint8_t carry_in, uint8_t* carry_out) {
-	return __sbb(a, b, carry_in, carry_out);
-}
-WJR_INTRINSIC_CONSTEXPR20 uint16_t sbb(uint16_t a, uint16_t b, uint16_t carry_in, uint16_t* carry_out) {
-	return __sbb(a, b, carry_in, carry_out);
-}
-WJR_INTRINSIC_CONSTEXPR20 uint32_t sbb(uint32_t a, uint32_t b, uint32_t carry_in, uint32_t* carry_out) {
-	return __sbb(a, b, carry_in, carry_out);
-}
-#if defined(WJR_X86_64)
-WJR_INTRINSIC_CONSTEXPR20 uint64_t sbb(uint64_t a, uint64_t b, uint64_t carry_in, uint64_t* carry_out) {
-	return __sbb(a, b, carry_in, carry_out);
-}
-#endif // WJR_X86_64
-
 _WJR_ASM_END
 
-#endif // __WJR_ASM_SBB_H
-#pragma once
-#ifndef __WJR_ASM_CLZ_H__
-#define __WJR_ASM_CLZ_H__
-
-
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
 
 _WJR_ASM_BEGIN
 
@@ -2372,12 +3768,9 @@ WJR_INTRINSIC_CONSTEXPR20 int clz(T x) noexcept {
 
 _WJR_ASM_END
 
-#endif // __WJR_ASM_CLZ_H__
-#pragma once
-#ifndef __WJR_ASM_CTZ_H__
-#define __WJR_ASM_CTZ_H__
-
-
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
 
 _WJR_ASM_BEGIN
 
@@ -2496,13 +3889,9 @@ WJR_INTRINSIC_CONSTEXPR20 int ctz(T x) noexcept {
 }
 
 _WJR_ASM_END
-
-#endif // __WJR_ASM_CTZ_H__
-#pragma once
-#ifndef __WJR_ASM_POPCNT_H__
-#define __WJR_ASM_POPCNT_H__
-
-
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
 
 _WJR_ASM_BEGIN
 
@@ -2586,8 +3975,6 @@ WJR_INTRINSIC_CONSTEXPR20 int popcnt(T x) noexcept {
 }
 
 _WJR_ASM_END
-
-#endif // __WJR_ASM_POPCNT_H__
 
 #endif // __WJR_ASM_ASM_H
 
@@ -2769,140 +4156,6 @@ struct _Broadcast<uint64_t, uint8_t> {
 _WJR_END
 
 #endif // __WJR_MATH_H__
-#pragma once
-#ifndef __WJR_SIMD_SIMD_CAST_H__
-#define __WJR_SIMD_SIMD_CAST_H__
-
-
-
-_WJR_SIMD_BEGIN
-
-struct lo {};
-struct hi {};
-
-template<typename T, typename U>
-WJR_INTRINSIC_INLINE T simd_cast(U);
-
-/* TODO */
-template<typename T1, typename T2, typename U>
-WJR_INTRINSIC_INLINE U simd_cast(U, T2);
-
-#if WJR_SSE
-#endif // WJR_SSE
-
-#if WJR_SSE2
-
-template<>
-WJR_INTRINSIC_INLINE __m128 simd_cast<__m128>(__m128i v) {
-	return _mm_castsi128_ps(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(__m128 v) {
-	return _mm_castps_si128(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m128d simd_cast<__m128d>(__m128 v) {
-	return _mm_castps_pd(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m128 simd_cast<__m128>(__m128d v) {
-	return _mm_castpd_ps(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(__m128d v) {
-	return _mm_castpd_si128(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m128d simd_cast<__m128d>(__m128i v) {
-	return _mm_castsi128_pd(v);
-}
-
-#define __WJR_REGISTER_SIMD_CAST_WITH_INTEGER(IT, SUF)	            \
-template<>	                                                        \
-WJR_INTRINSIC_INLINE IT simd_cast<IT>(__m128i v){	                \
-	return static_cast<IT>(_mm_cvtsi128_si##SUF(v));	            \
-}	                                                                \
-template<>	                                                        \
-WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(IT v){	            \
-	return _mm_cvtsi##SUF##_si128(v);	                            \
-}
-
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int8_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int16_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int32_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int64_t, 64);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint8_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint16_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint32_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint64_t, 64);
-
-#undef __WJR_REGISTER_SIMD_CAST_WITH_INTEGER
-
-#endif // WJR_SSE2
-
-#if WJR_AVX2
-
-template<>
-WJR_INTRINSIC_INLINE __m256 simd_cast<__m256>(__m256i v) {
-	return _mm256_castsi256_ps(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(__m256 v) {
-	return _mm256_castps_si256(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m256d simd_cast<__m256d>(__m256 v) {
-	return _mm256_castps_pd(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m256 simd_cast<__m256>(__m256d v) {
-	return _mm256_castpd_ps(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(__m256d v) {
-	return _mm256_castpd_si256(v);
-}
-template<>
-WJR_INTRINSIC_INLINE __m256d simd_cast<__m256d>(__m256i v) {
-	return _mm256_castsi256_pd(v);
-}
-
-template<>
-WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(__m128i v) {
-	return _mm256_castsi128_si256(v);
-}
-
-template<>
-WJR_INTRINSIC_INLINE __m128i simd_cast<__m128i>(__m256i v) {
-	return _mm256_castsi256_si128(v);
-}
-
-#define __WJR_REGISTER_SIMD_CAST_WITH_INTEGER(IT, SUF)	            \
-template<>	                                                        \
-WJR_INTRINSIC_INLINE IT simd_cast<IT>(__m256i v){	                \
-	return simd_cast<IT>(simd_cast<__m128i>(v));					\
-}	                                                                \
-template<>	                                                        \
-WJR_INTRINSIC_INLINE __m256i simd_cast<__m256i>(IT v){	            \
-	return simd_cast<__m256i>(simd_cast<__m128i>(v));				\
-}
-
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int8_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int16_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int32_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(int64_t, 64);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint8_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint16_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint32_t, 32);
-__WJR_REGISTER_SIMD_CAST_WITH_INTEGER(uint64_t, 64);
-
-#undef __WJR_REGISTER_SIMD_CAST_WITH_INTEGER
-
-#endif // WJR_AVX
-
-_WJR_SIMD_END
-
-#endif // __WJR_SIMD_SIMD_CAST_H__
 
 _WJR_BEGIN
 
@@ -2977,2302 +4230,2000 @@ _WJR_SIMD_BEGIN
 
 #if WJR_SSE2
 
-WJR_INTRINSIC_INLINE static __m128i mm_loadu_si16(void const* p) {
+__m128i mm_loadu_si16(void const* p) {
 	return simd_cast<__m128i>(*reinterpret_cast<uint16_t const*>(p));
 }
 
-WJR_INTRINSIC_INLINE static __m128i mm_loadu_si32(void const* p) {
+__m128i mm_loadu_si32(void const* p) {
 	return simd_cast<__m128i>(*reinterpret_cast<int32_t const*>(p));
 }
 
-WJR_INTRINSIC_INLINE static __m128i mm_loadu_si64(void const* p) {
+__m128i mm_loadu_si64(void const* p) {
 	return simd_cast<__m128i>(*reinterpret_cast<int64_t const*>(p));
 }
 
 #endif // WJR_SSE2
 
-#undef __TEST_SIMD_FUNCTION
+/*------SSE------*/
 
-struct sse {
-	using mask_type = uint16_t;
-#if WJR_SSE
-	using float_type = __m128;
-#endif // WJR_SSE
-#if WJR_SSE2
-	using int_type = __m128i;
-	using double_type = __m128d;
-#endif // WJR_SSE2
+constexpr size_t sse::width() { return 128; }
 
-	constexpr static size_t width() { return 128; }
-
-	constexpr static mask_type mask() { return 0xFFFF; }
+constexpr sse::mask_type sse::mask() { return 0xFFFF; }
 
 #if WJR_SSE
-	WJR_INTRINSIC_INLINE static mask_type movemask_ps(__m128 v) {
-		return _mm_movemask_ps(v);
-	}
+sse::mask_type sse::movemask_ps(__m128 v) {
+	return _mm_movemask_ps(v);
+}
 
-	WJR_INTRINSIC_INLINE static void sfence() { return _mm_sfence(); }
+void sse::sfence() { return _mm_sfence(); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128 shuffle_ps(__m128 a, __m128 b) {
-		static_assert(imm8 >= 0 && imm8 <= 255, "imm8 must be in range [0, 255]");
-		return _mm_shuffle_ps(a, b, imm8);
-	}
+template<int imm8>
+__m128 sse::shuffle_ps(__m128 a, __m128 b) {
+	static_assert(imm8 >= 0 && imm8 <= 255, "imm8 must be in range [0, 255]");
+	return _mm_shuffle_ps(a, b, imm8);
+}
 #endif // WJR_SSE
 
 #if WJR_SSE2
 
-	WJR_INTRINSIC_INLINE static __m128i add_epi8(__m128i a, __m128i b) { return _mm_add_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add_epi16(__m128i a, __m128i b) { return _mm_add_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add_epi32(__m128i a, __m128i b) { return _mm_add_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add_epi64(__m128i a, __m128i b) { return _mm_add_epi64(a, b); }
+__m128i sse::add_epi8(__m128i a, __m128i b) { return _mm_add_epi8(a, b); }
+__m128i sse::add_epi16(__m128i a, __m128i b) { return _mm_add_epi16(a, b); }
+__m128i sse::add_epi32(__m128i a, __m128i b) { return _mm_add_epi32(a, b); }
+__m128i sse::add_epi64(__m128i a, __m128i b) { return _mm_add_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int8_t) { return add_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int16_t) { return add_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int32_t) { return add_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, int64_t) { return add_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint8_t) { return add_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint16_t) { return add_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint32_t) { return add_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i add(__m128i a, __m128i b, uint64_t) { return add_epi64(a, b); }
+__m128i sse::add(__m128i a, __m128i b, int8_t) { return add_epi8(a, b); }
+__m128i sse::add(__m128i a, __m128i b, int16_t) { return add_epi16(a, b); }
+__m128i sse::add(__m128i a, __m128i b, int32_t) { return add_epi32(a, b); }
+__m128i sse::add(__m128i a, __m128i b, int64_t) { return add_epi64(a, b); }
+__m128i sse::add(__m128i a, __m128i b, uint8_t) { return add_epi8(a, b); }
+__m128i sse::add(__m128i a, __m128i b, uint16_t) { return add_epi16(a, b); }
+__m128i sse::add(__m128i a, __m128i b, uint32_t) { return add_epi32(a, b); }
+__m128i sse::add(__m128i a, __m128i b, uint64_t) { return add_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static uint8_t add_epu8(__m128i a) {
-		auto b = shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a);
-		a = add(a, b, uint8_t());
-		b = zeros();
-		a = sad_epu8(a, b);
-		return simd_cast<uint8_t>(a);
+int8_t sse::add_epi8(__m128i a) { return add_epu8(a); }
+int16_t sse::add_epi16(__m128i a) { return add_epu16(a); }
+int32_t sse::add_epi32(__m128i a) { return add_epu32(a); }
+int64_t sse::add_epi64(__m128i a) { return add_epu64(a); }
+
+uint8_t sse::add_epu8(__m128i a) {
+	auto b = shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a);
+	a = add(a, b, uint8_t());
+	b = zeros();
+	a = sad_epu8(a, b);
+	return simd_cast<uint8_t>(a);
+}
+
+uint16_t sse::add_epu16(__m128i a) {
+	a = add(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a), uint16_t());
+	a = add(a, shuffle_epi32<_MM_SHUFFLE(1, 1, 1, 1)>(a), uint16_t());
+	a = add(a, srli<2>(a), uint16_t());
+	return simd_cast<uint16_t>(a);
+}
+
+uint32_t sse::add_epu32(__m128i a) {
+	a = add(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a), uint32_t());
+	a = add(a, shuffle_epi32<_MM_SHUFFLE(1, 1, 1, 1)>(a), uint32_t());
+	return simd_cast<uint32_t>(a);
+}
+
+uint64_t sse::add_epu64(__m128i a) {
+	a = add(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a), uint64_t());
+	return simd_cast<uint64_t>(a);
+}
+
+int8_t sse::add(__m128i a, int8_t) { return add_epi8(a); }
+int16_t sse::add(__m128i a, int16_t) { return add_epi16(a); }
+int32_t sse::add(__m128i a, int32_t) { return add_epi32(a); }
+int64_t sse::add(__m128i a, int64_t) { return add_epi64(a); }
+uint8_t sse::add(__m128i a, uint8_t) { return add_epu8(a); }
+uint16_t sse::add(__m128i a, uint16_t) { return add_epu16(a); }
+uint32_t sse::add(__m128i a, uint32_t) { return add_epu32(a); }
+uint64_t sse::add(__m128i a, uint64_t) { return add_epu64(a); }
+
+__m128i sse::adds_epi8(__m128i a, __m128i b) { return _mm_adds_epi8(a, b); }
+__m128i sse::adds_epi16(__m128i a, __m128i b) { return _mm_adds_epi16(a, b); }
+
+__m128i sse::adds_epu8(__m128i a, __m128i b) { return _mm_adds_epu8(a, b); }
+__m128i sse::adds_epu16(__m128i a, __m128i b) { return _mm_adds_epu16(a, b); }
+
+__m128i sse::adds(__m128i a, __m128i b, int8_t) { return adds_epi8(a, b); }
+__m128i sse::adds(__m128i a, __m128i b, int16_t) { return adds_epi16(a, b); }
+__m128i sse::adds(__m128i a, __m128i b, uint8_t) { return adds_epu8(a, b); }
+__m128i sse::adds(__m128i a, __m128i b, uint16_t) { return adds_epu16(a, b); }
+
+template<int imm8>
+__m128i sse::alignr(__m128i a, __m128i b) {
+	constexpr int s = imm8 & 0x1F;
+#if WJR_SSSE3
+	return _mm_alignr_epi8(a, b, s);
+#else
+	if constexpr (s == 0) {
+		return b;
 	}
-	WJR_INTRINSIC_INLINE static uint16_t add_epu16(__m128i a) {
-		a = add(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a), uint16_t());
-		a = add(a, shuffle_epi32<_MM_SHUFFLE(1, 1, 1, 1)>(a), uint16_t());
-		a = add(a, srli<2>(a), uint16_t());
-		return simd_cast<uint16_t>(a);
+	if constexpr (s == 16) {
+		return a;
 	}
-	WJR_INTRINSIC_INLINE static uint32_t add_epu32(__m128i a) {
-		a = add(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a), uint32_t());
-		a = add(a, shuffle_epi32<_MM_SHUFFLE(1, 1, 1, 1)>(a), uint32_t());
+	if constexpr (s < 16) {
+		return Or(slli<16 - s>(a), srli<s>(b));
+	}
+	return srli<s - 16>(a);
+#endif // WJR_SSSE3
+}
+
+__m128i sse::alignr_epi16(__m128i a, __m128i b, int c) {
+	return Or(slli(a, 16 - c, uint16_t()), srli(b, c, uint16_t()));
+}
+
+__m128i sse::alignr_epi32(__m128i a, __m128i b, int c) {
+	return Or(slli(a, 32 - c, uint32_t()), srli(b, c, uint32_t()));
+}
+
+__m128i sse::alignr_epi64(__m128i a, __m128i b, int c) {
+	return Or(slli(a, 64 - c, uint64_t()), srli(b, c, uint64_t()));
+}
+
+__m128i sse::alignr(__m128i a, __m128i b, int c, int16_t) { return alignr_epi16(a, b, c); }
+__m128i sse::alignr(__m128i a, __m128i b, int c, int32_t) { return alignr_epi32(a, b, c); }
+__m128i sse::alignr(__m128i a, __m128i b, int c, int64_t) { return alignr_epi64(a, b, c); }
+__m128i sse::alignr(__m128i a, __m128i b, int c, uint16_t) { return alignr_epi16(a, b, c); }
+__m128i sse::alignr(__m128i a, __m128i b, int c, uint32_t) { return alignr_epi32(a, b, c); }
+__m128i sse::alignr(__m128i a, __m128i b, int c, uint64_t) { return alignr_epi64(a, b, c); }
+
+__m128i sse::And(__m128i a, __m128i b) { return _mm_and_si128(a, b); }
+
+__m128i sse::AndNot(__m128i a, __m128i b) { return _mm_andnot_si128(a, b); }
+
+__m128i sse::avg_epu8(__m128i a, __m128i b) { return _mm_avg_epu8(a, b); }
+__m128i sse::avg_epu16(__m128i a, __m128i b) { return _mm_avg_epu16(a, b); }
+
+__m128i sse::avg(__m128i a, __m128i b, int8_t) { return avg_epu8(a, b); }
+__m128i sse::avg(__m128i a, __m128i b, int16_t) { return avg_epu16(a, b); }
+__m128i sse::avg(__m128i a, __m128i b, uint8_t) { return avg_epu8(a, b); }
+__m128i sse::avg(__m128i a, __m128i b, uint16_t) { return avg_epu16(a, b); }
+
+// notice that mask must be 0 or 255(every byte)
+__m128i sse::blendv_epi8(__m128i a, __m128i b, __m128i mask) {
+#if WJR_SSE4_1
+	return _mm_blendv_epi8(a, b, mask);
+#elif defined(WJR_COMPILER_GCC)
+	return ((~mask) & a) | (mask & b);
+#else
+	return Or(AndNot(mask, a), And(mask, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::blendv_epi16(__m128i a, __m128i b, __m128i mask) {
+	return blendv_epi8(b, a, logical_not(mask, uint16_t()));
+}
+
+__m128i sse::blendv_epi32(__m128i a, __m128i b, __m128i mask) {
+	return blendv_epi8(b, a, logical_not(mask, uint32_t()));
+}
+
+__m128i sse::blendv(__m128i a, __m128i b, __m128i mask, int8_t) { return blendv_epi8(a, b, mask); }
+__m128i sse::blendv(__m128i a, __m128i b, __m128i mask, int16_t) { return blendv_epi16(a, b, mask); }
+__m128i sse::blendv(__m128i a, __m128i b, __m128i mask, int32_t) { return blendv_epi32(a, b, mask); }
+__m128i sse::blendv(__m128i a, __m128i b, __m128i mask, uint8_t) { return blendv_epi8(a, b, mask); }
+__m128i sse::blendv(__m128i a, __m128i b, __m128i mask, uint16_t) { return blendv_epi16(a, b, mask); }
+__m128i sse::blendv(__m128i a, __m128i b, __m128i mask, uint32_t) { return blendv_epi32(a, b, mask); }
+
+template<int imm8>
+__m128i sse::bslli(__m128i val) { return _mm_bslli_si128(val, imm8); }
+
+template<int imm8>
+__m128i sse::bsrli(__m128i val) { return _mm_bsrli_si128(val, imm8); }
+
+__m128i sse::cmpeq_epi8(__m128i a, __m128i b) { return _mm_cmpeq_epi8(a, b); }
+__m128i sse::cmpeq_epi16(__m128i a, __m128i b) { return _mm_cmpeq_epi16(a, b); }
+__m128i sse::cmpeq_epi32(__m128i a, __m128i b) { return _mm_cmpeq_epi32(a, b); }
+
+__m128i sse::cmpeq(__m128i a, __m128i b, int8_t) { return cmpeq_epi8(a, b); }
+__m128i sse::cmpeq(__m128i a, __m128i b, int16_t) { return cmpeq_epi16(a, b); }
+__m128i sse::cmpeq(__m128i a, __m128i b, int32_t) { return cmpeq_epi32(a, b); }
+__m128i sse::cmpeq(__m128i a, __m128i b, uint8_t) { return cmpeq_epi8(a, b); }
+__m128i sse::cmpeq(__m128i a, __m128i b, uint16_t) { return cmpeq_epi16(a, b); }
+__m128i sse::cmpeq(__m128i a, __m128i b, uint32_t) { return cmpeq_epi32(a, b); }
+
+__m128i sse::cmpge_epi8(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comge_epi8(a, b);
+#elif WJR_SSE4_1
+	return cmpeq(min(a, b, int8_t()), b, uint8_t());
+#else
+	return Not(cmpgt(b, a, int8_t()));
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpge_epi16(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comge_epi16(a, b);
+#else
+	return cmpeq(min(a, b, int16_t()), b, uint16_t());
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpge_epi32(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comge_epi32(a, b);
+#elif WJR_SSE4_1
+	return cmpeq(min(a, b, int32_t()), b, uint32_t());
+#else
+	return Not(cmpgt(b, a, int32_t()));
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpge_epu8(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comge_epu8(a, b);
+#else
+	return cmpeq(min(a, b, uint8_t()), b, uint8_t());
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpge_epu16(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comge_epu16(a, b);
+#elif WJR_SSE4_1
+	return cmpeq(min(a, b, uint16_t()), b, uint16_t());
+#else
+	return logical_not(subs(b, a, uint16_t()), uint16_t());
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpge_epu32(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comge_epu32(a, b);
+#elif WJR_SSE4_1
+	return cmpeq(min(a, b, uint32_t()), b, uint32_t());
+#else
+	return Not(cmpgt(b, a, uint32_t()));
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpge(__m128i a, __m128i b, int8_t) { return cmpge_epi8(a, b); }
+__m128i sse::cmpge(__m128i a, __m128i b, int16_t) { return cmpge_epi16(a, b); }
+__m128i sse::cmpge(__m128i a, __m128i b, int32_t) { return cmpge_epi32(a, b); }
+__m128i sse::cmpge(__m128i a, __m128i b, uint8_t) { return cmpge_epu8(a, b); }
+__m128i sse::cmpge(__m128i a, __m128i b, uint16_t) { return cmpge_epu16(a, b); }
+__m128i sse::cmpge(__m128i a, __m128i b, uint32_t) { return cmpge_epu32(a, b); }
+
+__m128i sse::cmpgt_epi8(__m128i a, __m128i b) { return _mm_cmpgt_epi8(a, b); }
+__m128i sse::cmpgt_epi16(__m128i a, __m128i b) { return _mm_cmpgt_epi16(a, b); }
+__m128i sse::cmpgt_epi32(__m128i a, __m128i b) { return _mm_cmpgt_epi32(a, b); }
+
+__m128i sse::cmpgt_epu8(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comgt_epu8(a, b);
+#else
+	return cmpgt_epi8(Xor(a, setmin_epi8()), Xor(b, setmin_epi8()));
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpgt_epu16(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comgt_epu16(a, b);
+#else
+	return cmpgt_epi16(Xor(a, setmin_epi16()), Xor(b, setmin_epi16()));
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpgt_epu32(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comgt_epu32(a, b);
+#else
+	return cmpgt_epi32(Xor(a, setmin_epi32()), Xor(b, setmin_epi32()));
+#endif // WJR_XOP
+}
+
+__m128i sse::cmpgt(__m128i a, __m128i b, int8_t) { return cmpgt_epi8(a, b); }
+__m128i sse::cmpgt(__m128i a, __m128i b, int16_t) { return cmpgt_epi16(a, b); }
+__m128i sse::cmpgt(__m128i a, __m128i b, int32_t) { return cmpgt_epi32(a, b); }
+__m128i sse::cmpgt(__m128i a, __m128i b, uint8_t) { return cmpgt_epu8(a, b); }
+__m128i sse::cmpgt(__m128i a, __m128i b, uint16_t) { return cmpgt_epu16(a, b); }
+__m128i sse::cmpgt(__m128i a, __m128i b, uint32_t) { return cmpgt_epu32(a, b); }
+
+__m128i sse::cmple_epi8(__m128i a, __m128i b) { return cmpge_epi8(b, a); }
+__m128i sse::cmple_epi16(__m128i a, __m128i b) { return cmpge_epi16(b, a); }
+__m128i sse::cmple_epi32(__m128i a, __m128i b) { return cmpge_epi32(b, a); }
+
+__m128i sse::cmple_epu8(__m128i a, __m128i b) { return cmpge_epu8(b, a); }
+__m128i sse::cmple_epu16(__m128i a, __m128i b) { return cmpge_epu16(b, a); }
+__m128i sse::cmple_epu32(__m128i a, __m128i b) { return cmpge_epu32(b, a); }
+
+__m128i sse::cmple(__m128i a, __m128i b, int8_t) { return cmple_epi8(a, b); }
+__m128i sse::cmple(__m128i a, __m128i b, int16_t) { return cmple_epi16(a, b); }
+__m128i sse::cmple(__m128i a, __m128i b, int32_t) { return cmple_epi32(a, b); }
+__m128i sse::cmple(__m128i a, __m128i b, uint8_t) { return cmple_epu8(a, b); }
+__m128i sse::cmple(__m128i a, __m128i b, uint16_t) { return cmple_epu16(a, b); }
+__m128i sse::cmple(__m128i a, __m128i b, uint32_t) { return cmple_epu32(a, b); }
+
+__m128i sse::cmplt_epi8(__m128i a, __m128i b) { return _mm_cmplt_epi8(a, b); }
+__m128i sse::cmplt_epi16(__m128i a, __m128i b) { return _mm_cmplt_epi16(a, b); }
+__m128i sse::cmplt_epi32(__m128i a, __m128i b) { return _mm_cmplt_epi32(a, b); }
+
+__m128i sse::cmplt_epu8(__m128i a, __m128i b) { return cmpgt_epu8(b, a); }
+__m128i sse::cmplt_epu16(__m128i a, __m128i b) { return cmpgt_epu16(b, a); }
+__m128i sse::cmplt_epu32(__m128i a, __m128i b) { return cmpgt_epu32(b, a); }
+
+__m128i sse::cmplt(__m128i a, __m128i b, int8_t) { return cmplt_epi8(a, b); }
+__m128i sse::cmplt(__m128i a, __m128i b, int16_t) { return cmplt_epi16(a, b); }
+__m128i sse::cmplt(__m128i a, __m128i b, int32_t) { return cmplt_epi32(a, b); }
+__m128i sse::cmplt(__m128i a, __m128i b, uint8_t) { return cmplt_epu8(a, b); }
+__m128i sse::cmplt(__m128i a, __m128i b, uint16_t) { return cmplt_epu16(a, b); }
+__m128i sse::cmplt(__m128i a, __m128i b, uint32_t) { return cmplt_epu32(a, b); }
+
+__m128i sse::cmpne_epi8(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comneq_epi8(a, b);
+#else
+	return Not(cmpeq_epi8(a, b));
+#endif
+}
+
+__m128i sse::cmpne_epi16(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comneq_epi16(a, b);
+#else
+	return Not(cmpeq_epi16(a, b));
+#endif
+}
+
+__m128i sse::cmpne_epi32(__m128i a, __m128i b) {
+#if WJR_XOP
+	return _mm_comneq_epi32(a, b);
+#else
+	return Not(cmpeq_epi32(a, b));
+#endif
+}
+
+__m128i sse::cmpne(__m128i a, __m128i b, int8_t) { return cmpne_epi8(a, b); }
+__m128i sse::cmpne(__m128i a, __m128i b, int16_t) { return cmpne_epi16(a, b); }
+__m128i sse::cmpne(__m128i a, __m128i b, int32_t) { return cmpne_epi32(a, b); }
+__m128i sse::cmpne(__m128i a, __m128i b, uint8_t) { return cmpne_epi8(a, b); }
+__m128i sse::cmpne(__m128i a, __m128i b, uint16_t) { return cmpne_epi16(a, b); }
+__m128i sse::cmpne(__m128i a, __m128i b, uint32_t) { return cmpne_epi32(a, b); }
+
+template<typename T>
+__m128i sse::cmp(__m128i a, __m128i b, std::equal_to<>, T) { return cmpeq(a, b, T()); }
+template<typename T>
+__m128i sse::cmp(__m128i a, __m128i b, std::not_equal_to<>, T) { return cmpne(a, b, T()); }
+template<typename T>
+__m128i sse::cmp(__m128i a, __m128i b, std::greater<>, T) { return cmpgt(a, b, T()); }
+template<typename T>
+__m128i sse::cmp(__m128i a, __m128i b, std::greater_equal<>, T) { return cmpge(a, b, T()); }
+template<typename T>
+__m128i sse::cmp(__m128i a, __m128i b, std::less<>, T) { return cmplt(a, b, T()); }
+template<typename T>
+__m128i sse::cmp(__m128i a, __m128i b, std::less_equal<>, T) { return cmple(a, b, T()); }
+
+__m128i sse::concat(uint64_t lo, uint64_t hi) { return set_epi64x(hi, lo); }
+
+template<int imm8>
+int sse::extract_epi8(__m128i a) {
+	static_assert(imm8 >= 0 && imm8 < 16, "imm8 must be in range [0, 15]");
+#if WJR_SSE4_1
+	return _mm_extract_epi8(a, imm8);
+#else
+	if constexpr (imm8 & 1) {
+		return extract_epi16<(imm8 >> 1)>(a) >> 8;
+	}
+	else {
+		return extract_epi16 <(imm8 >> 1)>(a) & 0xff;
+	}
+#endif // WJR_SSE4_1
+}
+
+template<int imm8>
+int sse::extract_epi16(__m128i a) {
+	static_assert(imm8 >= 0 && imm8 < 8, "imm8 must be in range [0, 7]");
+	return _mm_extract_epi16(a, imm8);
+}
+
+template<int imm8>
+int sse::extract_epi32(__m128i a) {
+	static_assert(imm8 >= 0 && imm8 < 4, "imm8 must be in range [0, 3]");
+#if WJR_SSE4_1
+	return _mm_extract_epi32(a, imm8);
+#else
+	if constexpr (imm8 == 0) {
 		return simd_cast<uint32_t>(a);
 	}
-	WJR_INTRINSIC_INLINE static uint64_t add_epu64(__m128i a) {
-		a = add(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a), uint64_t());
+	else if constexpr (imm8 == 1) {
+		return static_cast<uint32_t>(simd_cast<uint64_t>(a) >> 32);
+	}
+	else if constexpr (imm8 == 2) {
+		return simd_cast<uint32_t>(shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	}
+	else {
+		return simd_cast<uint32_t>(shuffle_epi32<_MM_SHUFFLE(3, 3, 3, 3)>(a));
+	}
+#endif // WJR_SSE4_1
+}
+
+template<int imm8>
+int64_t sse::extract_epi64(__m128i a) {
+	static_assert(imm8 >= 0 && imm8 < 2, "imm8 must be in range [0, 1]");
+#if WJR_SSE4_1
+	return _mm_extract_epi64(a, imm8);
+#else
+	if constexpr (imm8 == 0) {
 		return simd_cast<uint64_t>(a);
 	}
-	WJR_INTRINSIC_INLINE static int8_t add_epi8(__m128i a) { return add_epu8(a); }
-	WJR_INTRINSIC_INLINE static int16_t add_epi16(__m128i a) { return add_epu16(a); }
-	WJR_INTRINSIC_INLINE static int32_t add_epi32(__m128i a) { return add_epu32(a); }
-	WJR_INTRINSIC_INLINE static int64_t add_epi64(__m128i a) { return add_epu64(a); }
+	else {
+		return simd_cast<uint64_t>(shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	}
+#endif // WJR_SSE4_1
+}
 
-	WJR_INTRINSIC_INLINE static int8_t add(__m128i a, int8_t) { return add_epi8(a); }
-	WJR_INTRINSIC_INLINE static int16_t add(__m128i a, int16_t) { return add_epi16(a); }
-	WJR_INTRINSIC_INLINE static int32_t add(__m128i a, int32_t) { return add_epi32(a); }
-	WJR_INTRINSIC_INLINE static int64_t add(__m128i a, int64_t) { return add_epi64(a); }
-	WJR_INTRINSIC_INLINE static uint8_t add(__m128i a, uint8_t) { return add_epu8(a); }
-	WJR_INTRINSIC_INLINE static uint16_t add(__m128i a, uint16_t) { return add_epu16(a); }
-	WJR_INTRINSIC_INLINE static uint32_t add(__m128i a, uint32_t) { return add_epu32(a); }
-	WJR_INTRINSIC_INLINE static uint64_t add(__m128i a, uint64_t) { return add_epu64(a); }
+template<int imm8>
+int sse::extract(__m128i a, int8_t) { return extract_epi8<imm8>(a); }
+template<int imm8>
+int sse::extract(__m128i a, int16_t) { return extract_epi16<imm8>(a); }
+template<int imm8>
+int sse::extract(__m128i a, int32_t) { return extract_epi32<imm8>(a); }
+template<int imm8>
+int64_t sse::extract(__m128i a, int64_t) { return extract_epi64<imm8>(a); }
+template<int imm8>
+int sse::extract(__m128i a, uint8_t) { return extract_epi8<imm8>(a); }
+template<int imm8>
+int sse::extract(__m128i a, uint16_t) { return extract_epi16<imm8>(a); }
+template<int imm8>
+int sse::extract(__m128i a, uint32_t) { return extract_epi32<imm8>(a); }
+template<int imm8>
+int64_t sse::extract(__m128i a, uint64_t) { return extract_epi64<imm8>(a); }
 
-	WJR_INTRINSIC_INLINE static __m128i adds_epi8(__m128i a, __m128i b) { return _mm_adds_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i adds_epi16(__m128i a, __m128i b) { return _mm_adds_epi16(a, b); }
+uint64_t sse::getlow(__m128i v) { return simd_cast<uint64_t>(v); }
+uint64_t sse::gethigh(__m128i v) { return extract_epi64<1>(v); }
 
-	WJR_INTRINSIC_INLINE static __m128i adds_epu8(__m128i a, __m128i b) { return _mm_adds_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i adds_epu16(__m128i a, __m128i b) { return _mm_adds_epu16(a, b); }
+template<int imm8>
+__m128i sse::insert_epi16(__m128i a, int i) {
+	return _mm_insert_epi16(a, i, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, int8_t) { return adds_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, int16_t) { return adds_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, uint8_t) { return adds_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i adds(__m128i a, __m128i b, uint16_t) { return adds_epu16(a, b); }
+template<int imm8>
+__m128i sse::insert(__m128i a, int i, int16_t) { return insert_epi16<imm8>(a, i); }
+template<int imm8>
+__m128i sse::insert(__m128i a, int i, uint16_t) { return insert_epi16<imm8>(a, i); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b) {
-		constexpr int s = imm8 & 0x1F;
+void sse::lfence() { _mm_lfence(); }
+
+__m128i sse::load(const __m128i* ptr) { return _mm_load_si128(ptr); }
+__m128i sse::loadu(const __m128i* ptr) { return _mm_loadu_si128(ptr); }
+__m128i sse::loadu_si16(const void* ptr) { return simd::mm_loadu_si16(ptr); }
+__m128i sse::loadu_si32(const void* ptr) { return simd::mm_loadu_si32(ptr); }
+__m128i sse::loadu_si64(const void* ptr) { return simd::mm_loadu_si64(ptr); }
+
+template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+	uint8_t, uint16_t, uint32_t, uint64_t>, int>>
+	__m128i sse::logical_and(__m128i a, __m128i b, T) {
+	return Not(Or(logical_not(a, T()), logical_not(b, T())));
+}
+
+template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+	uint8_t, uint16_t, uint32_t, uint64_t>, int>>
+	__m128i sse::logical_not(__m128i v, T) {
+	auto Zero = zeros();
+	return cmpeq(v, Zero, T());
+}
+
+template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+	uint8_t, uint16_t, uint32_t, uint64_t>, int>>
+	__m128i sse::logical_or(__m128i a, __m128i b, T) {
+	return Not(logical_not(Or(a, b), T()));
+}
+
+__m128i sse::madd_epi16(__m128i a, __m128i b) {
+	return _mm_madd_epi16(a, b);
+}
+
+void sse::maskmoveu(__m128i a, __m128i mask, char* mem_addr) {
+	return _mm_maskmoveu_si128(a, mask, mem_addr);
+}
+
+__m128i sse::max_epi8(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_max_epi8(a, b);
+#else
+	return blendv_epi8(b, a, cmpgt_epi8(a, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::max_epi16(__m128i a, __m128i b) { return _mm_max_epi16(a, b); }
+
+__m128i sse::max_epi32(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_max_epi32(a, b);
+#else
+	return blendv_epi8(b, a, cmpgt_epi32(a, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::max_epu8(__m128i a, __m128i b) { return _mm_max_epu8(a, b); }
+
+__m128i sse::max_epu16(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_max_epu16(a, b);
+#else
+	return add(subs_epu16(b, a), a, uint16_t());
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::max_epu32(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_max_epu32(a, b);
+#else
+	return blendv_epi8(b, a, cmpgt_epu32(a, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::max(__m128i a, __m128i b, int8_t) { return max_epi8(a, b); }
+__m128i sse::max(__m128i a, __m128i b, int16_t) { return max_epi16(a, b); }
+__m128i sse::max(__m128i a, __m128i b, int32_t) { return max_epi32(a, b); }
+__m128i sse::max(__m128i a, __m128i b, uint8_t) { return max_epu8(a, b); }
+__m128i sse::max(__m128i a, __m128i b, uint16_t) { return max_epu16(a, b); }
+__m128i sse::max(__m128i a, __m128i b, uint32_t) { return max_epu32(a, b); }
+
+int8_t sse::max_epi8(__m128i a) {
+	return 0x7fu ^ min_epu8(Xor(a, set1_epi8(0x7fu)));
+}
+
+int16_t sse::max_epi16(__m128i a) {
+#if WJR_SSE4_1
+	return 0x7fffu ^ min_epu16(Xor(a, set1_epi16(0x7fffu)));
+#else
+	a = max_epi16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = max_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	a = max_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
+	return simd_cast<int16_t>(a);
+#endif // WJR_SSE4_1
+}
+
+int32_t sse::max_epi32(__m128i a) {
+	a = max_epi32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = max_epi32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	return simd_cast<int32_t>(a);
+}
+
+uint8_t sse::max_epu8(__m128i a) {
+#if WJR_SSE4_1
+	return 0xffu ^ min_epu8(Xor(a, ones()));
+#else
+	a = max_epu8(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = max_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	a = max_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
+	auto X = simd_cast<uint32_t>(a);
+	return std::max((uint8_t)X, (uint8_t)(X >> 8));
+#endif // WJR_SSE4_1
+}
+
+uint16_t sse::max_epu16(__m128i a) {
+#if WJR_SSE4_1
+	return 0xffffu ^ min_epu16(Xor(a, ones()));
+#else
+	a = max_epu16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = max_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	a = max_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
+	return simd_cast<uint16_t>(a);
+#endif // WJR_SSE4_1
+}
+
+uint32_t sse::max_epu32(__m128i a) {
+	a = max_epu32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = max_epu32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	return simd_cast<uint32_t>(a);
+}
+
+int8_t sse::max(__m128i a, int8_t) { return max_epi8(a); }
+int16_t sse::max(__m128i a, int16_t) { return max_epi16(a); }
+int32_t sse::max(__m128i a, int32_t) { return max_epi32(a); }
+uint8_t sse::max(__m128i a, uint8_t) { return max_epu8(a); }
+uint16_t sse::max(__m128i a, uint16_t) { return max_epu16(a); }
+uint32_t sse::max(__m128i a, uint32_t) { return max_epu32(a); }
+
+void sse::mfence() { _mm_mfence(); }
+
+__m128i sse::min_epi8(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_min_epi8(a, b);
+#else
+	return blendv_epi8(a, b, cmpgt_epi8(a, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::min_epi16(__m128i a, __m128i b) { return _mm_min_epi16(a, b); }
+
+__m128i sse::min_epi32(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_min_epi32(a, b);
+#else
+	return blendv_epi8(a, b, cmpgt_epi32(a, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::min_epu8(__m128i a, __m128i b) { return _mm_min_epu8(a, b); }
+
+__m128i sse::min_epu16(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_min_epu16(a, b);
+#else
+	return blendv_epi8(a, b, cmpgt_epu16(a, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::min_epu32(__m128i a, __m128i b) {
+#if WJR_SSE4_1
+	return _mm_min_epu32(a, b);
+#else
+	return blendv_epi8(a, b, cmpgt_epu32(a, b));
+#endif // WJR_SSE4_1
+}
+
+__m128i sse::min(__m128i a, __m128i b, int8_t) { return min_epi8(a, b); }
+__m128i sse::min(__m128i a, __m128i b, int16_t) { return min_epi16(a, b); }
+__m128i sse::min(__m128i a, __m128i b, int32_t) { return min_epi32(a, b); }
+__m128i sse::min(__m128i a, __m128i b, uint8_t) { return min_epu8(a, b); }
+__m128i sse::min(__m128i a, __m128i b, uint16_t) { return min_epu16(a, b); }
+__m128i sse::min(__m128i a, __m128i b, uint32_t) { return min_epu32(a, b); }
+
+int8_t sse::min_epi8(__m128i a) {
+	return 0x80u ^ min_epu8(Xor(a, setmin_epi8()));
+}
+
+int16_t sse::min_epi16(__m128i a) {
+#if WJR_SSE4_1
+	return 0x8000u ^ min_epu16(Xor(a, setmin_epi16()));
+#else
+	a = min_epi16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = min_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	a = min_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
+	return simd_cast<int16_t>(a);
+#endif // WJR_SSE4_1
+}
+
+int32_t sse::min_epi32(__m128i a) {
+	a = min_epi32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = min_epi32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	return simd_cast<int32_t>(a);
+}
+
+uint8_t sse::min_epu8(__m128i a) {
+#if WJR_SSE4_1
+	a = min_epu8(a, srli_epi16(a, 8));
+	a = _mm_minpos_epu16(a);
+	return simd_cast<uint8_t>(a);
+#else
+	a = min_epu8(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = min_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	a = min_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
+	auto X = simd_cast<uint32_t>(a);
+	return std::min((uint8_t)X, (uint8_t)(X >> 8));
+#endif // WJR_SSE4_1
+}
+
+uint16_t sse::min_epu16(__m128i a) {
+#if WJR_SSE4_1
+	return simd_cast<uint16_t>(_mm_minpos_epu16(a));
+#else
+	a = min_epu16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = min_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	a = min_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
+	return simd_cast<uint16_t>(a);
+#endif // WJR_SSE4_1
+}
+
+uint32_t sse::min_epu32(__m128i a) {
+	a = min_epu32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
+	a = min_epu32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
+	return simd_cast<uint32_t>(a);
+}
+
+int8_t sse::min(__m128i a, int8_t) { return min_epi8(a); }
+int16_t sse::min(__m128i a, int16_t) { return min_epi16(a); }
+int32_t sse::min(__m128i a, int32_t) { return min_epi32(a); }
+uint8_t sse::min(__m128i a, uint8_t) { return min_epu8(a); }
+uint16_t sse::min(__m128i a, uint16_t) { return min_epu16(a); }
+uint32_t sse::min(__m128i a, uint32_t) { return min_epu32(a); }
+
+__m128i sse::move_epi64(__m128i a) { return _mm_move_epi64(a); }
+
+sse::mask_type sse::movemask_epi8(__m128i a) { return _mm_movemask_epi8(a); }
+sse::mask_type sse::movemask_pd(__m128d v) { return _mm_movemask_pd(v); }
+
+sse::mask_type sse::movemask(__m128i v, int8_t) { return movemask_epi8(v); }
+sse::mask_type sse::movemask(__m128i v, int32_t) { return movemask_ps(simd_cast<__m128>(v)); }
+sse::mask_type sse::movemask(__m128i v, int64_t) { return movemask_pd(simd_cast<__m128d>(v)); }
+sse::mask_type sse::movemask(__m128i v, uint8_t) { return movemask(v, int8_t()); }
+sse::mask_type sse::movemask(__m128i v, uint32_t) { return movemask(v, int32_t()); }
+sse::mask_type sse::movemask(__m128i v, uint64_t) { return movemask(v, int64_t()); }
+
+__m128i sse::mul_epu32(__m128i a, __m128i b) { return _mm_mul_epu32(a, b); }
+
+__m128i sse::mulhi_epi16(__m128i a, __m128i b) { return _mm_mulhi_epi16(a, b); }
+
+__m128i sse::mulhi_epu16(__m128i a, __m128i b) { return _mm_mulhi_epu16(a, b); }
+
+__m128i sse::mullo_epi16(__m128i a, __m128i b) { return _mm_mullo_epi16(a, b); }
+
+__m128i sse::negate_epi8(__m128i a) {
 #if WJR_SSSE3
-		return _mm_alignr_epi8(a, b, s);
+	return sign_epi8(a, ones());
 #else
-		if constexpr (s == 0) {
-			return b;
-		}
-		if constexpr (s == 16) {
-			return a;
-		}
-		if constexpr (s < 16) {
-			return Or(slli<16 - s>(a), srli<s>(b));
-		}
-		return srli<s - 16>(a);
+	return sub_epi8(zeros(), a);
 #endif // WJR_SSSE3
-	}
+}
 
-	WJR_INTRINSIC_INLINE static __m128i alignr_epi16(__m128i a, __m128i b, int c) {
-		return Or(slli(a, 16 - c, uint16_t()), srli(b, c, uint16_t()));
-	}
-	WJR_INTRINSIC_INLINE static __m128i alignr_epi32(__m128i a, __m128i b, int c) {
-		return Or(slli(a, 32 - c, uint32_t()), srli(b, c, uint32_t()));
-	}
-	WJR_INTRINSIC_INLINE static __m128i alignr_epi64(__m128i a, __m128i b, int c) {
-		return Or(slli(a, 64 - c, uint64_t()), srli(b, c, uint64_t()));
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, int16_t) {
-		return alignr_epi16(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, int32_t) {
-		return alignr_epi32(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, int64_t) {
-		return alignr_epi64(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, uint16_t) {
-		return alignr_epi16(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, uint32_t) {
-		return alignr_epi32(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m128i alignr(__m128i a, __m128i b, int c, uint64_t) {
-		return alignr_epi64(a, b, c);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i And(__m128i a, __m128i b) { return _mm_and_si128(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i AndNot(__m128i a, __m128i b) { return _mm_andnot_si128(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i avg_epu8(__m128i a, __m128i b) { return _mm_avg_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i avg_epu16(__m128i a, __m128i b) { return _mm_avg_epu16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, int8_t) { return avg_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, int16_t) { return avg_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, uint8_t) { return avg_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i avg(__m128i a, __m128i b, uint16_t) { return avg_epu16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i blendv_epi8(__m128i a, __m128i b, __m128i mask) {
-#if WJR_SSE4_1
-		return _mm_blendv_epi8(a, b, mask);
-#else
-		return Or(AndNot(mask, a), And(mask, b));
-#endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static __m128i blendv_epi16(__m128i a, __m128i b, __m128i mask) {
-		return blendv_epi8(b, a, logical_not(mask, uint16_t()));
-	}
-	WJR_INTRINSIC_INLINE static __m128i blendv_epi32(__m128i a, __m128i b, __m128i mask) {
-		return blendv_epi8(b, a, logical_not(mask, uint32_t()));
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, int8_t) {
-		return blendv_epi8(a, b, mask);
-	}
-	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, int16_t) {
-		return blendv_epi16(a, b, mask);
-	}
-	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, int32_t) {
-		return blendv_epi32(a, b, mask);
-	}
-	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, uint8_t) {
-		return blendv_epi8(a, b, mask);
-	}
-	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, uint16_t) {
-		return blendv_epi16(a, b, mask);
-	}
-	WJR_INTRINSIC_INLINE static __m128i blendv(__m128i a, __m128i b, __m128i mask, uint32_t) {
-		return blendv_epi32(a, b, mask);
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i bslli(__m128i val) { return _mm_bslli_si128(val, imm8); }
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i bsrli(__m128i val) { return _mm_bsrli_si128(val, imm8); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi8(__m128i a, __m128i b) { return _mm_cmpeq_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi16(__m128i a, __m128i b) { return _mm_cmpeq_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi32(__m128i a, __m128i b) { return _mm_cmpeq_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int8_t) { return cmpeq_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int16_t) { return cmpeq_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int32_t) { return cmpeq_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint8_t) { return cmpeq_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint16_t) { return cmpeq_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint32_t) { return cmpeq_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmpge_epi8(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comge_epi8(a, b);
-#elif WJR_SSE4_1
-		return cmpeq_epi8(min_epi8(a, b), b);
-#else
-		return Not(cmpgt_epi8(b, a));
-#endif // WJR_XOP
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmpge_epi16(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comge_epi16(a, b);
-#else
-		return cmpeq_epi16(min_epi16(a, b), b);
-#endif // WJR_XOP
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmpge_epi32(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comge_epi32(a, b);
-#elif WJR_SSE4_1
-		return cmpeq_epi32(min_epi32(a, b), b);
-#else
-		return Not(cmpgt_epi32(b, a));
-#endif // WJR_XOP
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i cmpge_epu8(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comge_epu8(a, b);
-#else
-		return cmpeq_epi8(min_epu8(a, b), b);
-#endif // WJR_XOP
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmpge_epu16(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comge_epu16(a, b);
-#elif WJR_SSE4_1
-		return cmpeq_epi16(min_epu16(a, b), b);
-#else
-		return logical_not(subs(b, a, uint16_t()), uint16_t());
-#endif // WJR_XOP
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmpge_epu32(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comge_epu32(a, b);
-#elif WJR_SSE4_1
-		return cmpeq_epi32(min_epu32(a, b), b);
-#else
-		return Not(cmpgt_epu32(b, a));
-#endif // WJR_XOP
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, int8_t) { return cmpge_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, int16_t) { return cmpge_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, int32_t) { return cmpge_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, uint8_t) { return cmpge_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, uint16_t) { return cmpge_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpge(__m128i a, __m128i b, uint32_t) { return cmpge_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi8(__m128i a, __m128i b) { return _mm_cmpgt_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi16(__m128i a, __m128i b) { return _mm_cmpgt_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi32(__m128i a, __m128i b) { return _mm_cmpgt_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmpgt_epu8(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comgt_epu8(a, b);
-#else
-		return cmpgt_epi8(Xor(a, setmin_epi8()), Xor(b, setmin_epi8()));
-#endif // WJR_XOP
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmpgt_epu16(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comgt_epu16(a, b);
-#else
-		return cmpgt_epi16(Xor(a, setmin_epi16()), Xor(b, setmin_epi16()));
-#endif // WJR_XOP
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmpgt_epu32(__m128i a, __m128i b) {
-#if WJR_XOP
-		return _mm_comgt_epu32(a, b);
-#else
-		return cmpgt_epi32(Xor(a, setmin_epi32()), Xor(b, setmin_epi32()));
-#endif // WJR_XOP
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int8_t) { return cmpgt_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int16_t) { return cmpgt_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int32_t) { return cmpgt_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, uint8_t) { return cmpgt_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, uint16_t) { return cmpgt_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, uint32_t) { return cmpgt_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmple_epi8(__m128i a, __m128i b) {
-		return cmpge_epi8(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmple_epi16(__m128i a, __m128i b) {
-		return cmpge_epi16(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmple_epi32(__m128i a, __m128i b) {
-		return cmpge_epi32(b, a);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i cmple_epu8(__m128i a, __m128i b) {
-		return cmpge_epu8(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmple_epu16(__m128i a, __m128i b) {
-		return cmpge_epu16(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmple_epu32(__m128i a, __m128i b) {
-		return cmpge_epu32(b, a);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, int8_t) { return cmple_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, int16_t) { return cmple_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, int32_t) { return cmple_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, uint8_t) { return cmple_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, uint16_t) { return cmple_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmple(__m128i a, __m128i b, uint32_t) { return cmple_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmplt_epi8(__m128i a, __m128i b) { return _mm_cmplt_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmplt_epi16(__m128i a, __m128i b) { return _mm_cmplt_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmplt_epi32(__m128i a, __m128i b) { return _mm_cmplt_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmplt_epu8(__m128i a, __m128i b) {
-		return cmpgt_epu8(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmplt_epu16(__m128i a, __m128i b) {
-		return cmpgt_epu16(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m128i cmplt_epu32(__m128i a, __m128i b) {
-		return cmpgt_epu32(b, a);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, int8_t) { return cmplt_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, int16_t) { return cmplt_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, int32_t) { return cmplt_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, uint8_t) { return cmplt_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, uint16_t) { return cmplt_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmplt(__m128i a, __m128i b, uint32_t) { return cmplt_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmpne_epi8(__m128i a, __m128i b) { return Not(cmpeq_epi8(a, b)); }
-	WJR_INTRINSIC_INLINE static __m128i cmpne_epi16(__m128i a, __m128i b) { return Not(cmpeq_epi16(a, b)); }
-	WJR_INTRINSIC_INLINE static __m128i cmpne_epi32(__m128i a, __m128i b) { return Not(cmpeq_epi32(a, b)); }
-
-	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, int8_t) { return cmpne_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, int16_t) { return cmpne_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, int32_t) { return cmpne_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, uint8_t) { return cmpne_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, uint16_t) { return cmpne_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpne(__m128i a, __m128i b, uint32_t) { return cmpne_epi32(a, b); }
-
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::equal_to<>, T) {
-		return cmpeq(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::not_equal_to<>, T) {
-		return cmpne(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::greater<>, T) {
-		return cmpgt(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::greater_equal<>, T) {
-		return cmpge(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::less<>, T) {
-		return cmplt(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m128i cmp(__m128i a, __m128i b, std::less_equal<>, T) {
-		return cmple(a, b, T());
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i concat(uint64_t lo, uint64_t hi) {
-		return set_epi64x(hi, lo);
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract_epi8(__m128i a) {
-		static_assert(imm8 >= 0 && imm8 < 16, "imm8 must be in range [0, 15]");
-#if WJR_SSE4_1
-		return _mm_extract_epi8(a, imm8);
-#else
-		if constexpr (imm8 & 1) {
-			return extract_epi16<(imm8 >> 1)>(a) >> 8;
-		}
-		else {
-			return extract_epi16 <(imm8 >> 1)>(a) & 0xff;
-		}
-#endif // WJR_SSE4_1
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract_epi16(__m128i a) {
-		static_assert(imm8 >= 0 && imm8 < 8, "imm8 must be in range [0, 7]");
-		return _mm_extract_epi16(a, imm8);
-	}
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract_epi32(__m128i a) {
-		static_assert(imm8 >= 0 && imm8 < 4, "imm8 must be in range [0, 3]");
-#if WJR_SSE4_1
-		return _mm_extract_epi32(a, imm8);
-#else
-		if constexpr (imm8 == 0) {
-			return simd_cast<uint32_t>(a);
-		}
-		else if constexpr (imm8 == 1) {
-			return static_cast<uint32_t>(simd_cast<uint64_t>(a) >> 32);
-		}
-		else if constexpr (imm8 == 2) {
-			return simd_cast<uint32_t>(shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		}
-		else {
-			return simd_cast<uint32_t>(shuffle_epi32<_MM_SHUFFLE(3, 3, 3, 3)>(a));
-		}
-#endif // WJR_SSE4_1
-	}
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int64_t extract_epi64(__m128i a) {
-		static_assert(imm8 >= 0 && imm8 < 2, "imm8 must be in range [0, 1]");
-#if WJR_SSE4_1
-		return _mm_extract_epi64(a, imm8);
-#else
-		if constexpr (imm8 == 0) {
-			return simd_cast<uint64_t>(a);
-		}
-		else {
-			return simd_cast<uint64_t>(shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		}
-#endif // WJR_SSE4_1
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m128i a, int8_t) { return extract_epi8<imm8>(a); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m128i a, int16_t) { return extract_epi16<imm8>(a); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m128i a, int32_t) { return extract_epi32<imm8>(a); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int64_t extract(__m128i a, int64_t) { return extract_epi64<imm8>(a); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m128i a, uint8_t) { return extract_epi8<imm8>(a); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m128i a, uint16_t) { return extract_epi16<imm8>(a); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m128i a, uint32_t) { return extract_epi32<imm8>(a); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int64_t extract(__m128i a, uint64_t) { return extract_epi64<imm8>(a); }
-
-	WJR_INTRINSIC_INLINE static uint64_t getlow(__m128i v) {
-		return simd_cast<uint64_t>(v);
-	}
-	WJR_INTRINSIC_INLINE static uint64_t gethigh(__m128i v) {
-		return extract_epi64<1>(v);
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert_epi16(__m128i a, int i) {
-		return _mm_insert_epi16(a, i, imm8);
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, int16_t) { return insert_epi16<imm8>(a, i); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, uint16_t) { return insert_epi16<imm8>(a, i); }
-
-	// a is in [L, L + delta]
-	WJR_INTRINSIC_INLINE static __m128i in_range_delta_epu8(__m128i a, __m128i L, __m128i delta) {
-		a = sub(a, L, uint8_t());
-		a = subs(a, delta, uint8_t());
-		return cmpeq(a, zeros(), uint8_t());
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range_delta_epu16(__m128i a, __m128i L, __m128i delta) {
-		a = sub(a, L, uint16_t());
-		a = subs(a, delta, uint16_t());
-		return cmpeq(a, zeros(), uint16_t());
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i in_range_delta(__m128i a, __m128i L, __m128i delta, int8_t) {
-		return in_range_delta_epu8(a, L, delta);
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range_delta(__m128i a, __m128i L, __m128i delta, int16_t) {
-		return in_range_delta_epu16(a, L, delta);
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range_delta(__m128i a, __m128i L, __m128i delta, uint8_t) {
-		return in_range_delta_epu8(a, L, delta);
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range_delta(__m128i a, __m128i L, __m128i delta, uint16_t) {
-		return in_range_delta_epu16(a, L, delta);
-	}
-
-	// a is in [L, R]
-	WJR_INTRINSIC_INLINE static __m128i in_range_epu8(__m128i a, __m128i L, __m128i R) {
-		return in_range_delta(a, L, sub(R, L, uint8_t()), uint8_t());
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range_epu16(__m128i a, __m128i L, __m128i R) {
-		return in_range_delta(a, L, sub(R, L, uint16_t()), uint16_t());
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i in_range(__m128i a, __m128i L, __m128i R, int8_t) {
-		return in_range_epu8(a, L, R);
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range(__m128i a, __m128i L, __m128i R, int16_t) {
-		return in_range_epu16(a, L, R);
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range(__m128i a, __m128i L, __m128i R, uint8_t) {
-		return in_range_epu8(a, L, R);
-	}
-	WJR_INTRINSIC_INLINE static __m128i in_range(__m128i a, __m128i L, __m128i R, uint16_t) {
-		return in_range_epu16(a, L, R);
-	}
-
-	WJR_INTRINSIC_INLINE static void lfence() {
-		_mm_lfence();
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i load(const __m128i* ptr) { return _mm_load_si128(ptr); }
-	WJR_INTRINSIC_INLINE static __m128i loadu(const __m128i* ptr) { return _mm_loadu_si128(ptr); }
-	WJR_INTRINSIC_INLINE static __m128i loadu_si16(const void* ptr) { return simd::mm_loadu_si16(ptr); }
-	WJR_INTRINSIC_INLINE static __m128i loadu_si32(const void* ptr) { return simd::mm_loadu_si32(ptr); }
-	WJR_INTRINSIC_INLINE static __m128i loadu_si64(const void* ptr) { return simd::mm_loadu_si64(ptr); }
-
-	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
-		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
-	WJR_INTRINSIC_INLINE static __m128i logical_and(__m128i a, __m128i b, T) {
-		return Not(Or(logical_not(a, T()), logical_not(b, T())));
-	}
-
-	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
-		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
-	WJR_INTRINSIC_INLINE static __m128i logical_not(__m128i v, T) {
-		auto Zero = zeros();
-		return cmpeq(v, Zero, T());
-	}
-
-	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
-		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
-	WJR_INTRINSIC_INLINE static __m128i logical_or(__m128i a, __m128i b, T) {
-		return Not(logical_not(Or(a, b), T()));
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i madd_epi16(__m128i a, __m128i b) {
-		return _mm_madd_epi16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static void maskmoveu(__m128i a, __m128i mask, char* mem_addr) {
-		return _mm_maskmoveu_si128(a, mask, mem_addr);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i max_epi16(__m128i a, __m128i b) {
-		return _mm_max_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i max_epu8(__m128i a, __m128i b) {
-		return _mm_max_epu8(a, b);
-	}
-
-#if WJR_SSE4_1
-	WJR_INTRINSIC_INLINE static __m128i max_epi8(__m128i a, __m128i b) {
-		return _mm_max_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i max_epi32(__m128i a, __m128i b) {
-		return _mm_max_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i max_epu16(__m128i a, __m128i b) {
-		return _mm_max_epu16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i max_epu32(__m128i a, __m128i b) {
-		return _mm_max_epu32(a, b);
-	}
-#else
-	WJR_INTRINSIC_INLINE static __m128i max_epi8(__m128i a, __m128i b) {
-		return blendv_epi8(b, a, cmpgt_epi8(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m128i max_epi32(__m128i a, __m128i b) {
-		return blendv_epi8(b, a, cmpgt_epi32(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m128i max_epu16(__m128i a, __m128i b) {
-		return blendv_epi8(b, a, cmpgt_epu16(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m128i max_epu32(__m128i a, __m128i b) {
-		return blendv_epi8(b, a, cmpgt_epu32(a, b));
-	}
-#endif // WJR_SSE4_1
-
-	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, int8_t) { return max_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, int16_t) { return max_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, int32_t) { return max_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, uint8_t) { return max_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, uint16_t) { return max_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i max(__m128i a, __m128i b, uint32_t) { return max_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static int8_t max_epi8(__m128i a) {
-		return 0x7fu ^ min_epu8(Xor(a, set1_epi8(0x7fu)));
-	}
-
-	WJR_INTRINSIC_INLINE static int16_t max_epi16(__m128i a) {
-#if WJR_SSE4_1
-		return 0x7fffu ^ min_epu16(Xor(a, set1_epi16(0x7fffu)));
-#else
-		a = max_epi16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = max_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		a = max_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
-		return simd_cast<int16_t>(a);
-#endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static int32_t max_epi32(__m128i a) {
-		a = max_epi32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = max_epi32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		return simd_cast<int32_t>(a);
-	}
-	WJR_INTRINSIC_INLINE static uint8_t max_epu8(__m128i a) {
-#if WJR_SSE4_1
-		return 0xffu ^ min_epu8(Xor(a, ones()));
-#else
-		a = max_epu8(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = max_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		a = max_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
-		auto X = simd_cast<uint32_t>(a);
-		return std::max((uint8_t)X, (uint8_t)(X >> 8));
-#endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static uint16_t max_epu16(__m128i a) {
-#if WJR_SSE4_1
-		return 0xffffu ^ min_epu16(Xor(a, ones()));
-#else
-		a = max_epu16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = max_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		a = max_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
-		return simd_cast<uint16_t>(a);
-#endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static uint32_t max_epu32(__m128i a) {
-		a = max_epu32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = max_epu32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		return simd_cast<uint32_t>(a);
-	}
-
-	WJR_INTRINSIC_INLINE static int8_t max(__m128i a, int8_t) { return max_epi8(a); }
-	WJR_INTRINSIC_INLINE static int16_t max(__m128i a, int16_t) { return max_epi16(a); }
-	WJR_INTRINSIC_INLINE static int32_t max(__m128i a, int32_t) { return max_epi32(a); }
-	WJR_INTRINSIC_INLINE static uint8_t max(__m128i a, uint8_t) { return max_epu8(a); }
-	WJR_INTRINSIC_INLINE static uint16_t max(__m128i a, uint16_t) { return max_epu16(a); }
-	WJR_INTRINSIC_INLINE static uint32_t max(__m128i a, uint32_t) { return max_epu32(a); }
-
-	WJR_INTRINSIC_INLINE static void mfence() { _mm_mfence(); }
-
-	WJR_INTRINSIC_INLINE static __m128i min_epi16(__m128i a, __m128i b) {
-		return _mm_min_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i min_epu8(__m128i a, __m128i b) {
-		return _mm_min_epu8(a, b);
-	}
-
-#if WJR_SSE4_1
-	WJR_INTRINSIC_INLINE static __m128i min_epi8(__m128i a, __m128i b) {
-		return _mm_min_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i min_epi32(__m128i a, __m128i b) {
-		return _mm_min_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i min_epu16(__m128i a, __m128i b) {
-		return _mm_min_epu16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i min_epu32(__m128i a, __m128i b) {
-		return _mm_min_epu32(a, b);
-	}
-#else
-	WJR_INTRINSIC_INLINE static __m128i min_epi8(__m128i a, __m128i b) {
-		return blendv_epi8(a, b, cmpgt_epi8(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m128i min_epi32(__m128i a, __m128i b) {
-		return blendv_epi8(a, b, cmpgt_epi32(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m128i min_epu16(__m128i a, __m128i b) {
-		return blendv_epi8(a, b, cmpgt_epu16(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m128i min_epu32(__m128i a, __m128i b) {
-		return blendv_epi8(a, b, cmpgt_epu32(a, b));
-	}
-#endif // WJR_SSE4_1
-	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, int8_t) { return min_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, int16_t) { return min_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, int32_t) { return min_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, uint8_t) { return min_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, uint16_t) { return min_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i min(__m128i a, __m128i b, uint32_t) { return min_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static int8_t min_epi8(__m128i a) {
-		return 0x80u ^ min_epu8(Xor(a, setmin_epi8()));
-	}
-	WJR_INTRINSIC_INLINE static int16_t min_epi16(__m128i a) {
-#if WJR_SSE4_1
-		return 0x8000u ^ min_epu16(Xor(a, setmin_epi16()));
-#else
-		a = min_epi16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = min_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		a = min_epi16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
-		return simd_cast<int16_t>(a);
-#endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static int32_t min_epi32(__m128i a) {
-		a = min_epi32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = min_epi32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		return simd_cast<int32_t>(a);
-	}
-	WJR_INTRINSIC_INLINE static uint8_t min_epu8(__m128i a) {
-#if WJR_SSE4_1
-		a = min_epu8(a, srli_epi16(a, 8));
-		a = _mm_minpos_epu16(a);
-		return simd_cast<uint8_t>(a);
-#else
-		a = min_epu8(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = min_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		a = min_epu8(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
-		auto X = simd_cast<uint32_t>(a);
-		return std::min((uint8_t)X, (uint8_t)(X >> 8));
-#endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static uint16_t min_epu16(__m128i a) {
-#if WJR_SSE4_1
-		return simd_cast<uint16_t>(_mm_minpos_epu16(a));
-#else
-		a = min_epu16(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = min_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		a = min_epu16(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 1, 0)>(a));
-		return simd_cast<uint16_t>(a);
-#endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static uint32_t min_epu32(__m128i a) {
-		a = min_epu32(a, shuffle_epi32<_MM_SHUFFLE(3, 2, 3, 2)>(a));
-		a = min_epu32(a, shufflelo_epi16<_MM_SHUFFLE(1, 0, 3, 2)>(a));
-		return simd_cast<uint32_t>(a);
-	}
-
-	WJR_INTRINSIC_INLINE static int8_t min(__m128i a, int8_t) { return min_epi8(a); }
-	WJR_INTRINSIC_INLINE static int16_t min(__m128i a, int16_t) { return min_epi16(a); }
-	WJR_INTRINSIC_INLINE static int32_t min(__m128i a, int32_t) { return min_epi32(a); }
-	WJR_INTRINSIC_INLINE static uint8_t min(__m128i a, uint8_t) { return min_epu8(a); }
-	WJR_INTRINSIC_INLINE static uint16_t min(__m128i a, uint16_t) { return min_epu16(a); }
-	WJR_INTRINSIC_INLINE static uint32_t min(__m128i a, uint32_t) { return min_epu32(a); }
-
-	WJR_INTRINSIC_INLINE static __m128i move_epi64(__m128i a) {
-		return _mm_move_epi64(a);
-	}
-
-	WJR_INTRINSIC_INLINE static mask_type movemask_epi8(__m128i a) {
-		return _mm_movemask_epi8(a);
-	}
-	WJR_INTRINSIC_INLINE static mask_type movemask_pd(__m128d v) {
-		return _mm_movemask_pd(v);
-	}
-
-	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int8_t) { return movemask_epi8(v); }
-	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int32_t) { return movemask_ps(simd_cast<__m128>(v)); }
-	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int64_t) { return movemask_pd(simd_cast<__m128d>(v)); }
-	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint8_t) { return movemask(v, int8_t()); }
-	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint32_t) { return movemask(v, int32_t()); }
-	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint64_t) { return movemask(v, int64_t()); }
-
-	WJR_INTRINSIC_INLINE static __m128i mul_epu32(__m128i a, __m128i b) {
-		return _mm_mul_epu32(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i mulhi_epi16(__m128i a, __m128i b) {
-		return _mm_mulhi_epi16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i mulhi_epu16(__m128i a, __m128i b) {
-		return _mm_mulhi_epu16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i mullo_epi16(__m128i a, __m128i b) {
-		return _mm_mullo_epi16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m128i negate_epi8(__m128i a) {
+__m128i sse::negate_epi16(__m128i a) {
 #if WJR_SSSE3
-		return sign_epi8(ones(), a);
+	return sign_epi16(a, ones());
 #else
-		return sub_epi8(zeros(), a);
+	return sub_epi16(zeros(), a);
 #endif // WJR_SSSE3
-	}
-	WJR_INTRINSIC_INLINE static __m128i negate_epi16(__m128i a) {
+}
+
+__m128i sse::negate_epi32(__m128i a) {
 #if WJR_SSSE3
-		return sign_epi16(ones(), a);
+	return sign_epi32(a, ones());
 #else
-		return sub_epi16(zeros(), a);
+	return sub_epi32(zeros(), a);
 #endif // WJR_SSSE3
-	}
-	WJR_INTRINSIC_INLINE static __m128i negate_epi32(__m128i a) {
-#if WJR_SSSE3
-		return sign_epi32(ones(), a);
-#else
-		return sub_epi32(zeros(), a);
-#endif // WJR_SSSE3
-	}
-	WJR_INTRINSIC_INLINE static __m128i negate_epi64(__m128i a) {
-		return sub_epi64(zeros(), a);
-	}
+}
 
-	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int8_t) { return negate_epi8(a); }
-	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int16_t) { return negate_epi16(a); }
-	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int32_t) { return negate_epi32(a); }
-	WJR_INTRINSIC_INLINE static __m128i negate(__m128i a, int64_t) { return negate_epi64(a); }
+__m128i sse::negate_epi64(__m128i a) {
+	return sub_epi64(zeros(), a);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i Not(__m128i v) { return Xor(v, ones()); }
+__m128i sse::negate(__m128i a, int8_t) { return negate_epi8(a); }
+__m128i sse::negate(__m128i a, int16_t) { return negate_epi16(a); }
+__m128i sse::negate(__m128i a, int32_t) { return negate_epi32(a); }
+__m128i sse::negate(__m128i a, int64_t) { return negate_epi64(a); }
+__m128i sse::negate(__m128i a, uint8_t) { return negate_epi8(a); }
+__m128i sse::negate(__m128i a, uint16_t) { return negate_epi16(a); }
+__m128i sse::negate(__m128i a, uint32_t) { return negate_epi32(a); }
+__m128i sse::negate(__m128i a, uint64_t) { return negate_epi64(a); }
 
-	WJR_INTRINSIC_INLINE static __m128i Or(__m128i a, __m128i b) { return _mm_or_si128(a, b); }
+__m128i sse::Not(__m128i v) { return Xor(v, ones()); }
 
-	WJR_INTRINSIC_INLINE static __m128i packs_epi16(__m128i a, __m128i b) {
-		return _mm_packs_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i packs_epi32(__m128i a, __m128i b) {
-		return _mm_packs_epi32(a, b);
-	}
+__m128i sse::Or(__m128i a, __m128i b) { return _mm_or_si128(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i packus_epi16(__m128i a, __m128i b) {
-		return _mm_packus_epi16(a, b);
-	}
+__m128i sse::packs_epi16(__m128i a, __m128i b) { return _mm_packs_epi16(a, b); }
+__m128i sse::packs_epi32(__m128i a, __m128i b) { return _mm_packs_epi32(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si16(const void* ptr) { return loadu_si16(ptr); }
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si32(const void* ptr) { return loadu_si32(ptr); }
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si48(const void* ptr) {
-		return insert_epi16<2>(preloadu_si32(ptr), reinterpret_cast<const uint16_t*>(ptr)[2]);
-	}
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si64(const void* ptr) { return loadu_si64(ptr); }
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si80(const void* ptr) {
-		return insert_epi16<4>(preloadu_si64(ptr), reinterpret_cast<const uint16_t*>(ptr)[4]);
-	}
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si96(const void* ptr) {
+__m128i sse::packus_epi16(__m128i a, __m128i b) { return _mm_packus_epi16(a, b); }
+
+__m128i sse::preloadu_si16(const void* ptr) { return loadu_si16(ptr); }
+__m128i sse::preloadu_si32(const void* ptr) { return loadu_si32(ptr); }
+
+__m128i sse::preloadu_si48(const void* ptr) {
+	return insert_epi16<2>(preloadu_si32(ptr), reinterpret_cast<const uint16_t*>(ptr)[2]);
+}
+
+__m128i sse::preloadu_si64(const void* ptr) { return loadu_si64(ptr); }
+
+__m128i sse::preloadu_si80(const void* ptr) {
+	return insert_epi16<4>(preloadu_si64(ptr), reinterpret_cast<const uint16_t*>(ptr)[4]);
+}
+
+__m128i sse::preloadu_si96(const void* ptr) {
 #if WJR_SSE4_1
-		return insert_epi32<2>(preloadu_si64(ptr), reinterpret_cast<const uint32_t*>(ptr)[2]);
+	return insert_epi32<2>(preloadu_si64(ptr), reinterpret_cast<const uint32_t*>(ptr)[2]);
 #else
-		return insert_epi16<5>(preloadu_si80(ptr), reinterpret_cast<const uint16_t*>(ptr)[5]);
+	return insert_epi16<5>(preloadu_si80(ptr), reinterpret_cast<const uint16_t*>(ptr)[5]);
 #endif // WJR_SSE4_1
-	}
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si112(const void* ptr) {
-		return insert_epi16<6>(preloadu_si96(ptr), reinterpret_cast<const uint16_t*>(ptr)[6]);
-	}
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si128(const void* ptr) { return loadu((__m128i*)ptr); }
+}
 
-	WJR_INTRINSIC_INLINE static __m128i preloadu_si16x(const void* ptr, int n) {
-		// preloadu_si(n * 16)
-		switch (n) {
-		case 0:return zeros();
-		case 1:return preloadu_si16(ptr);
-		case 2:return preloadu_si32(ptr);
-		case 3:return preloadu_si48(ptr);
-		case 4:return preloadu_si64(ptr);
-		case 5:return preloadu_si80(ptr);
-		case 6:return preloadu_si96(ptr);
-		case 7:return preloadu_si112(ptr);
-		default:return preloadu_si128(ptr);
-		}
-	}
+__m128i sse::preloadu_si112(const void* ptr) {
+	return insert_epi16<6>(preloadu_si96(ptr), reinterpret_cast<const uint16_t*>(ptr)[6]);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i sad_epu8(__m128i a, __m128i b) {
-		return _mm_sad_epu8(a, b);
-	}
+__m128i sse::preloadu_si128(const void* ptr) { return loadu((__m128i*)ptr); }
 
-	WJR_INTRINSIC_INLINE static __m128i zeros() { return _mm_setzero_si128(); }
-	WJR_INTRINSIC_INLINE static __m128i ones() { return _mm_set1_epi32(-1); }
+__m128i sse::preloadu_si16x(const void* ptr, int n) {
+	// preloadu_si(n * 16)
+	switch (n) {
+	case 0:return zeros();
+	case 1:return preloadu_si16(ptr);
+	case 2:return preloadu_si32(ptr);
+	case 3:return preloadu_si48(ptr);
+	case 4:return preloadu_si64(ptr);
+	case 5:return preloadu_si80(ptr);
+	case 6:return preloadu_si96(ptr);
+	case 7:return preloadu_si112(ptr);
+	default:return preloadu_si128(ptr);
+	}
+}
 
-	WJR_INTRINSIC_INLINE static __m128i set_epi8(
-		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
-		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
-		return _mm_set_epi8(e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4, e3, e2, e1, e0);
-	}
+__m128i sse::sad_epu8(__m128i a, __m128i b) { return _mm_sad_epu8(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i set_epi16(
-		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
-		return _mm_set_epi16(e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m128i set_epi32(int e3, int e2, int e1, int e0) {
-		return _mm_set_epi32(e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m128i set_epi64x(long long e1, long long e0) {
-		return _mm_set_epi64x(e1, e0);
-	}
+__m128i sse::zeros() { return _mm_setzero_si128(); }
+__m128i sse::ones() { return _mm_set1_epi32(-1); }
 
-	WJR_INTRINSIC_INLINE static __m128i setr_epi8(
-		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
-		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
-		return _mm_setr_epi8(e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4, e3, e2, e1, e0);
-	}
+__m128i sse::set_epi8(
+	char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+	char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
+	return _mm_set_epi8(e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4, e3, e2, e1, e0);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i setr_epi16(
-		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
-		return _mm_setr_epi16(e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m128i setr_epi32(int e3, int e2, int e1, int e0) {
-		return _mm_setr_epi32(e3, e2, e1, e0);
-	}
+__m128i sse::set_epi16(
+	short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
+	return _mm_set_epi16(e7, e6, e5, e4, e3, e2, e1, e0);
+}
+__m128i sse::set_epi32(int e3, int e2, int e1, int e0) {
+	return _mm_set_epi32(e3, e2, e1, e0);
+}
+__m128i sse::set_epi64x(long long e1, long long e0) {
+	return _mm_set_epi64x(e1, e0);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i set1_epi8(int8_t val) { return _mm_set1_epi8(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1_epi16(int16_t val) { return _mm_set1_epi16(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1_epi32(int32_t val) { return _mm_set1_epi32(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1_epi64(int64_t val) { return _mm_set1_epi64x(val); }
+__m128i sse::setr_epi8(
+	char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+	char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
+	return _mm_setr_epi8(e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4, e3, e2, e1, e0);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i set1(int8_t val, int8_t) { return set1_epi8(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1(int16_t val, int16_t) { return set1_epi16(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1(int32_t val, int32_t) { return set1_epi32(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1(int64_t val, int64_t) { return set1_epi64(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1(uint8_t val, uint8_t) { return set1_epi8(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1(uint16_t val, uint16_t) { return set1_epi16(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1(uint32_t val, uint32_t) { return set1_epi32(val); }
-	WJR_INTRINSIC_INLINE static __m128i set1(uint64_t val, uint64_t) { return set1_epi64(val); }
+__m128i sse::setr_epi16(
+	short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
+	return _mm_setr_epi16(e7, e6, e5, e4, e3, e2, e1, e0);
+}
+__m128i sse::setr_epi32(int e3, int e2, int e1, int e0) {
+	return _mm_setr_epi32(e3, e2, e1, e0);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i setmin_epi8() { return set1_epi8(0x80u); }
-	WJR_INTRINSIC_INLINE static __m128i setmin_epi16() { return set1_epi16(0x8000u); }
-	WJR_INTRINSIC_INLINE static __m128i setmin_epi32() { return set1_epi32(0x80000000u); }
+__m128i sse::set1_epi8(int8_t val) { return _mm_set1_epi8(val); }
+__m128i sse::set1_epi16(int16_t val) { return _mm_set1_epi16(val); }
+__m128i sse::set1_epi32(int32_t val) { return _mm_set1_epi32(val); }
+__m128i sse::set1_epi64(int64_t val) { return _mm_set1_epi64x(val); }
 
-	WJR_INTRINSIC_INLINE static __m128i setmin(int8_t) { return setmin_epi8(); }
-	WJR_INTRINSIC_INLINE static __m128i setmin(int16_t) { return setmin_epi16(); }
-	WJR_INTRINSIC_INLINE static __m128i setmin(int32_t) { return setmin_epi32(); }
-	WJR_INTRINSIC_INLINE static __m128i setmin(uint8_t) { return set1_epi32(0); }
-	WJR_INTRINSIC_INLINE static __m128i setmin(uint16_t) { return set1_epi32(0); }
-	WJR_INTRINSIC_INLINE static __m128i setmin(uint32_t) { return set1_epi32(0); }
+__m128i sse::set1(int8_t val, int8_t) { return set1_epi8(val); }
+__m128i sse::set1(int16_t val, int16_t) { return set1_epi16(val); }
+__m128i sse::set1(int32_t val, int32_t) { return set1_epi32(val); }
+__m128i sse::set1(int64_t val, int64_t) { return set1_epi64(val); }
+__m128i sse::set1(uint8_t val, uint8_t) { return set1_epi8(val); }
+__m128i sse::set1(uint16_t val, uint16_t) { return set1_epi16(val); }
+__m128i sse::set1(uint32_t val, uint32_t) { return set1_epi32(val); }
+__m128i sse::set1(uint64_t val, uint64_t) { return set1_epi64(val); }
 
-	WJR_INTRINSIC_INLINE static __m128i setmax_epi8() { return set1_epi8(0x7F); }
-	WJR_INTRINSIC_INLINE static __m128i setmax_epi16() { return set1_epi16(0x7FFF); }
-	WJR_INTRINSIC_INLINE static __m128i setmax_epi32() { return set1_epi32(0x7FFFFFFF); }
+__m128i sse::setmin_epi8() { return set1_epi8(0x80u); }
+__m128i sse::setmin_epi16() { return set1_epi16(0x8000u); }
+__m128i sse::setmin_epi32() { return set1_epi32(0x80000000u); }
 
-	WJR_INTRINSIC_INLINE static __m128i setmax(int8_t) { return setmax_epi8(); }
-	WJR_INTRINSIC_INLINE static __m128i setmax(int16_t) { return setmax_epi16(); }
-	WJR_INTRINSIC_INLINE static __m128i setmax(int32_t) { return setmax_epi32(); }
-	WJR_INTRINSIC_INLINE static __m128i setmax(uint8_t) { return set1_epi32(0xFFFFFFFF); }
-	WJR_INTRINSIC_INLINE static __m128i setmax(uint16_t) { return set1_epi32(0xFFFFFFFF); }
-	WJR_INTRINSIC_INLINE static __m128i setmax(uint32_t) { return set1_epi32(0xFFFFFFFF); }
+__m128i sse::setmin(int8_t) { return setmin_epi8(); }
+__m128i sse::setmin(int16_t) { return setmin_epi16(); }
+__m128i sse::setmin(int32_t) { return setmin_epi32(); }
+__m128i sse::setmin(uint8_t) { return set1_epi32(0); }
+__m128i sse::setmin(uint16_t) { return set1_epi32(0); }
+__m128i sse::setmin(uint32_t) { return set1_epi32(0); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i shuffle_epi32(__m128i v) {
-		static_assert(imm8 >= 0 && imm8 <= 255, "imm8 must be in range [0, 255]");
-		return _mm_shuffle_epi32(v, imm8);
-	}
+__m128i sse::setmax_epi8() { return set1_epi8(0x7F); }
+__m128i sse::setmax_epi16() { return set1_epi16(0x7FFF); }
+__m128i sse::setmax_epi32() { return set1_epi32(0x7FFFFFFF); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i shufflehi_epi16(__m128i v) {
-		return _mm_shufflehi_epi16(v, imm8);
-	}
+__m128i sse::setmax(int8_t) { return setmax_epi8(); }
+__m128i sse::setmax(int16_t) { return setmax_epi16(); }
+__m128i sse::setmax(int32_t) { return setmax_epi32(); }
+__m128i sse::setmax(uint8_t) { return set1_epi32(0xFFFFFFFF); }
+__m128i sse::setmax(uint16_t) { return set1_epi32(0xFFFFFFFF); }
+__m128i sse::setmax(uint32_t) { return set1_epi32(0xFFFFFFFF); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i shufflelo_epi16(__m128i v) {
-		return _mm_shufflelo_epi16(v, imm8);
-	}
+template<int imm8>
+__m128i sse::shuffle_epi32(__m128i v) {
+	static_assert(imm8 >= 0 && imm8 <= 255, "imm8 must be in range [0, 255]");
+	return _mm_shuffle_epi32(v, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i sll_epi16(__m128i a, __m128i b) {
-		return _mm_sll_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sll_epi32(__m128i a, __m128i b) {
-		return _mm_sll_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sll_epi64(__m128i a, __m128i b) {
-		return _mm_sll_epi64(a, b);
-	}
+template<int imm8>
+__m128i sse::shufflehi_epi16(__m128i v) {
+	return _mm_shufflehi_epi16(v, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, int16_t) { return sll_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, int32_t) { return sll_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, int64_t) { return sll_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, uint16_t) { return sll_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, uint32_t) { return sll_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sll(__m128i a, __m128i b, uint64_t) { return sll_epi64(a, b); }
+template<int imm8>
+__m128i sse::shufflelo_epi16(__m128i v) {
+	return _mm_shufflelo_epi16(v, imm8);
+}
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i slli(__m128i v) {
-		return _mm_slli_si128(v, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m128i slli_epi16(__m128i a, int imm8) {
-		return _mm_slli_epi16(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m128i slli_epi32(__m128i a, int imm8) {
-		return _mm_slli_epi32(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m128i slli_epi64(__m128i a, int imm8) {
-		return _mm_slli_epi64(a, imm8);
-	}
+__m128i sse::sll_epi16(__m128i a, __m128i b) {
+	return _mm_sll_epi16(a, b);
+}
+__m128i sse::sll_epi32(__m128i a, __m128i b) {
+	return _mm_sll_epi32(a, b);
+}
+__m128i sse::sll_epi64(__m128i a, __m128i b) {
+	return _mm_sll_epi64(a, b);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, int16_t) { return slli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, int32_t) { return slli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, int64_t) { return slli_epi64(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, uint16_t) { return slli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, uint32_t) { return slli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i slli(__m128i a, int imm8, uint64_t) { return slli_epi64(a, imm8); }
+__m128i sse::sll(__m128i a, __m128i b, int16_t) { return sll_epi16(a, b); }
+__m128i sse::sll(__m128i a, __m128i b, int32_t) { return sll_epi32(a, b); }
+__m128i sse::sll(__m128i a, __m128i b, int64_t) { return sll_epi64(a, b); }
+__m128i sse::sll(__m128i a, __m128i b, uint16_t) { return sll_epi16(a, b); }
+__m128i sse::sll(__m128i a, __m128i b, uint32_t) { return sll_epi32(a, b); }
+__m128i sse::sll(__m128i a, __m128i b, uint64_t) { return sll_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i sra_epi16(__m128i a, __m128i b) {
-		return _mm_sra_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sra_epi32(__m128i a, __m128i b) {
-		return _mm_sra_epi32(a, b);
-	}
+template<int imm8>
+__m128i sse::slli(__m128i v) {
+	return _mm_slli_si128(v, imm8);
+}
+__m128i sse::slli_epi16(__m128i a, int imm8) {
+	return _mm_slli_epi16(a, imm8);
+}
+__m128i sse::slli_epi32(__m128i a, int imm8) {
+	return _mm_slli_epi32(a, imm8);
+}
+__m128i sse::slli_epi64(__m128i a, int imm8) {
+	return _mm_slli_epi64(a, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i sra(__m128i a, __m128i b, int16_t) { return sra_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sra(__m128i a, __m128i b, int32_t) { return sra_epi32(a, b); }
+__m128i sse::slli(__m128i a, int imm8, int16_t) { return slli_epi16(a, imm8); }
+__m128i sse::slli(__m128i a, int imm8, int32_t) { return slli_epi32(a, imm8); }
+__m128i sse::slli(__m128i a, int imm8, int64_t) { return slli_epi64(a, imm8); }
+__m128i sse::slli(__m128i a, int imm8, uint16_t) { return slli_epi16(a, imm8); }
+__m128i sse::slli(__m128i a, int imm8, uint32_t) { return slli_epi32(a, imm8); }
+__m128i sse::slli(__m128i a, int imm8, uint64_t) { return slli_epi64(a, imm8); }
 
-	WJR_INTRINSIC_INLINE static __m128i srai_epi16(__m128i a, int imm8) {
-		return _mm_srai_epi16(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m128i srai_epi32(__m128i a, int imm8) {
-		return _mm_srai_epi32(a, imm8);
-	}
+__m128i sse::sra_epi16(__m128i a, __m128i b) { return _mm_sra_epi16(a, b); }
+__m128i sse::sra_epi32(__m128i a, __m128i b) { return _mm_sra_epi32(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i srai(__m128i a, int imm8, int16_t) { return srai_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i srai(__m128i a, int imm8, int32_t) { return srai_epi32(a, imm8); }
+__m128i sse::sra(__m128i a, __m128i b, int16_t) { return sra_epi16(a, b); }
+__m128i sse::sra(__m128i a, __m128i b, int32_t) { return sra_epi32(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i srl_epi16(__m128i a, __m128i b) {
-		return _mm_srl_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i srl_epi32(__m128i a, __m128i b) {
-		return _mm_srl_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i srl_epi64(__m128i a, __m128i b) {
-		return _mm_srl_epi64(a, b);
-	}
+__m128i sse::srai_epi16(__m128i a, int imm8) { return _mm_srai_epi16(a, imm8); }
+__m128i sse::srai_epi32(__m128i a, int imm8) { return _mm_srai_epi32(a, imm8); }
 
-	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, int16_t) { return srl_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, int32_t) { return srl_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, int64_t) { return srl_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, uint16_t) { return srl_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, uint32_t) { return srl_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i srl(__m128i a, __m128i b, uint64_t) { return srl_epi64(a, b); }
+__m128i sse::srai(__m128i a, int imm8, int16_t) { return srai_epi16(a, imm8); }
+__m128i sse::srai(__m128i a, int imm8, int32_t) { return srai_epi32(a, imm8); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i srli(__m128i v) {
-		return _mm_srli_si128(v, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m128i srli_epi16(__m128i a, int imm8) {
-		return _mm_srli_epi16(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m128i srli_epi32(__m128i a, int imm8) {
-		return _mm_srli_epi32(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m128i srli_epi64(__m128i a, int imm8) {
-		return _mm_srli_epi64(a, imm8);
-	}
+__m128i sse::srl_epi16(__m128i a, __m128i b) { return _mm_srl_epi16(a, b); }
+__m128i sse::srl_epi32(__m128i a, __m128i b) { return _mm_srl_epi32(a, b); }
+__m128i sse::srl_epi64(__m128i a, __m128i b) { return _mm_srl_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, int16_t) { return srli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, int32_t) { return srli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, int64_t) { return srli_epi64(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, uint16_t) { return srli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, uint32_t) { return srli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m128i srli(__m128i a, int imm8, uint64_t) { return srli_epi64(a, imm8); }
+__m128i sse::srl(__m128i a, __m128i b, int16_t) { return srl_epi16(a, b); }
+__m128i sse::srl(__m128i a, __m128i b, int32_t) { return srl_epi32(a, b); }
+__m128i sse::srl(__m128i a, __m128i b, int64_t) { return srl_epi64(a, b); }
+__m128i sse::srl(__m128i a, __m128i b, uint16_t) { return srl_epi16(a, b); }
+__m128i sse::srl(__m128i a, __m128i b, uint32_t) { return srl_epi32(a, b); }
+__m128i sse::srl(__m128i a, __m128i b, uint64_t) { return srl_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static void stream(__m128i* ptr, __m128i v) {
-		_mm_stream_si128(ptr, v);
-	}
+template<int imm8>
+__m128i sse::srli(__m128i v) {
+	return _mm_srli_si128(v, imm8);
+}
+__m128i sse::srli_epi16(__m128i a, int imm8) {
+	return _mm_srli_epi16(a, imm8);
+}
+__m128i sse::srli_epi32(__m128i a, int imm8) {
+	return _mm_srli_epi32(a, imm8);
+}
+__m128i sse::srli_epi64(__m128i a, int imm8) {
+	return _mm_srli_epi64(a, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static void store(__m128i* ptr, __m128i val) { _mm_store_si128(ptr, val); }
-	WJR_INTRINSIC_INLINE static void storeu(__m128i* ptr, __m128i val) { _mm_storeu_si128(ptr, val); }
-	/*
-	WJR_INTRINSIC_INLINE static void storeu_si16(void* ptr, __m128i val) { _mm_storeu_si16(ptr, val); }
-	WJR_INTRINSIC_INLINE static void storeu_si32(void* ptr, __m128i val) { _mm_storeu_si32(ptr, val); }
-	WJR_INTRINSIC_INLINE static void storeu_si64(void* ptr, __m128i val) { _mm_storeu_si64(ptr, val); }
-	*/
+__m128i sse::srli(__m128i a, int imm8, int16_t) { return srli_epi16(a, imm8); }
+__m128i sse::srli(__m128i a, int imm8, int32_t) { return srli_epi32(a, imm8); }
+__m128i sse::srli(__m128i a, int imm8, int64_t) { return srli_epi64(a, imm8); }
+__m128i sse::srli(__m128i a, int imm8, uint16_t) { return srli_epi16(a, imm8); }
+__m128i sse::srli(__m128i a, int imm8, uint32_t) { return srli_epi32(a, imm8); }
+__m128i sse::srli(__m128i a, int imm8, uint64_t) { return srli_epi64(a, imm8); }
 
-	WJR_INTRINSIC_INLINE static __m128i sub_epi8(__m128i a, __m128i b) {
-		return _mm_sub_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sub_epi16(__m128i a, __m128i b) {
-		return _mm_sub_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sub_epi32(__m128i a, __m128i b) {
-		return _mm_sub_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sub_epi64(__m128i a, __m128i b) {
-		return _mm_sub_epi64(a, b);
-	}
+void sse::stream(__m128i* ptr, __m128i v) { _mm_stream_si128(ptr, v); }
 
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int8_t) { return sub_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int16_t) { return sub_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int32_t) { return sub_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, int64_t) { return sub_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint8_t) { return sub_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint16_t) { return sub_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint32_t) { return sub_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sub(__m128i a, __m128i b, uint64_t) { return sub_epi64(a, b); }
+void sse::store(__m128i* ptr, __m128i val) { _mm_store_si128(ptr, val); }
+void sse::storeu(__m128i* ptr, __m128i val) { _mm_storeu_si128(ptr, val); }
 
-	WJR_INTRINSIC_INLINE static __m128i subs_epi8(__m128i a, __m128i b) {
-		return _mm_subs_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i subs_epi16(__m128i a, __m128i b) {
-		return _mm_subs_epi16(a, b);
-	}
+__m128i sse::sub_epi8(__m128i a, __m128i b) { return _mm_sub_epi8(a, b); }
+__m128i sse::sub_epi16(__m128i a, __m128i b) { return _mm_sub_epi16(a, b); }
+__m128i sse::sub_epi32(__m128i a, __m128i b) { return _mm_sub_epi32(a, b); }
+__m128i sse::sub_epi64(__m128i a, __m128i b) { return _mm_sub_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i subs_epu8(__m128i a, __m128i b) {
-		return _mm_subs_epu8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i subs_epu16(__m128i a, __m128i b) {
-		return _mm_subs_epu16(a, b);
-	}
+__m128i sse::sub(__m128i a, __m128i b, int8_t) { return sub_epi8(a, b); }
+__m128i sse::sub(__m128i a, __m128i b, int16_t) { return sub_epi16(a, b); }
+__m128i sse::sub(__m128i a, __m128i b, int32_t) { return sub_epi32(a, b); }
+__m128i sse::sub(__m128i a, __m128i b, int64_t) { return sub_epi64(a, b); }
+__m128i sse::sub(__m128i a, __m128i b, uint8_t) { return sub_epi8(a, b); }
+__m128i sse::sub(__m128i a, __m128i b, uint16_t) { return sub_epi16(a, b); }
+__m128i sse::sub(__m128i a, __m128i b, uint32_t) { return sub_epi32(a, b); }
+__m128i sse::sub(__m128i a, __m128i b, uint64_t) { return sub_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, int8_t) { return subs_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, int16_t) { return subs_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, uint8_t) { return subs_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i subs(__m128i a, __m128i b, uint16_t) { return subs_epu16(a, b); }
+__m128i sse::subs_epi8(__m128i a, __m128i b) { return _mm_subs_epi8(a, b); }
+__m128i sse::subs_epi16(__m128i a, __m128i b) { return _mm_subs_epi16(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi8(__m128i a, __m128i b) {
-		return _mm_unpackhi_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi16(__m128i a, __m128i b) {
-		return _mm_unpackhi_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi32(__m128i a, __m128i b) {
-		return _mm_unpackhi_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i unpackhi_epi64(__m128i a, __m128i b) {
-		return _mm_unpackhi_epi64(a, b);
-	}
+__m128i sse::subs_epu8(__m128i a, __m128i b) { return _mm_subs_epu8(a, b); }
+__m128i sse::subs_epu16(__m128i a, __m128i b) { return _mm_subs_epu16(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int8_t) { return unpackhi_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int16_t) { return unpackhi_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int32_t) { return unpackhi_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, int64_t) { return unpackhi_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint8_t) { return unpackhi_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint16_t) { return unpackhi_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint32_t) { return unpackhi_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpackhi(__m128i a, __m128i b, uint64_t) { return unpackhi_epi64(a, b); }
+__m128i sse::subs(__m128i a, __m128i b, int8_t) { return subs_epi8(a, b); }
+__m128i sse::subs(__m128i a, __m128i b, int16_t) { return subs_epi16(a, b); }
+__m128i sse::subs(__m128i a, __m128i b, uint8_t) { return subs_epu8(a, b); }
+__m128i sse::subs(__m128i a, __m128i b, uint16_t) { return subs_epu16(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi8(__m128i a, __m128i b) {
-		return _mm_unpacklo_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi16(__m128i a, __m128i b) {
-		return _mm_unpacklo_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi32(__m128i a, __m128i b) {
-		return _mm_unpacklo_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i unpacklo_epi64(__m128i a, __m128i b) {
-		return _mm_unpacklo_epi64(a, b);
-	}
+__m128i sse::unpackhi_epi8(__m128i a, __m128i b) { return _mm_unpackhi_epi8(a, b); }
+__m128i sse::unpackhi_epi16(__m128i a, __m128i b) { return _mm_unpackhi_epi16(a, b); }
+__m128i sse::unpackhi_epi32(__m128i a, __m128i b) { return _mm_unpackhi_epi32(a, b); }
+__m128i sse::unpackhi_epi64(__m128i a, __m128i b) { return _mm_unpackhi_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int8_t) { return unpacklo_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int16_t) { return unpacklo_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int32_t) { return unpacklo_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, int64_t) { return unpacklo_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, uint8_t) { return unpacklo_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, uint16_t) { return unpacklo_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i unpacklo(__m128i a, __m128i b, uint32_t) { return unpacklo_epi32(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, int8_t) { return unpackhi_epi8(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, int16_t) { return unpackhi_epi16(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, int32_t) { return unpackhi_epi32(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, int64_t) { return unpackhi_epi64(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, uint8_t) { return unpackhi_epi8(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, uint16_t) { return unpackhi_epi16(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, uint32_t) { return unpackhi_epi32(a, b); }
+__m128i sse::unpackhi(__m128i a, __m128i b, uint64_t) { return unpackhi_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i Xor(__m128i a, __m128i b) { return _mm_xor_si128(a, b); }
+__m128i sse::unpacklo_epi8(__m128i a, __m128i b) { return _mm_unpacklo_epi8(a, b); }
+__m128i sse::unpacklo_epi16(__m128i a, __m128i b) { return _mm_unpacklo_epi16(a, b); }
+__m128i sse::unpacklo_epi32(__m128i a, __m128i b) { return _mm_unpacklo_epi32(a, b); }
+__m128i sse::unpacklo_epi64(__m128i a, __m128i b) { return _mm_unpacklo_epi64(a, b); }
+
+__m128i sse::unpacklo(__m128i a, __m128i b, int8_t) { return unpacklo_epi8(a, b); }
+__m128i sse::unpacklo(__m128i a, __m128i b, int16_t) { return unpacklo_epi16(a, b); }
+__m128i sse::unpacklo(__m128i a, __m128i b, int32_t) { return unpacklo_epi32(a, b); }
+__m128i sse::unpacklo(__m128i a, __m128i b, int64_t) { return unpacklo_epi64(a, b); }
+__m128i sse::unpacklo(__m128i a, __m128i b, uint8_t) { return unpacklo_epi8(a, b); }
+__m128i sse::unpacklo(__m128i a, __m128i b, uint16_t) { return unpacklo_epi16(a, b); }
+__m128i sse::unpacklo(__m128i a, __m128i b, uint32_t) { return unpacklo_epi32(a, b); }
+
+__m128i sse::Xor(__m128i a, __m128i b) { return _mm_xor_si128(a, b); }
 
 #endif // WJR_SSE2
 
 #if WJR_SSE3
-	WJR_INTRINSIC_INLINE static __m128i lddqu(const __m128i* ptr) { return _mm_lddqu_si128(ptr); }
+__m128i sse::lddqu(const __m128i* ptr) { return _mm_lddqu_si128(ptr); }
 #endif // WJR_SSE3
 
 #if WJR_SSSE3
 
-	WJR_INTRINSIC_INLINE static __m128i abs_epi8(__m128i val) { return _mm_abs_epi8(val); }
-	WJR_INTRINSIC_INLINE static __m128i abs_epi16(__m128i val) { return _mm_abs_epi16(val); }
-	WJR_INTRINSIC_INLINE static __m128i abs_epi32(__m128i val) { return _mm_abs_epi32(val); }
+__m128i sse::abs_epi8(__m128i val) { return _mm_abs_epi8(val); }
+__m128i sse::abs_epi16(__m128i val) { return _mm_abs_epi16(val); }
+__m128i sse::abs_epi32(__m128i val) { return _mm_abs_epi32(val); }
 
-	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, int8_t) { return abs_epi8(val); }
-	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, int16_t) { return abs_epi16(val); }
-	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, int32_t) { return abs_epi32(val); }
-	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, uint8_t) { return val; }
-	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, uint16_t) { return val; }
-	WJR_INTRINSIC_INLINE static __m128i abs(__m128i val, uint32_t) { return val; }
+__m128i sse::abs(__m128i val, int8_t) { return abs_epi8(val); }
+__m128i sse::abs(__m128i val, int16_t) { return abs_epi16(val); }
+__m128i sse::abs(__m128i val, int32_t) { return abs_epi32(val); }
+__m128i sse::abs(__m128i val, uint8_t) { return val; }
+__m128i sse::abs(__m128i val, uint16_t) { return val; }
+__m128i sse::abs(__m128i val, uint32_t) { return val; }
 
-	WJR_INTRINSIC_INLINE static __m128i shuffle_epi8(__m128i v, __m128i imm8) {
-		return _mm_shuffle_epi8(v, imm8);
-	}
+__m128i sse::shuffle_epi8(__m128i v, __m128i imm8) { return _mm_shuffle_epi8(v, imm8); }
 
-	WJR_INTRINSIC_INLINE static __m128i sign_epi8(__m128i a, __m128i b) {
-		return _mm_sign_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sign_epi16(__m128i a, __m128i b) {
-		return _mm_sign_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m128i sign_epi32(__m128i a, __m128i b) {
-		return _mm_sign_epi32(a, b);
-	}
+__m128i sse::sign_epi8(__m128i a, __m128i b) { return _mm_sign_epi8(a, b); }
+__m128i sse::sign_epi16(__m128i a, __m128i b) { return _mm_sign_epi16(a, b); }
+__m128i sse::sign_epi32(__m128i a, __m128i b) { return _mm_sign_epi32(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, int8_t) { return sign_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, int16_t) { return sign_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, int32_t) { return sign_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, uint8_t) { return sign_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, uint16_t) { return sign_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i sign(__m128i a, __m128i b, uint32_t) { return sign_epi32(a, b); }
+__m128i sse::sign(__m128i a, __m128i b, int8_t) { return sign_epi8(a, b); }
+__m128i sse::sign(__m128i a, __m128i b, int16_t) { return sign_epi16(a, b); }
+__m128i sse::sign(__m128i a, __m128i b, int32_t) { return sign_epi32(a, b); }
+__m128i sse::sign(__m128i a, __m128i b, uint8_t) { return sign_epi8(a, b); }
+__m128i sse::sign(__m128i a, __m128i b, uint16_t) { return sign_epi16(a, b); }
+__m128i sse::sign(__m128i a, __m128i b, uint32_t) { return sign_epi32(a, b); }
 
 #endif // WJR_SSSE3
 
 #if WJR_SSE4_1
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i blend_epi16(__m128i a, __m128i b) {
-		return _mm_blend_epi16(a, b, imm8);
-	}
+template<int imm8>
+__m128i sse::blend_epi16(__m128i a, __m128i b) {
+	return _mm_blend_epi16(a, b, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i cmpeq_epi64(__m128i a, __m128i b) { return _mm_cmpeq_epi64(a, b); }
+__m128i sse::cmpeq_epi64(__m128i a, __m128i b) { return _mm_cmpeq_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, int64_t) { return cmpeq_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m128i cmpeq(__m128i a, __m128i b, uint64_t) { return cmpeq_epi64(a, b); }
+__m128i sse::cmpeq(__m128i a, __m128i b, int64_t) { return cmpeq_epi64(a, b); }
+__m128i sse::cmpeq(__m128i a, __m128i b, uint64_t) { return cmpeq_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i cmpgt_epi64(__m128i a, __m128i b) { return _mm_cmpgt_epi64(a, b); }
+__m128i sse::cmpgt_epi64(__m128i a, __m128i b) { return _mm_cmpgt_epi64(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i cmpgt(__m128i a, __m128i b, int64_t) { return cmpgt_epi64(a, b); }
+__m128i sse::cmpgt(__m128i a, __m128i b, int64_t) { return cmpgt_epi64(a, b); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert_epi8(__m128i a, int i) {
-		return _mm_insert_epi8(a, i, imm8);
-	}
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert_epi32(__m128i a, int i) {
-		return _mm_insert_epi32(a, i, imm8);
-	}
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert_epi64(__m128i a, int64_t i) {
-		return _mm_insert_epi64(a, i, imm8);
-	}
+template<int imm8>
+__m128i sse::insert_epi8(__m128i a, int i) {
+	return _mm_insert_epi8(a, i, imm8);
+}
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, int8_t) { return insert_epi8<imm8>(a, i); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, int32_t) { return insert_epi32<imm8>(a, i); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int64_t i, int64_t) { return insert_epi64<imm8>(a, i); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, uint8_t) { return insert_epi8<imm8>(a, i); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int i, uint32_t) { return insert_epi32<imm8>(a, i); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i insert(__m128i a, int64_t i, uint64_t) { return insert_epi64<imm8>(a, i); }
+template<int imm8>
+__m128i sse::insert_epi32(__m128i a, int i) {
+	return _mm_insert_epi32(a, i, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i minpos_epu16(__m128i a) { return _mm_minpos_epu16(a); }
+template<int imm8>
+__m128i sse::insert_epi64(__m128i a, int64_t i) {
+	return _mm_insert_epi64(a, i, imm8);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i mul_epi32(__m128i a, __m128i b) {
-		return _mm_mul_epi32(a, b);
-	}
+template<int imm8>
+__m128i sse::insert(__m128i a, int i, int8_t) { return insert_epi8<imm8>(a, i); }
+template<int imm8>
+__m128i sse::insert(__m128i a, int i, int32_t) { return insert_epi32<imm8>(a, i); }
+template<int imm8>
+__m128i sse::insert(__m128i a, int64_t i, int64_t) { return insert_epi64<imm8>(a, i); }
+template<int imm8>
+__m128i sse::insert(__m128i a, int i, uint8_t) { return insert_epi8<imm8>(a, i); }
+template<int imm8>
+__m128i sse::insert(__m128i a, int i, uint32_t) { return insert_epi32<imm8>(a, i); }
+template<int imm8>
+__m128i sse::insert(__m128i a, int64_t i, uint64_t) { return insert_epi64<imm8>(a, i); }
 
-	WJR_INTRINSIC_INLINE static __m128i mullo_epi32(__m128i a, __m128i b) {
-		return _mm_mullo_epi32(a, b);
-	}
+__m128i sse::minpos_epu16(__m128i a) { return _mm_minpos_epu16(a); }
 
+__m128i sse::mul_epi32(__m128i a, __m128i b) { return _mm_mul_epi32(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i packus_epi32(__m128i a, __m128i b) {
-		return _mm_packus_epi32(a, b);
-	}
+__m128i sse::mullo_epi32(__m128i a, __m128i b) { return _mm_mullo_epi32(a, b); }
 
-	WJR_INTRINSIC_INLINE static __m128i stream_load(__m128i* p) {
-		return _mm_stream_load_si128(p);
-	}
+__m128i sse::packus_epi32(__m128i a, __m128i b) { return _mm_packus_epi32(a, b); }
 
-	WJR_INTRINSIC_INLINE static int test_all_ones(__m128i a) {
-		return _mm_test_all_ones(a);
-	}
+__m128i sse::stream_load(__m128i* p) { return _mm_stream_load_si128(p); }
 
-	WJR_INTRINSIC_INLINE static int test_all_zeros(__m128i a, __m128i b) {
-		return _mm_test_all_zeros(a, b);
-	}
+int sse::test_all_ones(__m128i a) { return _mm_test_all_ones(a); }
 
-	WJR_INTRINSIC_INLINE static int test_all_zeros(__m128i a) {
-		return _mm_test_all_zeros(a, a);
-	}
+int sse::test_all_zeros(__m128i a, __m128i b) { return _mm_test_all_zeros(a, b); }
 
-	WJR_INTRINSIC_INLINE static int test_mix_ones_zeros(__m128i a, __m128i b) {
-		return _mm_test_mix_ones_zeros(a, b);
-	}
+int sse::test_all_zeros(__m128i a) { return _mm_test_all_zeros(a, a); }
 
-	WJR_INTRINSIC_INLINE static int testc(__m128i a, __m128i b) {
-		return _mm_testc_si128(a, b);
-	}
+int sse::test_mix_ones_zeros(__m128i a, __m128i b) { return _mm_test_mix_ones_zeros(a, b); }
 
-	WJR_INTRINSIC_INLINE static int testnzc(__m128i a, __m128i b) {
-		return _mm_testnzc_si128(a, b);
-	}
+int sse::testc(__m128i a, __m128i b) { return _mm_testc_si128(a, b); }
 
-	WJR_INTRINSIC_INLINE static int testz(__m128i a, __m128i b) {
-		return _mm_testz_si128(a, b);
-	}
+int sse::testnzc(__m128i a, __m128i b) { return _mm_testnzc_si128(a, b); }
+
+int sse::testz(__m128i a, __m128i b) {
+	return _mm_testz_si128(a, b);
+}
 #endif // WJR_SSE4_1
 
-};
+/*------AVX------*/
 
-struct avx {
-	using mask_type = uint32_t;
-#if WJR_AVX
-	using float_type = __m256;
-	using int_type = __m256i;
-	using double_type = __m256d;
-#endif // WJR_AVX
+constexpr size_t avx::width() { return 256; }
 
-	constexpr static size_t width() { return 256; }
-
-	constexpr static mask_type mask() { return 0xffffffff; }
+constexpr avx::mask_type avx::mask() { return 0xffffffff; }
 
 #if WJR_AVX
 
-	WJR_INTRINSIC_INLINE static __m256i concat(__m128i a, __m128i b) {
-		return insert_si128<1>(simd_cast<__m256i>(a), b);
-	}
+__m256i avx::concat(__m128i a, __m128i b) {
+	return insert_si128<1>(simd_cast<__m256i>(a), b);
+}
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract_epi32(__m256i v) { return _mm256_extract_epi32(v, imm8); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int64_t extract_epi64(__m256i v) { return _mm256_extract_epi64(v, imm8); }
+template<int imm8>
+int avx::extract_epi32(__m256i v) { return _mm256_extract_epi32(v, imm8); }
+template<int imm8>
+int64_t avx::extract_epi64(__m256i v) { return _mm256_extract_epi64(v, imm8); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m256i v, int32_t) { return extract_epi32<imm8>(v); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int64_t extract(__m256i v, int64_t) { return extract_epi64<imm8>(v); }
+template<int imm8>
+int avx::extract(__m256i v, int32_t) { return extract_epi32<imm8>(v); }
+template<int imm8>
+int64_t avx::extract(__m256i v, int64_t) { return extract_epi64<imm8>(v); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m128i extract_si128(__m256i v) {
+template<int imm8>
+__m128i avx::extract_si128(__m256i v) {
 #if WJR_AVX2
-		return _mm256_extracti128_si256(v, imm8);
+	return _mm256_extracti128_si256(v, imm8);
 #else
-		return _mm256_extractf128_si256(v, imm8);
+	return _mm256_extractf128_si256(v, imm8);
 #endif // WJR_AVX2
-	}
+}
 
-	WJR_INTRINSIC_INLINE static __m128i getlow(__m256i a) {
-		return simd_cast<__m128i>(a);
-	}
+__m128i avx::getlow(__m256i a) {
+	return simd_cast<__m128i>(a);
+}
 
-	WJR_INTRINSIC_INLINE static __m128i gethigh(__m256i a) {
-		return extract_si128<1>(a);
-	}
+__m128i avx::gethigh(__m256i a) {
+	return extract_si128<1>(a);
+}
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i insert_epi8(__m256i v, int8_t i) { return _mm256_insert_epi8(v, i, imm8); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i insert_epi16(__m256i v, int16_t i) { return _mm256_insert_epi16(v, i, imm8); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i insert_epi32(__m256i v, int32_t i) { return _mm256_insert_epi32(v, i, imm8); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i insert_epi64(__m256i v, int64_t i) { return _mm256_insert_epi64(v, i, imm8); }
+template<int imm8>
+__m256i avx::insert_epi8(__m256i v, int8_t i) { return _mm256_insert_epi8(v, i, imm8); }
+template<int imm8>
+__m256i avx::insert_epi16(__m256i v, int16_t i) { return _mm256_insert_epi16(v, i, imm8); }
+template<int imm8>
+__m256i avx::insert_epi32(__m256i v, int32_t i) { return _mm256_insert_epi32(v, i, imm8); }
+template<int imm8>
+__m256i avx::insert_epi64(__m256i v, int64_t i) { return _mm256_insert_epi64(v, i, imm8); }
 
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i insert_si128(__m256i a, __m128i b) {
+template<int imm8>
+__m256i avx::insert_si128(__m256i a, __m128i b) {
 #if WJR_AVX2
-		return _mm256_inserti128_si256(a, b, imm8);
+	return _mm256_inserti128_si256(a, b, imm8);
 #else
-		return _mm256_insertf128_si256(a, b, imm8);
+	return _mm256_insertf128_si256(a, b, imm8);
 #endif // WJR_AVX2
-	}
+}
 
-	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
-		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
-	WJR_INTRINSIC_INLINE static __m256i logical_and(__m256i a, __m256i b, T) {
-		return Not(Or(logical_not(a, T()), logical_not(b, T())));
-	}
+__m256i avx::load(const __m256i* p) { return _mm256_load_si256(p); }
+__m256i avx::loadu(const __m256i* p) { return _mm256_loadu_si256(p); }
 
-	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
-		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
-	WJR_INTRINSIC_INLINE static __m256i logical_not(__m256i v, T) {
-		auto Zero = zeros();
-		return cmpeq(v, Zero, T());
-	}
+__m256i avx::ones() { return _mm256_set1_epi32(-1); }
 
-	template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
-		uint8_t, uint16_t, uint32_t, uint64_t>, int> = 0>
-	WJR_INTRINSIC_INLINE static __m256i logical_or(__m256i a, __m256i b, T) {
-		return Not(logical_not(Or(a, b), T()));
-	}
+__m256i avx::preloadu_si16(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si16(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i zeros() { return _mm256_setzero_si256(); }
-	WJR_INTRINSIC_INLINE static __m256i ones() { return _mm256_set1_epi32(-1); }
+__m256i avx::preloadu_si32(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si32(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i set_epi8(
-		char e31, char e30, char e29, char e28, char e27, char e26, char e25, char e24,
-		char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
-		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
-		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
-		return _mm256_set_epi8(
-			e31, e30, e29, e28, e27, e26, e25, e24,
-			e23, e22, e21, e20, e19, e18, e17, e16,
-			e15, e14, e13, e12, e11, e10, e9, e8,
-			e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m256i set_epi16(
-		short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
-		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
-		return _mm256_set_epi16(
-			e15, e14, e13, e12, e11, e10, e9, e8,
-			e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m256i set_epi32(
-		int e7, int e6, int e5, int e4, int e3, int e2, int e1, int e0) {
-		return _mm256_set_epi32(e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m256i set_epi64x(
-		long long e3, long long e2, long long e1, long long e0) {
-		return _mm256_set_epi64x(e3, e2, e1, e0);
-	}
+__m256i avx::preloadu_si48(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si48(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i setr_epi8(
-		char e31, char e30, char e29, char e28, char e27, char e26, char e25, char e24,
-		char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
-		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
-		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
-		return _mm256_setr_epi8(
-			e31, e30, e29, e28, e27, e26, e25, e24,
-			e23, e22, e21, e20, e19, e18, e17, e16,
-			e15, e14, e13, e12, e11, e10, e9, e8,
-			e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m256i setr_epi16(
-		short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
-		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
-		return _mm256_setr_epi16(
-			e15, e14, e13, e12, e11, e10, e9, e8,
-			e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m256i setr_epi32(
-		int e7, int e6, int e5, int e4, int e3, int e2, int e1, int e0) {
-		return _mm256_setr_epi32(e7, e6, e5, e4, e3, e2, e1, e0);
-	}
-	WJR_INTRINSIC_INLINE static __m256i setr_epi64x(
-		long long e3, long long e2, long long e1, long long e0) {
-		return _mm256_setr_epi64x(e3, e2, e1, e0);
-	}
+__m256i avx::preloadu_si64(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si64(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i set1_epi8(int8_t a) { return _mm256_set1_epi8(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1_epi16(int16_t a) { return _mm256_set1_epi16(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1_epi32(int32_t a) { return _mm256_set1_epi32(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1_epi64(int64_t a) { return _mm256_set1_epi64x(a); }
+__m256i avx::preloadu_si80(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si80(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i set1(int8_t a, int8_t) { return set1_epi8(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1(int16_t a, int16_t) { return set1_epi16(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1(int32_t a, int32_t) { return set1_epi32(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1(int64_t a, int64_t) { return set1_epi64(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1(uint8_t a, uint8_t) { return set1_epi8(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1(uint16_t a, uint16_t) { return set1_epi16(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1(uint32_t a, uint32_t) { return set1_epi32(a); }
-	WJR_INTRINSIC_INLINE static __m256i set1(uint64_t a, uint64_t) { return set1_epi64(a); }
+__m256i avx::preloadu_si96(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si96(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i setmin_epi8() { return set1_epi8(0x80u); }
-	WJR_INTRINSIC_INLINE static __m256i setmin_epi16() { return set1_epi16(0x8000u); }
-	WJR_INTRINSIC_INLINE static __m256i setmin_epi32() { return set1_epi32(0x80000000u); }
-	WJR_INTRINSIC_INLINE static __m256i setmin_epi64() { return set1_epi64(0x8000000000000000ull); }
+__m256i avx::preloadu_si112(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si112(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i setmin(int8_t) { return setmin_epi8(); }
-	WJR_INTRINSIC_INLINE static __m256i setmin(int16_t) { return setmin_epi16(); }
-	WJR_INTRINSIC_INLINE static __m256i setmin(int32_t) { return setmin_epi32(); }
-	WJR_INTRINSIC_INLINE static __m256i setmin(int64_t) { return setmin_epi64(); }
+__m256i avx::preloadu_si128(const void* ptr) {
+	return simd_cast<__m256i, __m128i>(sse::preloadu_si128(ptr));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i setmax_epi8() { return set1_epi8(0x7f); }
-	WJR_INTRINSIC_INLINE static __m256i setmax_epi16() { return set1_epi16(0x7fff); }
-	WJR_INTRINSIC_INLINE static __m256i setmax_epi32() { return set1_epi32(0x7fffffff); }
-	WJR_INTRINSIC_INLINE static __m256i setmax_epi64() { return set1_epi64(0x7fffffffffffffff); }
+__m256i avx::preloadu_si144(const void* ptr) {
+	return concat(sse::preloadu_si128(ptr),
+		sse::preloadu_si16((const char*)ptr + 16));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i setmax(int8_t) { return setmax_epi8(); }
-	WJR_INTRINSIC_INLINE static __m256i setmax(int16_t) { return setmax_epi16(); }
-	WJR_INTRINSIC_INLINE static __m256i setmax(int32_t) { return setmax_epi32(); }
-	WJR_INTRINSIC_INLINE static __m256i setmax(int64_t) { return setmax_epi64(); }
+__m256i avx::preloadu_si160(const void* ptr) {
+	return concat(sse::preloadu_si128(ptr),
+		sse::preloadu_si32((const char*)ptr + 16));
+}
 
-	WJR_INTRINSIC_INLINE static void stream(__m256i* p, __m256i a) { _mm256_stream_si256(p, a); }
+__m256i avx::preloadu_si176(const void* ptr) {
+	return concat(sse::preloadu_si128(ptr),
+		sse::preloadu_si48((const char*)ptr + 16));
+}
 
-	//WJR_INTRINSIC_INLINE static __m256i zextsi128_si256(__m128i v) { return _mm256_zextsi128_si256(v); }
+__m256i avx::preloadu_si192(const void* ptr) {
+	return concat(sse::preloadu_si128(ptr),
+		sse::preloadu_si64((const char*)ptr + 16));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i load(const __m256i* p) { return _mm256_load_si256(p); }
-	WJR_INTRINSIC_INLINE static __m256i loadu(const __m256i* p) { return _mm256_loadu_si256(p); }
+__m256i avx::preloadu_si208(const void* ptr) {
+	return concat(sse::preloadu_si128(ptr),
+		sse::preloadu_si80((const char*)ptr + 16));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si16(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si16(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si32(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si32(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si48(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si48(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si64(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si64(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si80(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si80(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si96(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si96(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si112(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si112(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si128(const void* ptr) {
-		return simd_cast<__m256i, __m128i>(sse::preloadu_si128(ptr));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si144(const void* ptr) {
-		return concat(sse::preloadu_si128(ptr),
-			sse::preloadu_si16((const char*)ptr + 16));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si160(const void* ptr) {
-		return concat(sse::preloadu_si128(ptr),
-			sse::preloadu_si32((const char*)ptr + 16));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si176(const void* ptr) {
-		return concat(sse::preloadu_si128(ptr),
-			sse::preloadu_si48((const char*)ptr + 16));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si192(const void* ptr) {
-		return concat(sse::preloadu_si128(ptr),
-			sse::preloadu_si64((const char*)ptr + 16));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si208(const void* ptr) {
-		return concat(sse::preloadu_si128(ptr),
-			sse::preloadu_si80((const char*)ptr + 16));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si224(const void* ptr) {
-		return concat(sse::preloadu_si128(ptr),
-			sse::preloadu_si96((const char*)ptr + 16));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si240(const void* ptr) {
-		return concat(sse::preloadu_si128(ptr),
-			sse::preloadu_si112((const char*)ptr + 16));
-	}
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si256(const void* ptr) {
-		return loadu((const __m256i*)ptr);
-	}
+__m256i avx::preloadu_si224(const void* ptr) {
+	return concat(sse::preloadu_si128(ptr),
+		sse::preloadu_si96((const char*)ptr + 16));
+}
+__m256i avx::preloadu_si240(const void* ptr) {
+	return concat(sse::preloadu_si128(ptr),
+		sse::preloadu_si112((const char*)ptr + 16));
+}
 
-	WJR_INTRINSIC_INLINE static __m256i preloadu_si16x(const void* ptr, int n) {
-		switch (n) {
-		case 0:return zeros();
-		case 1:return preloadu_si16(ptr);
-		case 2:return preloadu_si32(ptr);
-		case 3:return preloadu_si48(ptr);
-		case 4:return preloadu_si64(ptr);
-		case 5:return preloadu_si80(ptr);
-		case 6:return preloadu_si96(ptr);
-		case 7:return preloadu_si112(ptr);
-		case 8:return preloadu_si128(ptr);
-		case 9:return preloadu_si144(ptr);
-		case 10:return preloadu_si160(ptr);
-		case 11:return preloadu_si176(ptr);
-		case 12:return preloadu_si192(ptr);
-		case 13:return preloadu_si208(ptr);
-		case 14:return preloadu_si224(ptr);
-		case 15:return preloadu_si240(ptr);
-		default:return preloadu_si256(ptr);
-		}
-	}
+__m256i avx::preloadu_si256(const void* ptr) {
+	return loadu((const __m256i*)ptr);
+}
 
-	WJR_INTRINSIC_INLINE static void store(__m256i* p, const __m256i& a) { _mm256_store_si256(p, a); }
-	WJR_INTRINSIC_INLINE static void storeu(__m256i* p, const __m256i& a) { _mm256_storeu_si256(p, a); }
-
-	WJR_INTRINSIC_INLINE static int test_all_ones(__m256i a) {
-		return testc(a, cmpeq_epi32(a, a));
+__m256i avx::preloadu_si16x(const void* ptr, int n) {
+	switch (n) {
+	case 0:return zeros();
+	case 1:return preloadu_si16(ptr);
+	case 2:return preloadu_si32(ptr);
+	case 3:return preloadu_si48(ptr);
+	case 4:return preloadu_si64(ptr);
+	case 5:return preloadu_si80(ptr);
+	case 6:return preloadu_si96(ptr);
+	case 7:return preloadu_si112(ptr);
+	case 8:return preloadu_si128(ptr);
+	case 9:return preloadu_si144(ptr);
+	case 10:return preloadu_si160(ptr);
+	case 11:return preloadu_si176(ptr);
+	case 12:return preloadu_si192(ptr);
+	case 13:return preloadu_si208(ptr);
+	case 14:return preloadu_si224(ptr);
+	case 15:return preloadu_si240(ptr);
+	default:return preloadu_si256(ptr);
 	}
+}
 
-	WJR_INTRINSIC_INLINE static int test_all_zeros(__m256i a) {
-		return testz(a, a);
-	}
+__m256i avx::set_epi8(
+	char e31, char e30, char e29, char e28, char e27, char e26, char e25, char e24,
+	char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
+	char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+	char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
+	return _mm256_set_epi8(
+		e31, e30, e29, e28, e27, e26, e25, e24,
+		e23, e22, e21, e20, e19, e18, e17, e16,
+		e15, e14, e13, e12, e11, e10, e9, e8,
+		e7, e6, e5, e4, e3, e2, e1, e0);
+}
 
-	WJR_INTRINSIC_INLINE static int testc(__m256i a, __m256i b) {
-		return _mm256_testc_si256(a, b);
-	}
+__m256i avx::set_epi16(
+	short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
+	short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
+	return _mm256_set_epi16(
+		e15, e14, e13, e12, e11, e10, e9, e8,
+		e7, e6, e5, e4, e3, e2, e1, e0);
+}
 
-	WJR_INTRINSIC_INLINE static int testnzc(__m256i a, __m256i b) {
-		return _mm256_testnzc_si256(a, b);
-	}
+__m256i avx::set_epi32(
+	int e7, int e6, int e5, int e4, int e3, int e2, int e1, int e0) {
+	return _mm256_set_epi32(e7, e6, e5, e4, e3, e2, e1, e0);
+}
 
-	WJR_INTRINSIC_INLINE static int testz(__m256i a, __m256i b) {
-		return _mm256_testz_si256(a, b);
-	}
+__m256i avx::set_epi64x(
+	long long e3, long long e2, long long e1, long long e0) {
+	return _mm256_set_epi64x(e3, e2, e1, e0);
+}
+
+__m256i avx::setr_epi8(
+	char e31, char e30, char e29, char e28, char e27, char e26, char e25, char e24,
+	char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
+	char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
+	char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0) {
+	return _mm256_setr_epi8(
+		e31, e30, e29, e28, e27, e26, e25, e24,
+		e23, e22, e21, e20, e19, e18, e17, e16,
+		e15, e14, e13, e12, e11, e10, e9, e8,
+		e7, e6, e5, e4, e3, e2, e1, e0);
+}
+
+__m256i avx::setr_epi16(
+	short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
+	short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0) {
+	return _mm256_setr_epi16(
+		e15, e14, e13, e12, e11, e10, e9, e8,
+		e7, e6, e5, e4, e3, e2, e1, e0);
+}
+
+__m256i avx::setr_epi32(
+	int e7, int e6, int e5, int e4, int e3, int e2, int e1, int e0) {
+	return _mm256_setr_epi32(e7, e6, e5, e4, e3, e2, e1, e0);
+}
+
+__m256i avx::setr_epi64x(
+	long long e3, long long e2, long long e1, long long e0) {
+	return _mm256_setr_epi64x(e3, e2, e1, e0);
+}
+
+__m256i avx::set1_epi8(int8_t a) { return _mm256_set1_epi8(a); }
+__m256i avx::set1_epi16(int16_t a) { return _mm256_set1_epi16(a); }
+__m256i avx::set1_epi32(int32_t a) { return _mm256_set1_epi32(a); }
+__m256i avx::set1_epi64(int64_t a) { return _mm256_set1_epi64x(a); }
+
+__m256i avx::set1(int8_t a, int8_t) { return set1_epi8(a); }
+__m256i avx::set1(int16_t a, int16_t) { return set1_epi16(a); }
+__m256i avx::set1(int32_t a, int32_t) { return set1_epi32(a); }
+__m256i avx::set1(int64_t a, int64_t) { return set1_epi64(a); }
+__m256i avx::set1(uint8_t a, uint8_t) { return set1_epi8(a); }
+__m256i avx::set1(uint16_t a, uint16_t) { return set1_epi16(a); }
+__m256i avx::set1(uint32_t a, uint32_t) { return set1_epi32(a); }
+__m256i avx::set1(uint64_t a, uint64_t) { return set1_epi64(a); }
+
+__m256i avx::setmin_epi8() { return set1_epi8(0x80u); }
+__m256i avx::setmin_epi16() { return set1_epi16(0x8000u); }
+__m256i avx::setmin_epi32() { return set1_epi32(0x80000000u); }
+__m256i avx::setmin_epi64() { return set1_epi64(0x8000000000000000ull); }
+
+__m256i avx::setmin(int8_t) { return setmin_epi8(); }
+__m256i avx::setmin(int16_t) { return setmin_epi16(); }
+__m256i avx::setmin(int32_t) { return setmin_epi32(); }
+__m256i avx::setmin(int64_t) { return setmin_epi64(); }
+
+__m256i avx::setmax_epi8() { return set1_epi8(0x7f); }
+__m256i avx::setmax_epi16() { return set1_epi16(0x7fff); }
+__m256i avx::setmax_epi32() { return set1_epi32(0x7fffffff); }
+__m256i avx::setmax_epi64() { return set1_epi64(0x7fffffffffffffff); }
+
+__m256i avx::setmax(int8_t) { return setmax_epi8(); }
+__m256i avx::setmax(int16_t) { return setmax_epi16(); }
+__m256i avx::setmax(int32_t) { return setmax_epi32(); }
+__m256i avx::setmax(int64_t) { return setmax_epi64(); }
+
+void avx::stream(__m256i* p, __m256i a) { _mm256_stream_si256(p, a); }
+
+void avx::store(__m256i* p, const __m256i& a) { _mm256_store_si256(p, a); }
+void avx::storeu(__m256i* p, const __m256i& a) { _mm256_storeu_si256(p, a); }
+
+int avx::test_all_zeros(__m256i a) { return testz(a, a); }
+
+int avx::testc(__m256i a, __m256i b) { return _mm256_testc_si256(a, b); }
+
+int avx::testnzc(__m256i a, __m256i b) { return _mm256_testnzc_si256(a, b); }
+
+int avx::testz(__m256i a, __m256i b) { return _mm256_testz_si256(a, b); }
+
+__m256i avx::zeros() { return _mm256_setzero_si256(); }
 
 #endif // WJR_AVX
 
 #if WJR_AVX2
-	WJR_INTRINSIC_INLINE static __m256i And(__m256i a, __m256i b) {
-		return _mm256_and_si256(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i AndNot(__m256i a, __m256i b) {
-		return _mm256_andnot_si256(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i Or(__m256i a, __m256i b) { return _mm256_or_si256(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i Xor(__m256i a, __m256i b) { return _mm256_xor_si256(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i Not(__m256i v) { return _mm256_xor_si256(v, ones()); }
-
-	WJR_INTRINSIC_INLINE static __m256i abs_epi8(__m256i v) { return _mm256_abs_epi8(v); }
-	WJR_INTRINSIC_INLINE static __m256i abs_epi16(__m256i v) { return _mm256_abs_epi16(v); }
-	WJR_INTRINSIC_INLINE static __m256i abs_epi32(__m256i v) { return _mm256_abs_epi32(v); }
-
-	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int8_t) { return abs_epi8(v); }
-	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int16_t) { return abs_epi16(v); }
-	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int32_t) { return abs_epi32(v); }
-	WJR_INTRINSIC_INLINE static __m256i abs(__m256i v, int64_t) { return abs_epi32(v); }
-
-	WJR_INTRINSIC_INLINE static __m256i add_epi8(__m256i a, __m256i b) { return _mm256_add_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add_epi16(__m256i a, __m256i b) { return _mm256_add_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add_epi32(__m256i a, __m256i b) { return _mm256_add_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add_epi64(__m256i a, __m256i b) { return _mm256_add_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int8_t) { return add_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int16_t) { return add_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int32_t) { return add_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, int64_t) { return add_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint8_t) { return add_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint16_t) { return add_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint32_t) { return add_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i add(__m256i a, __m256i b, uint64_t) { return add_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static uint8_t add_epu8(__m256i v) {
-		return sse::add_epu8(sse::add_epi8(getlow(v), gethigh(v)));
-	}
-	WJR_INTRINSIC_INLINE static uint16_t add_epu16(__m256i v) {
-		return sse::add_epu16(sse::add_epi16(getlow(v), gethigh(v)));
-	}
-	WJR_INTRINSIC_INLINE static uint32_t add_epu32(__m256i v) {
-		return sse::add_epu32(sse::add_epi32(getlow(v), gethigh(v)));
-	}
-	WJR_INTRINSIC_INLINE static uint64_t add_epu64(__m256i v) {
-		return sse::add_epu64(sse::add_epi64(getlow(v), gethigh(v)));
-	}
-	WJR_INTRINSIC_INLINE static int8_t add_epi8(__m256i v) { return add_epu8(v); }
-	WJR_INTRINSIC_INLINE static int16_t add_epi16(__m256i v) { return add_epu16(v); }
-	WJR_INTRINSIC_INLINE static int32_t add_epi32(__m256i v) { return add_epu32(v); }
-	WJR_INTRINSIC_INLINE static int64_t add_epi64(__m256i v) { return add_epu64(v); }
-
-	WJR_INTRINSIC_INLINE static int8_t add(__m256i v, int8_t) { return add_epi8(v); }
-	WJR_INTRINSIC_INLINE static int16_t add(__m256i v, int16_t) { return add_epi16(v); }
-	WJR_INTRINSIC_INLINE static int32_t add(__m256i v, int32_t) { return add_epi32(v); }
-	WJR_INTRINSIC_INLINE static int64_t add(__m256i v, int64_t) { return add_epi64(v); }
-	WJR_INTRINSIC_INLINE static uint8_t add(__m256i v, uint8_t) { return add_epu8(v); }
-	WJR_INTRINSIC_INLINE static uint16_t add(__m256i v, uint16_t) { return add_epu16(v); }
-	WJR_INTRINSIC_INLINE static uint32_t add(__m256i v, uint32_t) { return add_epu32(v); }
-	WJR_INTRINSIC_INLINE static uint64_t add(__m256i v, uint64_t) { return add_epu64(v); }
-
-	WJR_INTRINSIC_INLINE static __m256i adds_epi8(__m256i a, __m256i b) { return _mm256_adds_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i adds_epi16(__m256i a, __m256i b) { return _mm256_adds_epi16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i adds_epu8(__m256i a, __m256i b) { return _mm256_adds_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i adds_epu16(__m256i a, __m256i b) { return _mm256_adds_epu16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, int8_t) { return adds_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, int16_t) { return adds_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, uint8_t) { return adds_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i adds(__m256i a, __m256i b, uint16_t) { return adds_epu16(a, b); }
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b) { return _mm256_alignr_epi8(a, b, imm8); }
-
-	WJR_INTRINSIC_INLINE static __m256i alignl_epi16(__m256i a, __m256i b, int c) {
-		return Or(slli_epi16(a, c), srli_epi16(b, 16 - c));
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignl_epi32(__m256i a, __m256i b, int c) {
-		return Or(slli_epi32(a, c), srli_epi32(b, 32 - c));
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignl_epi64(__m256i a, __m256i b, int c) {
-		return Or(slli_epi64(a, c), srli_epi64(b, 64 - c));
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i alignl(__m256i a, __m256i b, int c, int16_t) {
-		return alignl_epi16(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignl(__m256i a, __m256i b, int c, int32_t) {
-		return alignl_epi32(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignl(__m256i a, __m256i b, int c, int64_t) {
-		return alignl_epi64(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignl(__m256i a, __m256i b, int c, uint16_t) {
-		return alignl_epi16(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignl(__m256i a, __m256i b, int c, uint32_t) {
-		return alignl_epi32(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignl(__m256i a, __m256i b, int c, uint64_t) {
-		return alignl_epi64(a, b, c);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i alignr_epi16(__m256i a, __m256i b, int c) {
-		return Or(slli_epi16(a, 16 - c), srli_epi16(b, c));
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignr_epi32(__m256i a, __m256i b, int c) {
-		return Or(slli_epi32(a, 32 - c), srli_epi32(b, c));
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignr_epi64(__m256i a, __m256i b, int c) {
-		return Or(slli_epi64(a, 64 - c), srli_epi64(b, c));
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, int16_t) {
-		return alignr_epi16(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, int32_t) {
-		return alignr_epi32(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, int64_t) {
-		return alignr_epi64(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, uint16_t) {
-		return alignr_epi16(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, uint32_t) {
-		return alignr_epi32(a, b, c);
-	}
-	WJR_INTRINSIC_INLINE static __m256i alignr(__m256i a, __m256i b, int c, uint64_t) {
-		return alignr_epi64(a, b, c);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i avg_epu8(__m256i a, __m256i b) { return _mm256_avg_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i avg_epu16(__m256i a, __m256i b) { return _mm256_avg_epu16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, int8_t) { return avg_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, int16_t) { return avg_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, uint8_t) { return avg_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i avg(__m256i a, __m256i b, uint16_t) { return avg_epu16(a, b); }
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i blend_epi16(__m256i a, __m256i b) {
-		return _mm256_blend_epi16(a, b, imm8);
-	}
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i blend_epi32(__m256i a, __m256i b) {
-		return _mm256_blend_epi32(a, b, imm8);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i blendv_epi8(__m256i a, __m256i b, __m256i mask) {
-		return _mm256_blendv_epi8(a, b, mask);
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i bslli_epi128(__m256i a) { return _mm256_bslli_epi128(a, imm8); }
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i bsrli_epi128(__m256i a) { return _mm256_bsrli_epi128(a, imm8); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi8(__m256i a, __m256i b) { return _mm256_cmpeq_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi16(__m256i a, __m256i b) { return _mm256_cmpeq_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi32(__m256i a, __m256i b) { return _mm256_cmpeq_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq_epi64(__m256i a, __m256i b) { return _mm256_cmpeq_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int8_t) { return cmpeq_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int16_t) { return cmpeq_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int32_t) { return cmpeq_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, int64_t) { return cmpeq_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint8_t) { return cmpeq_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint16_t) { return cmpeq_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint32_t) { return cmpeq_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpeq(__m256i a, __m256i b, uint64_t) { return cmpeq_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmpge_epi8(__m256i a, __m256i b) {
-		return Not(cmpgt_epi8(b, a));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmpge_epi16(__m256i a, __m256i b) {
-		return Not(cmpgt_epi16(b, a));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmpge_epi32(__m256i a, __m256i b) {
-		return Not(cmpgt_epi32(b, a));
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i cmpge_epu8(__m256i a, __m256i b) {
-		return Not(cmpgt_epu8(b, a));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmpge_epu16(__m256i a, __m256i b) {
-		return Not(cmpgt_epu16(b, a));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmpge_epu32(__m256i a, __m256i b) {
-		return Not(cmpgt_epu32(b, a));
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, int8_t) { return cmpge_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, int16_t) { return cmpge_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, int32_t) { return cmpge_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, uint8_t) { return cmpge_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, uint16_t) { return cmpge_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpge(__m256i a, __m256i b, uint32_t) { return cmpge_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi8(__m256i a, __m256i b) { return _mm256_cmpgt_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi16(__m256i a, __m256i b) { return _mm256_cmpgt_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi32(__m256i a, __m256i b) { return _mm256_cmpgt_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epi64(__m256i a, __m256i b) { return _mm256_cmpgt_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu8(__m256i a, __m256i b) {
-#if defined(__XOP__)
-		return concat(sse::cmpgt_epu8(getlow(a), getlow(b)), sse::cmpgt_epu8(gethigh(a), gethigh(b)));
-#else
-		return cmpgt_epi8(Xor(a, setmin_epi8()), Xor(b, setmin_epi8()));
-#endif // __XOP__
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu16(__m256i a, __m256i b) {
-#if defined(__XOP__)
-		return concat(sse::cmpgt_epu16(getlow(a), getlow(b)), sse::cmpgt_epu16(gethigh(a), gethigh(b)));
-#else
-		return cmpgt_epi16(Xor(a, setmin_epi16()), Xor(b, setmin_epi16()));
-#endif // __XOP__
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu32(__m256i a, __m256i b) {
-#if defined(__XOP__)
-		return concat(sse::cmpgt_epu32(getlow(a), getlow(b)), sse::cmpgt_epu32(gethigh(a), gethigh(b)));
-#else
-		return cmpgt_epi32(Xor(a, setmin_epi32()), Xor(b, setmin_epi32()));
-#endif // __XOP__
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmpgt_epu64(__m256i a, __m256i b) {
-#if defined(__XOP__)
-		return concat(sse::cmpgt_epu64(getlow(a), getlow(b)), sse::cmpgt_epu64(gethigh(a), gethigh(b)));
-#else
-		return cmpgt_epi64(Xor(a, setmin_epi64()), Xor(b, setmin_epi64()));
-#endif // __XOP__
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int8_t) { return cmpgt_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int16_t) { return cmpgt_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int32_t) { return cmpgt_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, int64_t) { return cmpgt_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint8_t) { return cmpgt_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint16_t) { return cmpgt_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint32_t) { return cmpgt_epu32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpgt(__m256i a, __m256i b, uint64_t) { return cmpgt_epu64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmple_epi8(__m256i a, __m256i b) {
-		return Not(cmpgt_epi8(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmple_epi16(__m256i a, __m256i b) {
-		return Not(cmpgt_epi16(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmple_epi32(__m256i a, __m256i b) {
-		return Not(cmpgt_epi32(a, b));
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i cmple_epu8(__m256i a, __m256i b) {
-		return Not(cmpgt_epu8(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmple_epu16(__m256i a, __m256i b) {
-		return Not(cmpgt_epu16(a, b));
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmple_epu32(__m256i a, __m256i b) {
-		return Not(cmpgt_epu32(a, b));
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, int8_t) { return cmple_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, int16_t) { return cmple_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, int32_t) { return cmple_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, uint8_t) { return cmple_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, uint16_t) { return cmple_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmple(__m256i a, __m256i b, uint32_t) { return cmple_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmplt_epi8(__m256i a, __m256i b) { return cmpgt_epi8(b, a); }
-	WJR_INTRINSIC_INLINE static __m256i cmplt_epi16(__m256i a, __m256i b) { return cmpgt_epi16(b, a); }
-	WJR_INTRINSIC_INLINE static __m256i cmplt_epi32(__m256i a, __m256i b) { return cmpgt_epi32(b, a); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmplt_epu8(__m256i a, __m256i b) {
-		return cmpgt_epu8(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmplt_epu16(__m256i a, __m256i b) {
-		return cmpgt_epu16(b, a);
-	}
-	WJR_INTRINSIC_INLINE static __m256i cmplt_epu32(__m256i a, __m256i b) {
-		return cmpgt_epu32(b, a);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, int8_t) { return cmplt_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, int16_t) { return cmplt_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, int32_t) { return cmplt_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, uint8_t) { return cmplt_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, uint16_t) { return cmplt_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmplt(__m256i a, __m256i b, uint32_t) { return cmplt_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmpne_epi8(__m256i a, __m256i b) { return Not(cmpeq_epi8(a, b)); }
-	WJR_INTRINSIC_INLINE static __m256i cmpne_epi16(__m256i a, __m256i b) { return Not(cmpeq_epi16(a, b)); }
-	WJR_INTRINSIC_INLINE static __m256i cmpne_epi32(__m256i a, __m256i b) { return Not(cmpeq_epi32(a, b)); }
-
-	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, int8_t) { return cmpne_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, int16_t) { return cmpne_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, int32_t) { return cmpne_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, uint8_t) { return cmpne_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, uint16_t) { return cmpne_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i cmpne(__m256i a, __m256i b, uint32_t) { return cmpne_epi32(a, b); }
-
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::equal_to<>, T) {
-		return cmpeq(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::not_equal_to<>, T) {
-		return cmpne(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::greater<>, T) {
-		return cmpgt(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::greater_equal<>, T) {
-		return cmpge(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::less<>, T) {
-		return cmplt(a, b, T());
-	}
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cmp(__m256i a, __m256i b, std::less_equal<>, T) {
-		return cmple(a, b, T());
-	}
-
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu8(__m128i v);
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu16(__m128i v);
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu32(__m128i v);
-
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu(__m128i v, int8_t) { return cvtepu8<T>(v); }
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu(__m128i v, int16_t) { return cvtepu16<T>(v); }
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu(__m128i v, int32_t) { return cvtepu32<T>(v); }
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu(__m128i v, uint8_t) { return cvtepu8<T>(v); }
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu(__m128i v, uint16_t) { return cvtepu16<T>(v); }
-	template<typename T>
-	WJR_INTRINSIC_INLINE static __m256i cvtepu(__m128i v, uint32_t) { return cvtepu32<T>(v); }
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract_epi8(__m256i v) { return _mm256_extract_epi8(v, imm8); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract_epi16(__m256i v) { return _mm256_extract_epi16(v, imm8); }
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m256i v, int8_t) { return extract_epi8<imm8>(v); }
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static int extract(__m256i v, int16_t) { return extract_epi16<imm8>(v); }
-
-	WJR_INTRINSIC_INLINE static __m256i hadd_epi16(__m256i a, __m256i b) { return _mm256_hadd_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i hadd_epi32(__m256i a, __m256i b) { return _mm256_hadd_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i hadd(__m256i a, __m256i b, int16_t) { return hadd_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i hadd(__m256i a, __m256i b, int32_t) { return hadd_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i hadds_epi16(__m256i a, __m256i b) { return _mm256_hadds_epi16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i hsub_epi16(__m256i a, __m256i b) { return _mm256_hsub_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i hsub_epi32(__m256i a, __m256i b) { return _mm256_hsub_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i hsub(__m256i a, __m256i b, int16_t) { return hsub_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i hsub(__m256i a, __m256i b, int32_t) { return hsub_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i hsubs_epi16(__m256i a, __m256i b) { return _mm256_hsubs_epi16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i madd_epi16(__m256i a, __m256i b) {
-		return _mm256_madd_epi16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i max_epi8(__m256i a, __m256i b) {
-		return _mm256_max_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i max_epi16(__m256i a, __m256i b) {
-		return _mm256_max_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i max_epi32(__m256i a, __m256i b) {
-		return _mm256_max_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i max_epu8(__m256i a, __m256i b) {
-		return _mm256_max_epu8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i max_epu16(__m256i a, __m256i b) {
-		return _mm256_max_epu16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i max_epu32(__m256i a, __m256i b) {
-		return _mm256_max_epu32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, int8_t) { return max_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, int16_t) { return max_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, uint8_t) { return max_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, uint16_t) { return max_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, int32_t) { return max_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i max(__m256i a, __m256i b, uint32_t) { return max_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static int8_t max_epi8(__m256i a) {
-		return sse::max_epi8(sse::max_epi8(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static int16_t max_epi16(__m256i a) {
-		return sse::max_epi16(sse::max_epi16(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static int32_t max_epi32(__m256i a) {
-		return sse::max_epi32(sse::max_epi32(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static uint8_t max_epu8(__m256i a) {
-		return sse::max_epu8(sse::max_epu8(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static uint16_t max_epu16(__m256i a) {
-		return sse::max_epu16(sse::max_epu16(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static uint32_t max_epu32(__m256i a) {
-		return sse::max_epu32(sse::max_epu32(getlow(a), gethigh(a)));
-	}
-
-	WJR_INTRINSIC_INLINE static int8_t max(__m256i a, int8_t) { return max_epi8(a); }
-	WJR_INTRINSIC_INLINE static int16_t max(__m256i a, int16_t) { return max_epi16(a); }
-	WJR_INTRINSIC_INLINE static int32_t max(__m256i a, int32_t) { return max_epi32(a); }
-	WJR_INTRINSIC_INLINE static uint8_t max(__m256i a, uint8_t) { return max_epu8(a); }
-	WJR_INTRINSIC_INLINE static uint16_t max(__m256i a, uint16_t) { return max_epu16(a); }
-	WJR_INTRINSIC_INLINE static uint32_t max(__m256i a, uint32_t) { return max_epu32(a); }
-
-	WJR_INTRINSIC_INLINE static __m256i min_epi8(__m256i a, __m256i b) {
-		return _mm256_min_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i min_epi16(__m256i a, __m256i b) {
-		return _mm256_min_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i min_epi32(__m256i a, __m256i b) {
-		return _mm256_min_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i min_epu8(__m256i a, __m256i b) {
-		return _mm256_min_epu8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i min_epu16(__m256i a, __m256i b) {
-		return _mm256_min_epu16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i min_epu32(__m256i a, __m256i b) {
-		return _mm256_min_epu32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int8_t) { return min_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int16_t) { return min_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, uint8_t) { return min_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, uint16_t) { return min_epu16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int32_t) { return min_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, uint32_t) { return min_epu32(a, b); }
-
-	WJR_INTRINSIC_INLINE static int8_t min_epi8(__m256i a) {
-		return sse::min_epi8(sse::min_epi8(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static int16_t min_epi16(__m256i a) {
-		return sse::min_epi16(sse::min_epi16(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static int32_t min_epi32(__m256i a) {
-		return sse::min_epi32(sse::min_epi32(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static uint8_t min_epu8(__m256i a) {
-		return sse::min_epu8(sse::min_epu8(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static uint16_t min_epu16(__m256i a) {
-		return sse::min_epu16(sse::min_epu16(getlow(a), gethigh(a)));
-	}
-	WJR_INTRINSIC_INLINE static uint32_t min_epu32(__m256i a) {
-		return sse::min_epu32(sse::min_epu32(getlow(a), gethigh(a)));
-	}
-
-	WJR_INTRINSIC_INLINE static int8_t min(__m256i a, int8_t) { return min_epi8(a); }
-	WJR_INTRINSIC_INLINE static int16_t min(__m256i a, int16_t) { return min_epi16(a); }
-	WJR_INTRINSIC_INLINE static int32_t min(__m256i a, int32_t) { return min_epi32(a); }
-	WJR_INTRINSIC_INLINE static uint8_t min(__m256i a, uint8_t) { return min_epu8(a); }
-	WJR_INTRINSIC_INLINE static uint16_t min(__m256i a, uint16_t) { return min_epu16(a); }
-	WJR_INTRINSIC_INLINE static uint32_t min(__m256i a, uint32_t) { return min_epu32(a); }
-
-	WJR_INTRINSIC_INLINE static mask_type movemask_epi8(__m256i a) {
-		return _mm256_movemask_epi8(a);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i mul_epi32(__m256i a, __m256i b) {
-		return _mm256_mul_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i mul_epu32(__m256i a, __m256i b) {
-		return _mm256_mul_epu32(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i mulhi_epi16(__m256i a, __m256i b) {
-		return _mm256_mulhi_epi16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i mulhi_epu16(__m256i a, __m256i b) {
-		return _mm256_mulhi_epu16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i mullo_epi16(__m256i a, __m256i b) {
-		return _mm256_mullo_epi16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i packs_epi16(__m256i a, __m256i b) {
-		return _mm256_packs_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i packs_epi32(__m256i a, __m256i b) {
-		return _mm256_packs_epi32(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i packus_epi16(__m256i a, __m256i b) {
-		return _mm256_packus_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i packus_epi32(__m256i a, __m256i b) {
-		return _mm256_packus_epi32(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i shuffle_epi8(__m256i a, __m256i b) {
-		return _mm256_shuffle_epi8(a, b);
-	}
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i shuffle_epi32(__m256i a) {
-		return _mm256_shuffle_epi32(a, imm8);
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i shufflehi_epi16(__m256i a) {
-		return _mm256_shufflehi_epi16(a, imm8);
-	}
-
-	template<int imm8>
-	WJR_INTRINSIC_INLINE static __m256i shufflelo_epi16(__m256i a) {
-		return _mm256_shufflelo_epi16(a, imm8);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i sll_epi16(__m256i a, __m128i b) {
-		return _mm256_sll_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i sll_epi32(__m256i a, __m128i b) {
-		return _mm256_sll_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i sll_epi64(__m256i a, __m128i b) {
-		return _mm256_sll_epi64(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, int16_t) { return sll_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, int32_t) { return sll_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, int64_t) { return sll_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, uint16_t) { return sll_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, uint32_t) { return sll_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sll(__m256i a, __m128i b, uint64_t) { return sll_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i slli_epi16(__m256i a, int imm8) {
-		return _mm256_slli_epi16(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m256i slli_epi32(__m256i a, int imm8) {
-		return _mm256_slli_epi32(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m256i slli_epi64(__m256i a, int imm8) {
-		return _mm256_slli_epi64(a, imm8);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, int16_t) { return slli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, int32_t) { return slli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, int64_t) { return slli_epi64(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, uint16_t) { return slli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, uint32_t) { return slli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i slli(__m256i a, int imm8, uint64_t) { return slli_epi64(a, imm8); }
-
-	WJR_INTRINSIC_INLINE static __m256i sra_epi16(__m256i a, __m128i b) {
-		return _mm256_sra_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i sra_epi32(__m256i a, __m128i b) {
-		return _mm256_sra_epi32(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i sra(__m256i a, __m128i b, int16_t) { return sra_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sra(__m256i a, __m128i b, int32_t) { return sra_epi32(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i srai_epi16(__m256i a, int imm8) {
-		return _mm256_srai_epi16(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m256i srai_epi32(__m256i a, int imm8) {
-		return _mm256_srai_epi32(a, imm8);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i srai(__m256i a, int imm8, int16_t) { return srai_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i srai(__m256i a, int imm8, int32_t) { return srai_epi32(a, imm8); }
-
-	WJR_INTRINSIC_INLINE static __m256i stream_load(__m256i const* p) {
-		return _mm256_stream_load_si256(p);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i srl_epi16(__m256i a, __m128i b) {
-		return _mm256_srl_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i srl_epi32(__m256i a, __m128i b) {
-		return _mm256_srl_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i srl_epi64(__m256i a, __m128i b) {
-		return _mm256_srl_epi64(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, int16_t) { return srl_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, int32_t) { return srl_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, int64_t) { return srl_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, uint16_t) { return srl_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, uint32_t) { return srl_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i srl(__m256i a, __m128i b, uint64_t) { return srl_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i srli_epi16(__m256i a, int imm8) {
-		return _mm256_srli_epi16(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m256i srli_epi32(__m256i a, int imm8) {
-		return _mm256_srli_epi32(a, imm8);
-	}
-	WJR_INTRINSIC_INLINE static __m256i srli_epi64(__m256i a, int imm8) {
-		return _mm256_srli_epi64(a, imm8);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, int16_t) { return srli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, int32_t) { return srli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, int64_t) { return srli_epi64(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, uint16_t) { return srli_epi16(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, uint32_t) { return srli_epi32(a, imm8); }
-	WJR_INTRINSIC_INLINE static __m256i srli(__m256i a, int imm8, uint64_t) { return srli_epi64(a, imm8); }
-
-	WJR_INTRINSIC_INLINE static __m256i sub_epi8(__m256i a, __m256i b) {
-		return _mm256_sub_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i sub_epi16(__m256i a, __m256i b) {
-		return _mm256_sub_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i sub_epi32(__m256i a, __m256i b) {
-		return _mm256_sub_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i sub_epi64(__m256i a, __m256i b) {
-		return _mm256_sub_epi64(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int8_t) { return sub_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int16_t) { return sub_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int32_t) { return sub_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, int64_t) { return sub_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint8_t) { return sub_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint16_t) { return sub_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint32_t) { return sub_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i sub(__m256i a, __m256i b, uint64_t) { return sub_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i subs_epi8(__m256i a, __m256i b) {
-		return _mm256_subs_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i subs_epi16(__m256i a, __m256i b) {
-		return _mm256_subs_epi16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i subs_epu8(__m256i a, __m256i b) {
-		return _mm256_subs_epu8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i subs_epu16(__m256i a, __m256i b) {
-		return _mm256_subs_epu16(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, int8_t) { return subs_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, int16_t) { return subs_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, uint8_t) { return subs_epu8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i subs(__m256i a, __m256i b, uint16_t) { return subs_epu16(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi8(__m256i a, __m256i b) {
-		return _mm256_unpackhi_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi16(__m256i a, __m256i b) {
-		return _mm256_unpackhi_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi32(__m256i a, __m256i b) {
-		return _mm256_unpackhi_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i unpackhi_epi64(__m256i a, __m256i b) {
-		return _mm256_unpackhi_epi64(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int8_t) { return unpackhi_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int16_t) { return unpackhi_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int32_t) { return unpackhi_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, int64_t) { return unpackhi_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint8_t) { return unpackhi_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint16_t) { return unpackhi_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint32_t) { return unpackhi_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpackhi(__m256i a, __m256i b, uint64_t) { return unpackhi_epi64(a, b); }
-
-	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi8(__m256i a, __m256i b) {
-		return _mm256_unpacklo_epi8(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi16(__m256i a, __m256i b) {
-		return _mm256_unpacklo_epi16(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi32(__m256i a, __m256i b) {
-		return _mm256_unpacklo_epi32(a, b);
-	}
-	WJR_INTRINSIC_INLINE static __m256i unpacklo_epi64(__m256i a, __m256i b) {
-		return _mm256_unpacklo_epi64(a, b);
-	}
-
-	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int8_t) { return unpacklo_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int16_t) { return unpacklo_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int32_t) { return unpacklo_epi32(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, int64_t) { return unpacklo_epi64(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, uint8_t) { return unpacklo_epi8(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, uint16_t) { return unpacklo_epi16(a, b); }
-	WJR_INTRINSIC_INLINE static __m256i unpacklo(__m256i a, __m256i b, uint32_t) { return unpacklo_epi32(a, b); }
+__m256i avx::And(__m256i a, __m256i b) { return _mm256_and_si256(a, b); }
+
+__m256i avx::AndNot(__m256i a, __m256i b) { return _mm256_andnot_si256(a, b); }
+
+__m256i avx::Or(__m256i a, __m256i b) { return _mm256_or_si256(a, b); }
+
+__m256i avx::Xor(__m256i a, __m256i b) { return _mm256_xor_si256(a, b); }
+
+__m256i avx::Not(__m256i v) { return _mm256_xor_si256(v, ones()); }
+
+__m256i avx::abs_epi8(__m256i v) { return _mm256_abs_epi8(v); }
+__m256i avx::abs_epi16(__m256i v) { return _mm256_abs_epi16(v); }
+__m256i avx::abs_epi32(__m256i v) { return _mm256_abs_epi32(v); }
+
+__m256i avx::abs(__m256i v, int8_t) { return abs_epi8(v); }
+__m256i avx::abs(__m256i v, int16_t) { return abs_epi16(v); }
+__m256i avx::abs(__m256i v, int32_t) { return abs_epi32(v); }
+__m256i avx::abs(__m256i v, int64_t) { return abs_epi32(v); }
+
+__m256i avx::add_epi8(__m256i a, __m256i b) { return _mm256_add_epi8(a, b); }
+__m256i avx::add_epi16(__m256i a, __m256i b) { return _mm256_add_epi16(a, b); }
+__m256i avx::add_epi32(__m256i a, __m256i b) { return _mm256_add_epi32(a, b); }
+__m256i avx::add_epi64(__m256i a, __m256i b) { return _mm256_add_epi64(a, b); }
+
+__m256i avx::add(__m256i a, __m256i b, int8_t) { return add_epi8(a, b); }
+__m256i avx::add(__m256i a, __m256i b, int16_t) { return add_epi16(a, b); }
+__m256i avx::add(__m256i a, __m256i b, int32_t) { return add_epi32(a, b); }
+__m256i avx::add(__m256i a, __m256i b, int64_t) { return add_epi64(a, b); }
+__m256i avx::add(__m256i a, __m256i b, uint8_t) { return add_epi8(a, b); }
+__m256i avx::add(__m256i a, __m256i b, uint16_t) { return add_epi16(a, b); }
+__m256i avx::add(__m256i a, __m256i b, uint32_t) { return add_epi32(a, b); }
+__m256i avx::add(__m256i a, __m256i b, uint64_t) { return add_epi64(a, b); }
+
+uint8_t avx::add_epu8(__m256i v) {
+	return sse::add_epu8(sse::add_epi8(getlow(v), gethigh(v)));
+}
+
+uint16_t avx::add_epu16(__m256i v) {
+	return sse::add_epu16(sse::add_epi16(getlow(v), gethigh(v)));
+}
+
+uint32_t avx::add_epu32(__m256i v) {
+	return sse::add_epu32(sse::add_epi32(getlow(v), gethigh(v)));
+}
+
+uint64_t avx::add_epu64(__m256i v) {
+	return sse::add_epu64(sse::add_epi64(getlow(v), gethigh(v)));
+}
+
+int8_t avx::add_epi8(__m256i v) { return add_epu8(v); }
+int16_t avx::add_epi16(__m256i v) { return add_epu16(v); }
+int32_t avx::add_epi32(__m256i v) { return add_epu32(v); }
+int64_t avx::add_epi64(__m256i v) { return add_epu64(v); }
+
+int8_t avx::add(__m256i v, int8_t) { return add_epi8(v); }
+int16_t avx::add(__m256i v, int16_t) { return add_epi16(v); }
+int32_t avx::add(__m256i v, int32_t) { return add_epi32(v); }
+int64_t avx::add(__m256i v, int64_t) { return add_epi64(v); }
+uint8_t avx::add(__m256i v, uint8_t) { return add_epu8(v); }
+uint16_t avx::add(__m256i v, uint16_t) { return add_epu16(v); }
+uint32_t avx::add(__m256i v, uint32_t) { return add_epu32(v); }
+uint64_t avx::add(__m256i v, uint64_t) { return add_epu64(v); }
+
+__m256i avx::adds_epi8(__m256i a, __m256i b) { return _mm256_adds_epi8(a, b); }
+__m256i avx::adds_epi16(__m256i a, __m256i b) { return _mm256_adds_epi16(a, b); }
+
+__m256i avx::adds_epu8(__m256i a, __m256i b) { return _mm256_adds_epu8(a, b); }
+__m256i avx::adds_epu16(__m256i a, __m256i b) { return _mm256_adds_epu16(a, b); }
+
+__m256i avx::adds(__m256i a, __m256i b, int8_t) { return adds_epi8(a, b); }
+__m256i avx::adds(__m256i a, __m256i b, int16_t) { return adds_epi16(a, b); }
+__m256i avx::adds(__m256i a, __m256i b, uint8_t) { return adds_epu8(a, b); }
+__m256i avx::adds(__m256i a, __m256i b, uint16_t) { return adds_epu16(a, b); }
+
+template<int imm8>
+__m256i avx::alignr(__m256i a, __m256i b) { return _mm256_alignr_epi8(a, b, imm8); }
+
+__m256i avx::alignr_epi16(__m256i a, __m256i b, int c) {
+	return Or(slli_epi16(a, 16 - c), srli_epi16(b, c));
+}
+
+__m256i avx::alignr_epi32(__m256i a, __m256i b, int c) {
+	return Or(slli_epi32(a, 32 - c), srli_epi32(b, c));
+}
+
+__m256i avx::alignr_epi64(__m256i a, __m256i b, int c) {
+	return Or(slli_epi64(a, 64 - c), srli_epi64(b, c));
+}
+
+__m256i avx::alignr(__m256i a, __m256i b, int c, int16_t) {
+	return alignr_epi16(a, b, c);
+}
+
+__m256i avx::alignr(__m256i a, __m256i b, int c, int32_t) {
+	return alignr_epi32(a, b, c);
+}
+
+__m256i avx::alignr(__m256i a, __m256i b, int c, int64_t) {
+	return alignr_epi64(a, b, c);
+}
+
+__m256i avx::alignr(__m256i a, __m256i b, int c, uint16_t) {
+	return alignr_epi16(a, b, c);
+}
+
+__m256i avx::alignr(__m256i a, __m256i b, int c, uint32_t) {
+	return alignr_epi32(a, b, c);
+}
+
+__m256i avx::alignr(__m256i a, __m256i b, int c, uint64_t) {
+	return alignr_epi64(a, b, c);
+}
+
+__m256i avx::avg_epu8(__m256i a, __m256i b) { return _mm256_avg_epu8(a, b); }
+__m256i avx::avg_epu16(__m256i a, __m256i b) { return _mm256_avg_epu16(a, b); }
+
+__m256i avx::avg(__m256i a, __m256i b, int8_t) { return avg_epu8(a, b); }
+__m256i avx::avg(__m256i a, __m256i b, int16_t) { return avg_epu16(a, b); }
+__m256i avx::avg(__m256i a, __m256i b, uint8_t) { return avg_epu8(a, b); }
+__m256i avx::avg(__m256i a, __m256i b, uint16_t) { return avg_epu16(a, b); }
+
+template<int imm8>
+__m256i avx::blend_epi16(__m256i a, __m256i b) { return _mm256_blend_epi16(a, b, imm8); }
+
+template<int imm8>
+__m256i avx::blend_epi32(__m256i a, __m256i b) { return _mm256_blend_epi32(a, b, imm8); }
+
+__m256i avx::blendv_epi8(__m256i a, __m256i b, __m256i mask) {
+	return _mm256_blendv_epi8(a, b, mask);
+}
+
+template<int imm8>
+__m256i avx::bslli_epi128(__m256i a) { return _mm256_bslli_epi128(a, imm8); }
+
+template<int imm8>
+__m256i avx::bsrli_epi128(__m256i a) { return _mm256_bsrli_epi128(a, imm8); }
+
+__m256i avx::cmpeq_epi8(__m256i a, __m256i b) { return _mm256_cmpeq_epi8(a, b); }
+__m256i avx::cmpeq_epi16(__m256i a, __m256i b) { return _mm256_cmpeq_epi16(a, b); }
+__m256i avx::cmpeq_epi32(__m256i a, __m256i b) { return _mm256_cmpeq_epi32(a, b); }
+__m256i avx::cmpeq_epi64(__m256i a, __m256i b) { return _mm256_cmpeq_epi64(a, b); }
+
+__m256i avx::cmpeq(__m256i a, __m256i b, int8_t) { return cmpeq_epi8(a, b); }
+__m256i avx::cmpeq(__m256i a, __m256i b, int16_t) { return cmpeq_epi16(a, b); }
+__m256i avx::cmpeq(__m256i a, __m256i b, int32_t) { return cmpeq_epi32(a, b); }
+__m256i avx::cmpeq(__m256i a, __m256i b, int64_t) { return cmpeq_epi64(a, b); }
+__m256i avx::cmpeq(__m256i a, __m256i b, uint8_t) { return cmpeq_epi8(a, b); }
+__m256i avx::cmpeq(__m256i a, __m256i b, uint16_t) { return cmpeq_epi16(a, b); }
+__m256i avx::cmpeq(__m256i a, __m256i b, uint32_t) { return cmpeq_epi32(a, b); }
+__m256i avx::cmpeq(__m256i a, __m256i b, uint64_t) { return cmpeq_epi64(a, b); }
+
+__m256i avx::cmpge_epi8(__m256i a, __m256i b) {
+	return cmpeq(min(a, b, int8_t()), b, uint8_t());
+}
+
+__m256i avx::cmpge_epi16(__m256i a, __m256i b) {
+	return cmpeq(min(a, b, int16_t()), b, uint16_t());
+}
+
+__m256i avx::cmpge_epi32(__m256i a, __m256i b) {
+	return cmpeq(min(a, b, int32_t()), b, uint8_t());
+}
+
+__m256i avx::cmpge_epu8(__m256i a, __m256i b) {
+	return cmpeq(min(a, b, uint8_t()), b, uint8_t());
+}
+
+__m256i avx::cmpge_epu16(__m256i a, __m256i b) {
+	return cmpeq(min(a, b, uint16_t()), b, uint16_t());
+}
+
+__m256i avx::cmpge_epu32(__m256i a, __m256i b) {
+	return cmpeq(min(a, b, uint32_t()), b, uint32_t());
+}
+
+__m256i avx::cmpge(__m256i a, __m256i b, int8_t) { return cmpge_epi8(a, b); }
+__m256i avx::cmpge(__m256i a, __m256i b, int16_t) { return cmpge_epi16(a, b); }
+__m256i avx::cmpge(__m256i a, __m256i b, int32_t) { return cmpge_epi32(a, b); }
+__m256i avx::cmpge(__m256i a, __m256i b, uint8_t) { return cmpge_epu8(a, b); }
+__m256i avx::cmpge(__m256i a, __m256i b, uint16_t) { return cmpge_epu16(a, b); }
+__m256i avx::cmpge(__m256i a, __m256i b, uint32_t) { return cmpge_epu32(a, b); }
+
+__m256i avx::cmpgt_epi8(__m256i a, __m256i b) { return _mm256_cmpgt_epi8(a, b); }
+__m256i avx::cmpgt_epi16(__m256i a, __m256i b) { return _mm256_cmpgt_epi16(a, b); }
+__m256i avx::cmpgt_epi32(__m256i a, __m256i b) { return _mm256_cmpgt_epi32(a, b); }
+__m256i avx::cmpgt_epi64(__m256i a, __m256i b) { return _mm256_cmpgt_epi64(a, b); }
+
+__m256i avx::cmpgt_epu8(__m256i a, __m256i b) {
+	return cmpgt_epi8(Xor(a, setmin_epi8()), Xor(b, setmin_epi8()));
+}
+
+__m256i avx::cmpgt_epu16(__m256i a, __m256i b) {
+	return cmpgt_epi16(Xor(a, setmin_epi16()), Xor(b, setmin_epi16()));
+}
+
+__m256i avx::cmpgt_epu32(__m256i a, __m256i b) {
+	return cmpgt_epi32(Xor(a, setmin_epi32()), Xor(b, setmin_epi32()));
+}
+
+__m256i avx::cmpgt_epu64(__m256i a, __m256i b) {
+	return cmpgt_epi64(Xor(a, setmin_epi64()), Xor(b, setmin_epi64()));
+}
+
+__m256i avx::cmpgt(__m256i a, __m256i b, int8_t) { return cmpgt_epi8(a, b); }
+__m256i avx::cmpgt(__m256i a, __m256i b, int16_t) { return cmpgt_epi16(a, b); }
+__m256i avx::cmpgt(__m256i a, __m256i b, int32_t) { return cmpgt_epi32(a, b); }
+__m256i avx::cmpgt(__m256i a, __m256i b, int64_t) { return cmpgt_epi64(a, b); }
+__m256i avx::cmpgt(__m256i a, __m256i b, uint8_t) { return cmpgt_epu8(a, b); }
+__m256i avx::cmpgt(__m256i a, __m256i b, uint16_t) { return cmpgt_epu16(a, b); }
+__m256i avx::cmpgt(__m256i a, __m256i b, uint32_t) { return cmpgt_epu32(a, b); }
+__m256i avx::cmpgt(__m256i a, __m256i b, uint64_t) { return cmpgt_epu64(a, b); }
+
+__m256i avx::cmple_epi8(__m256i a, __m256i b) {
+	return cmpge_epi8(b, a);
+}
+
+__m256i avx::cmple_epi16(__m256i a, __m256i b) {
+	return cmpge_epi16(b, a);
+}
+
+__m256i avx::cmple_epi32(__m256i a, __m256i b) {
+	return cmpge_epi32(b, a);
+}
+
+__m256i avx::cmple_epu8(__m256i a, __m256i b) {
+	return cmpge_epu8(b, a);
+}
+
+__m256i avx::cmple_epu16(__m256i a, __m256i b) {
+	return cmpge_epu16(b, a);
+}
+
+__m256i avx::cmple_epu32(__m256i a, __m256i b) {
+	return cmpge_epu32(b, a);
+}
+
+__m256i avx::cmple(__m256i a, __m256i b, int8_t) { return cmple_epi8(a, b); }
+__m256i avx::cmple(__m256i a, __m256i b, int16_t) { return cmple_epi16(a, b); }
+__m256i avx::cmple(__m256i a, __m256i b, int32_t) { return cmple_epi32(a, b); }
+__m256i avx::cmple(__m256i a, __m256i b, uint8_t) { return cmple_epu8(a, b); }
+__m256i avx::cmple(__m256i a, __m256i b, uint16_t) { return cmple_epu16(a, b); }
+__m256i avx::cmple(__m256i a, __m256i b, uint32_t) { return cmple_epu32(a, b); }
+
+__m256i avx::cmplt_epi8(__m256i a, __m256i b) { return cmpgt_epi8(b, a); }
+__m256i avx::cmplt_epi16(__m256i a, __m256i b) { return cmpgt_epi16(b, a); }
+__m256i avx::cmplt_epi32(__m256i a, __m256i b) { return cmpgt_epi32(b, a); }
+
+__m256i avx::cmplt_epu8(__m256i a, __m256i b) {
+	return cmpgt_epu8(b, a);
+}
+__m256i avx::cmplt_epu16(__m256i a, __m256i b) {
+	return cmpgt_epu16(b, a);
+}
+__m256i avx::cmplt_epu32(__m256i a, __m256i b) {
+	return cmpgt_epu32(b, a);
+}
+
+__m256i avx::cmplt(__m256i a, __m256i b, int8_t) { return cmplt_epi8(a, b); }
+__m256i avx::cmplt(__m256i a, __m256i b, int16_t) { return cmplt_epi16(a, b); }
+__m256i avx::cmplt(__m256i a, __m256i b, int32_t) { return cmplt_epi32(a, b); }
+__m256i avx::cmplt(__m256i a, __m256i b, uint8_t) { return cmplt_epu8(a, b); }
+__m256i avx::cmplt(__m256i a, __m256i b, uint16_t) { return cmplt_epu16(a, b); }
+__m256i avx::cmplt(__m256i a, __m256i b, uint32_t) { return cmplt_epu32(a, b); }
+
+__m256i avx::cmpne_epi8(__m256i a, __m256i b) { return Not(cmpeq_epi8(a, b)); }
+__m256i avx::cmpne_epi16(__m256i a, __m256i b) { return Not(cmpeq_epi16(a, b)); }
+__m256i avx::cmpne_epi32(__m256i a, __m256i b) { return Not(cmpeq_epi32(a, b)); }
+
+__m256i avx::cmpne(__m256i a, __m256i b, int8_t) { return cmpne_epi8(a, b); }
+__m256i avx::cmpne(__m256i a, __m256i b, int16_t) { return cmpne_epi16(a, b); }
+__m256i avx::cmpne(__m256i a, __m256i b, int32_t) { return cmpne_epi32(a, b); }
+__m256i avx::cmpne(__m256i a, __m256i b, uint8_t) { return cmpne_epi8(a, b); }
+__m256i avx::cmpne(__m256i a, __m256i b, uint16_t) { return cmpne_epi16(a, b); }
+__m256i avx::cmpne(__m256i a, __m256i b, uint32_t) { return cmpne_epi32(a, b); }
+
+template<typename T>
+__m256i avx::cmp(__m256i a, __m256i b, std::equal_to<>, T) {
+	return cmpeq(a, b, T());
+}
+template<typename T>
+__m256i avx::cmp(__m256i a, __m256i b, std::not_equal_to<>, T) {
+	return cmpne(a, b, T());
+}
+template<typename T>
+__m256i avx::cmp(__m256i a, __m256i b, std::greater<>, T) {
+	return cmpgt(a, b, T());
+}
+template<typename T>
+__m256i avx::cmp(__m256i a, __m256i b, std::greater_equal<>, T) {
+	return cmpge(a, b, T());
+}
+template<typename T>
+__m256i avx::cmp(__m256i a, __m256i b, std::less<>, T) {
+	return cmplt(a, b, T());
+}
+template<typename T>
+__m256i avx::cmp(__m256i a, __m256i b, std::less_equal<>, T) {
+	return cmple(a, b, T());
+}
+
+template<int imm8>
+int avx::extract_epi8(__m256i v) { return _mm256_extract_epi8(v, imm8); }
+template<int imm8>
+int avx::extract_epi16(__m256i v) { return _mm256_extract_epi16(v, imm8); }
+
+template<int imm8>
+int avx::extract(__m256i v, int8_t) { return extract_epi8<imm8>(v); }
+template<int imm8>
+int avx::extract(__m256i v, int16_t) { return extract_epi16<imm8>(v); }
+
+__m256i avx::hadd_epi16(__m256i a, __m256i b) { return _mm256_hadd_epi16(a, b); }
+__m256i avx::hadd_epi32(__m256i a, __m256i b) { return _mm256_hadd_epi32(a, b); }
+
+__m256i avx::hadd(__m256i a, __m256i b, int16_t) { return hadd_epi16(a, b); }
+__m256i avx::hadd(__m256i a, __m256i b, int32_t) { return hadd_epi32(a, b); }
+
+__m256i avx::hadds_epi16(__m256i a, __m256i b) { return _mm256_hadds_epi16(a, b); }
+
+__m256i avx::hsub_epi16(__m256i a, __m256i b) { return _mm256_hsub_epi16(a, b); }
+__m256i avx::hsub_epi32(__m256i a, __m256i b) { return _mm256_hsub_epi32(a, b); }
+
+__m256i avx::hsub(__m256i a, __m256i b, int16_t) { return hsub_epi16(a, b); }
+__m256i avx::hsub(__m256i a, __m256i b, int32_t) { return hsub_epi32(a, b); }
+
+__m256i avx::hsubs_epi16(__m256i a, __m256i b) { return _mm256_hsubs_epi16(a, b); }
+
+template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+	uint8_t, uint16_t, uint32_t, uint64_t>, int>>
+	__m256i avx::logical_and(__m256i a, __m256i b, T) {
+	return Not(Or(logical_not(a, T()), logical_not(b, T())));
+}
+
+template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+	uint8_t, uint16_t, uint32_t, uint64_t>, int>>
+	__m256i avx::logical_not(__m256i v, T) {
+	auto Zero = zeros();
+	return cmpeq(v, Zero, T());
+}
+
+template<typename T, std::enable_if_t<wjr::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t,
+	uint8_t, uint16_t, uint32_t, uint64_t>, int>>
+	__m256i avx::logical_or(__m256i a, __m256i b, T) {
+	return Not(logical_not(Or(a, b), T()));
+}
+
+__m256i avx::madd_epi16(__m256i a, __m256i b) { return _mm256_madd_epi16(a, b); }
+
+__m256i avx::max_epi8(__m256i a, __m256i b) { return _mm256_max_epi8(a, b); }
+__m256i avx::max_epi16(__m256i a, __m256i b) { return _mm256_max_epi16(a, b); }
+__m256i avx::max_epi32(__m256i a, __m256i b) { return _mm256_max_epi32(a, b); }
+
+__m256i avx::max_epu8(__m256i a, __m256i b) { return _mm256_max_epu8(a, b); }
+__m256i avx::max_epu16(__m256i a, __m256i b) { return _mm256_max_epu16(a, b); }
+__m256i avx::max_epu32(__m256i a, __m256i b) { return _mm256_max_epu32(a, b); }
+
+__m256i avx::max(__m256i a, __m256i b, int8_t) { return max_epi8(a, b); }
+__m256i avx::max(__m256i a, __m256i b, int16_t) { return max_epi16(a, b); }
+__m256i avx::max(__m256i a, __m256i b, uint8_t) { return max_epu8(a, b); }
+__m256i avx::max(__m256i a, __m256i b, uint16_t) { return max_epu16(a, b); }
+__m256i avx::max(__m256i a, __m256i b, int32_t) { return max_epi32(a, b); }
+__m256i avx::max(__m256i a, __m256i b, uint32_t) { return max_epu32(a, b); }
+
+int8_t avx::max_epi8(__m256i a) {
+	return sse::max_epi8(sse::max_epi8(getlow(a), gethigh(a)));
+}
+
+int16_t avx::max_epi16(__m256i a) {
+	return sse::max_epi16(sse::max_epi16(getlow(a), gethigh(a)));
+}
+
+int32_t avx::max_epi32(__m256i a) {
+	return sse::max_epi32(sse::max_epi32(getlow(a), gethigh(a)));
+}
+
+uint8_t avx::max_epu8(__m256i a) {
+	return sse::max_epu8(sse::max_epu8(getlow(a), gethigh(a)));
+}
+
+uint16_t avx::max_epu16(__m256i a) {
+	return sse::max_epu16(sse::max_epu16(getlow(a), gethigh(a)));
+}
+
+uint32_t avx::max_epu32(__m256i a) {
+	return sse::max_epu32(sse::max_epu32(getlow(a), gethigh(a)));
+}
+
+int8_t avx::max(__m256i a, int8_t) { return max_epi8(a); }
+int16_t avx::max(__m256i a, int16_t) { return max_epi16(a); }
+int32_t avx::max(__m256i a, int32_t) { return max_epi32(a); }
+uint8_t avx::max(__m256i a, uint8_t) { return max_epu8(a); }
+uint16_t avx::max(__m256i a, uint16_t) { return max_epu16(a); }
+uint32_t avx::max(__m256i a, uint32_t) { return max_epu32(a); }
+
+__m256i avx::min_epi8(__m256i a, __m256i b) { return _mm256_min_epi8(a, b); }
+__m256i avx::min_epi16(__m256i a, __m256i b) { return _mm256_min_epi16(a, b); }
+__m256i avx::min_epi32(__m256i a, __m256i b) { return _mm256_min_epi32(a, b); }
+
+__m256i avx::min_epu8(__m256i a, __m256i b) { return _mm256_min_epu8(a, b); }
+__m256i avx::min_epu16(__m256i a, __m256i b) { return _mm256_min_epu16(a, b); }
+__m256i avx::min_epu32(__m256i a, __m256i b) { return _mm256_min_epu32(a, b); }
+
+__m256i avx::min(__m256i a, __m256i b, int8_t) { return min_epi8(a, b); }
+__m256i avx::min(__m256i a, __m256i b, int16_t) { return min_epi16(a, b); }
+__m256i avx::min(__m256i a, __m256i b, uint8_t) { return min_epu8(a, b); }
+__m256i avx::min(__m256i a, __m256i b, uint16_t) { return min_epu16(a, b); }
+__m256i avx::min(__m256i a, __m256i b, int32_t) { return min_epi32(a, b); }
+__m256i avx::min(__m256i a, __m256i b, uint32_t) { return min_epu32(a, b); }
+
+int8_t avx::min_epi8(__m256i a) {
+	return sse::min_epi8(sse::min_epi8(getlow(a), gethigh(a)));
+}
+
+int16_t avx::min_epi16(__m256i a) {
+	return sse::min_epi16(sse::min_epi16(getlow(a), gethigh(a)));
+}
+
+int32_t avx::min_epi32(__m256i a) {
+	return sse::min_epi32(sse::min_epi32(getlow(a), gethigh(a)));
+}
+
+uint8_t avx::min_epu8(__m256i a) {
+	return sse::min_epu8(sse::min_epu8(getlow(a), gethigh(a)));
+}
+
+uint16_t avx::min_epu16(__m256i a) {
+	return sse::min_epu16(sse::min_epu16(getlow(a), gethigh(a)));
+}
+
+uint32_t avx::min_epu32(__m256i a) {
+	return sse::min_epu32(sse::min_epu32(getlow(a), gethigh(a)));
+}
+
+int8_t avx::min(__m256i a, int8_t) { return min_epi8(a); }
+int16_t avx::min(__m256i a, int16_t) { return min_epi16(a); }
+int32_t avx::min(__m256i a, int32_t) { return min_epi32(a); }
+uint8_t avx::min(__m256i a, uint8_t) { return min_epu8(a); }
+uint16_t avx::min(__m256i a, uint16_t) { return min_epu16(a); }
+uint32_t avx::min(__m256i a, uint32_t) { return min_epu32(a); }
+
+avx::mask_type avx::movemask_epi8(__m256i a) { return _mm256_movemask_epi8(a); }
+
+__m256i avx::mul_epi32(__m256i a, __m256i b) { return _mm256_mul_epi32(a, b); }
+__m256i avx::mul_epu32(__m256i a, __m256i b) { return _mm256_mul_epu32(a, b); }
+
+__m256i avx::mulhi_epi16(__m256i a, __m256i b) { return _mm256_mulhi_epi16(a, b); }
+
+__m256i avx::mulhi_epu16(__m256i a, __m256i b) { return _mm256_mulhi_epu16(a, b); }
+
+__m256i avx::mullo_epi16(__m256i a, __m256i b) { return _mm256_mullo_epi16(a, b); }
+
+__m256i avx::packs_epi16(__m256i a, __m256i b) { return _mm256_packs_epi16(a, b); }
+__m256i avx::packs_epi32(__m256i a, __m256i b) { return _mm256_packs_epi32(a, b); }
+
+__m256i avx::packus_epi16(__m256i a, __m256i b) { return _mm256_packus_epi16(a, b); }
+__m256i avx::packus_epi32(__m256i a, __m256i b) { return _mm256_packus_epi32(a, b); }
+
+__m256i avx::shuffle_epi8(__m256i a, __m256i b) { return _mm256_shuffle_epi8(a, b); }
+
+template<int imm8>
+__m256i avx::shuffle_epi32(__m256i a) {
+	return _mm256_shuffle_epi32(a, imm8);
+}
+
+template<int imm8>
+__m256i avx::shufflehi_epi16(__m256i a) {
+	return _mm256_shufflehi_epi16(a, imm8);
+}
+
+template<int imm8>
+__m256i avx::shufflelo_epi16(__m256i a) {
+	return _mm256_shufflelo_epi16(a, imm8);
+}
+
+__m256i avx::sll_epi16(__m256i a, __m128i b) { return _mm256_sll_epi16(a, b); }
+__m256i avx::sll_epi32(__m256i a, __m128i b) { return _mm256_sll_epi32(a, b); }
+__m256i avx::sll_epi64(__m256i a, __m128i b) { return _mm256_sll_epi64(a, b); }
+
+__m256i avx::sll(__m256i a, __m128i b, int16_t) { return sll_epi16(a, b); }
+__m256i avx::sll(__m256i a, __m128i b, int32_t) { return sll_epi32(a, b); }
+__m256i avx::sll(__m256i a, __m128i b, int64_t) { return sll_epi64(a, b); }
+__m256i avx::sll(__m256i a, __m128i b, uint16_t) { return sll_epi16(a, b); }
+__m256i avx::sll(__m256i a, __m128i b, uint32_t) { return sll_epi32(a, b); }
+__m256i avx::sll(__m256i a, __m128i b, uint64_t) { return sll_epi64(a, b); }
+
+__m256i avx::slli_epi16(__m256i a, int imm8) { return _mm256_slli_epi16(a, imm8); }
+__m256i avx::slli_epi32(__m256i a, int imm8) { return _mm256_slli_epi32(a, imm8); }
+__m256i avx::slli_epi64(__m256i a, int imm8) { return _mm256_slli_epi64(a, imm8); }
+
+__m256i avx::slli(__m256i a, int imm8, int16_t) { return slli_epi16(a, imm8); }
+__m256i avx::slli(__m256i a, int imm8, int32_t) { return slli_epi32(a, imm8); }
+__m256i avx::slli(__m256i a, int imm8, int64_t) { return slli_epi64(a, imm8); }
+__m256i avx::slli(__m256i a, int imm8, uint16_t) { return slli_epi16(a, imm8); }
+__m256i avx::slli(__m256i a, int imm8, uint32_t) { return slli_epi32(a, imm8); }
+__m256i avx::slli(__m256i a, int imm8, uint64_t) { return slli_epi64(a, imm8); }
+
+__m256i avx::sra_epi16(__m256i a, __m128i b) { return _mm256_sra_epi16(a, b); }
+__m256i avx::sra_epi32(__m256i a, __m128i b) { return _mm256_sra_epi32(a, b); }
+
+__m256i avx::sra(__m256i a, __m128i b, int16_t) { return sra_epi16(a, b); }
+__m256i avx::sra(__m256i a, __m128i b, int32_t) { return sra_epi32(a, b); }
+
+__m256i avx::srai_epi16(__m256i a, int imm8) { return _mm256_srai_epi16(a, imm8); }
+__m256i avx::srai_epi32(__m256i a, int imm8) { return _mm256_srai_epi32(a, imm8); }
+
+__m256i avx::srai(__m256i a, int imm8, int16_t) { return srai_epi16(a, imm8); }
+__m256i avx::srai(__m256i a, int imm8, int32_t) { return srai_epi32(a, imm8); }
+
+__m256i avx::stream_load(__m256i const* p) { return _mm256_stream_load_si256(p); }
+
+__m256i avx::srl_epi16(__m256i a, __m128i b) { return _mm256_srl_epi16(a, b); }
+__m256i avx::srl_epi32(__m256i a, __m128i b) { return _mm256_srl_epi32(a, b); }
+__m256i avx::srl_epi64(__m256i a, __m128i b) { return _mm256_srl_epi64(a, b); }
+
+__m256i avx::srl(__m256i a, __m128i b, int16_t) { return srl_epi16(a, b); }
+__m256i avx::srl(__m256i a, __m128i b, int32_t) { return srl_epi32(a, b); }
+__m256i avx::srl(__m256i a, __m128i b, int64_t) { return srl_epi64(a, b); }
+__m256i avx::srl(__m256i a, __m128i b, uint16_t) { return srl_epi16(a, b); }
+__m256i avx::srl(__m256i a, __m128i b, uint32_t) { return srl_epi32(a, b); }
+__m256i avx::srl(__m256i a, __m128i b, uint64_t) { return srl_epi64(a, b); }
+
+__m256i avx::srli_epi16(__m256i a, int imm8) { return _mm256_srli_epi16(a, imm8); }
+__m256i avx::srli_epi32(__m256i a, int imm8) { return _mm256_srli_epi32(a, imm8); }
+__m256i avx::srli_epi64(__m256i a, int imm8) { return _mm256_srli_epi64(a, imm8); }
+
+__m256i avx::srli(__m256i a, int imm8, int16_t) { return srli_epi16(a, imm8); }
+__m256i avx::srli(__m256i a, int imm8, int32_t) { return srli_epi32(a, imm8); }
+__m256i avx::srli(__m256i a, int imm8, int64_t) { return srli_epi64(a, imm8); }
+__m256i avx::srli(__m256i a, int imm8, uint16_t) { return srli_epi16(a, imm8); }
+__m256i avx::srli(__m256i a, int imm8, uint32_t) { return srli_epi32(a, imm8); }
+__m256i avx::srli(__m256i a, int imm8, uint64_t) { return srli_epi64(a, imm8); }
+
+__m256i avx::sub_epi8(__m256i a, __m256i b) { return _mm256_sub_epi8(a, b); }
+__m256i avx::sub_epi16(__m256i a, __m256i b) { return _mm256_sub_epi16(a, b); }
+__m256i avx::sub_epi32(__m256i a, __m256i b) { return _mm256_sub_epi32(a, b); }
+__m256i avx::sub_epi64(__m256i a, __m256i b) { return _mm256_sub_epi64(a, b); }
+
+__m256i avx::sub(__m256i a, __m256i b, int8_t) { return sub_epi8(a, b); }
+__m256i avx::sub(__m256i a, __m256i b, int16_t) { return sub_epi16(a, b); }
+__m256i avx::sub(__m256i a, __m256i b, int32_t) { return sub_epi32(a, b); }
+__m256i avx::sub(__m256i a, __m256i b, int64_t) { return sub_epi64(a, b); }
+__m256i avx::sub(__m256i a, __m256i b, uint8_t) { return sub_epi8(a, b); }
+__m256i avx::sub(__m256i a, __m256i b, uint16_t) { return sub_epi16(a, b); }
+__m256i avx::sub(__m256i a, __m256i b, uint32_t) { return sub_epi32(a, b); }
+__m256i avx::sub(__m256i a, __m256i b, uint64_t) { return sub_epi64(a, b); }
+
+__m256i avx::subs_epi8(__m256i a, __m256i b) { return _mm256_subs_epi8(a, b); }
+__m256i avx::subs_epi16(__m256i a, __m256i b) { return _mm256_subs_epi16(a, b); }
+
+__m256i avx::subs_epu8(__m256i a, __m256i b) { return _mm256_subs_epu8(a, b); }
+__m256i avx::subs_epu16(__m256i a, __m256i b) { return _mm256_subs_epu16(a, b); }
+
+__m256i avx::subs(__m256i a, __m256i b, int8_t) { return subs_epi8(a, b); }
+__m256i avx::subs(__m256i a, __m256i b, int16_t) { return subs_epi16(a, b); }
+__m256i avx::subs(__m256i a, __m256i b, uint8_t) { return subs_epu8(a, b); }
+__m256i avx::subs(__m256i a, __m256i b, uint16_t) { return subs_epu16(a, b); }
+
+int avx::test_all_ones(__m256i a) { return testc(a, cmpeq_epi32(a, a)); }
+
+__m256i avx::unpackhi_epi8(__m256i a, __m256i b) { return _mm256_unpackhi_epi8(a, b); }
+__m256i avx::unpackhi_epi16(__m256i a, __m256i b) { return _mm256_unpackhi_epi16(a, b); }
+__m256i avx::unpackhi_epi32(__m256i a, __m256i b) { return _mm256_unpackhi_epi32(a, b); }
+__m256i avx::unpackhi_epi64(__m256i a, __m256i b) { return _mm256_unpackhi_epi64(a, b); }
+
+__m256i avx::unpackhi(__m256i a, __m256i b, int8_t) { return unpackhi_epi8(a, b); }
+__m256i avx::unpackhi(__m256i a, __m256i b, int16_t) { return unpackhi_epi16(a, b); }
+__m256i avx::unpackhi(__m256i a, __m256i b, int32_t) { return unpackhi_epi32(a, b); }
+__m256i avx::unpackhi(__m256i a, __m256i b, int64_t) { return unpackhi_epi64(a, b); }
+__m256i avx::unpackhi(__m256i a, __m256i b, uint8_t) { return unpackhi_epi8(a, b); }
+__m256i avx::unpackhi(__m256i a, __m256i b, uint16_t) { return unpackhi_epi16(a, b); }
+__m256i avx::unpackhi(__m256i a, __m256i b, uint32_t) { return unpackhi_epi32(a, b); }
+__m256i avx::unpackhi(__m256i a, __m256i b, uint64_t) { return unpackhi_epi64(a, b); }
+
+__m256i avx::unpacklo_epi8(__m256i a, __m256i b) { return _mm256_unpacklo_epi8(a, b); }
+__m256i avx::unpacklo_epi16(__m256i a, __m256i b) { return _mm256_unpacklo_epi16(a, b); }
+__m256i avx::unpacklo_epi32(__m256i a, __m256i b) { return _mm256_unpacklo_epi32(a, b); }
+__m256i avx::unpacklo_epi64(__m256i a, __m256i b) { return _mm256_unpacklo_epi64(a, b); }
+
+__m256i avx::unpacklo(__m256i a, __m256i b, int8_t) { return unpacklo_epi8(a, b); }
+__m256i avx::unpacklo(__m256i a, __m256i b, int16_t) { return unpacklo_epi16(a, b); }
+__m256i avx::unpacklo(__m256i a, __m256i b, int32_t) { return unpacklo_epi32(a, b); }
+__m256i avx::unpacklo(__m256i a, __m256i b, int64_t) { return unpacklo_epi64(a, b); }
+__m256i avx::unpacklo(__m256i a, __m256i b, uint8_t) { return unpacklo_epi8(a, b); }
+__m256i avx::unpacklo(__m256i a, __m256i b, uint16_t) { return unpacklo_epi16(a, b); }
+__m256i avx::unpacklo(__m256i a, __m256i b, uint32_t) { return unpacklo_epi32(a, b); }
 #endif // WJR_AVX2
-
-};
 
 _WJR_SIMD_END
 
 #endif // __WJR_SIMD_SIMD_INTRIN_H
+
+#ifndef __WJR_ALGO_ALOG_H
+#error "This file should not be included directly. Include <wjr/algo.h> instead."
+#endif 
 
 #if defined(_WJR_FAST_MEMCHR)
 
@@ -5312,7 +6263,7 @@ _WJR_ALGO_BEGIN
 
 template<typename T, typename _Pred>
 const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
-	using namespace wjr::literals;
+	using namespace wjr::literals;	
 	constexpr size_t _Mysize = sizeof(T);
 
 #if WJR_AVX2
@@ -5337,7 +6288,7 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 				// do nothing
 			}
 			else if (_Mysize == 1 ||
-				reinterpret_cast<uintptr_t>(s) % _Mysize == 0) {
+					reinterpret_cast<uintptr_t>(s) % _Mysize == 0) {
 				auto x = simd_t::loadu(reinterpret_cast<const sint*>(s));
 
 				__WJR_MEMCHR_ONE(simd_t, s);
@@ -5402,7 +6353,7 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 				auto x3 = simd_t::load(reinterpret_cast<const sint*>(s + width * 3));
 
 				__WJR_MEMCHR_FOUR(simd_t, s, s + width, s + width * 2, s + width * 3);
-
+				
 				s += width * 4;
 				n -= width * 4;
 			} while (n >= width * 4);
@@ -5413,8 +6364,8 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-						auto x = simd_t::load(reinterpret_cast<const sint*>(s));
-
+					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
+					
 					__WJR_MEMCHR_ONE(simd_t, s);
 					s += width;
 				}
@@ -5531,14 +6482,9 @@ _WJR_ALGO_END
 #undef __WJR_MEMCHR_ONE
 
 #endif // _WJR_FAST_MEMCHR
-
-#endif // WJR_ALGO_MEMCHR_H
-#pragma once
-#ifndef __WJR_ALGO_MEMRCHR_H
-#define __WJR_ALGO_MEMRCHR_H
-
-
-
+#ifndef __WJR_ALGO_ALOG_H
+#error "This file should not be included directly. Include <wjr/algo.h> instead."
+#endif 
 
 #if defined(_WJR_FAST_MEMCHR)
 
@@ -5683,7 +6629,7 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-						s -= width;
+					s -= width;
 					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
 
 					__WJR_MEMRCHR_ONE(simd_t, s + width);
@@ -5721,7 +6667,7 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 			auto x3 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s - 32 / _Mysize));
 
 			__WJR_MEMRCHR_FOUR(simd::avx, s - n + 32 / _Mysize, s - n + 64 / _Mysize, s - 32 / _Mysize, s);
-
+			
 			return s - n;
 		}
 #endif // WJR_AVX2
@@ -5741,7 +6687,7 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 
 	if constexpr (_Mysize == 8) {
 		// n = [1, 2)
-		return pred(s[-1], val) ? s : s - 1;
+		return pred(s[-1], val) ? s: s - 1;
 	}
 
 	if constexpr (_Mysize == 2) {
@@ -5802,14 +6748,9 @@ _WJR_ALGO_END
 #undef __WJR_MEMRCHR_ONE
 
 #endif // _WJR_FAST_MEMCHR
-
-#endif // __WJR_ALGO_MEMRCHR_H
-#pragma once
-#ifndef __WJR_ALGO_MEMCMP_H
-#define __WJR_ALGO_MEMCMP_H
-
-
-
+#ifndef __WJR_ALGO_ALOG_H
+#error "This file should not be included directly. Include <wjr/algo.h> instead."
+#endif
 
 #if defined(_WJR_FAST_MEMCMP)
 
@@ -5891,12 +6832,12 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 		if (n >= width * 4) {
 			const T* _lst0;
 			const T* _lst1;
-
+			
 			auto _off0 = reinterpret_cast<uintptr_t>(s0) % bound;
 			auto _off1 = reinterpret_cast<uintptr_t>(s1) % bound;
 
 			// align 2 pointer
-			if (_off0 == _off1 &&
+			if (_off0 == _off1 && 
 				(_Mysize == 1 || _off0 % _Mysize == 0)) {
 				if (is_constant_p(_off0) && _off0 == 0) {
 					// do nothing
@@ -6005,7 +6946,7 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-						auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
+					auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
 					auto y = simd_t::load(reinterpret_cast<const sint*>(s1));
 
 					__WJR_MEMCMP_ONE(simd_t);
@@ -6118,9 +7059,9 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			auto x = simd::sse::set_epi32(D0, C0, B0, A0);
 			auto y = simd::sse::set_epi32(D1, C1, B1, A1);
-
+			
 			__WJR_MEMCMP_ONE(simd::sse);
-
+			
 			return true;
 		}
 	}
@@ -6143,14 +7084,9 @@ _WJR_ALGO_END
 #undef __WJR_MEMCMP_FOUR_NORMAL
 
 #endif // _WJR_FAST_MEMCMP
-
-#endif // __WJR_ALGO_MEMCMP_H
-#pragma once
-#ifndef __WJR_ALGO_MEMMIS_H
-#define __WJR_ALGO_MEMMIS_H
-
-
-
+#ifndef __WJR_ALGO_ALOG_H
+#error "This file should not be included directly. Include <wjr/algo.h> instead."
+#endif 
 
 #if defined(_WJR_FAST_MEMMIS)
 
@@ -6320,7 +7256,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-						auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
+					auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
 					auto y = simd_t::load(reinterpret_cast<const sint*>(s1));
 
 					__WJR_MEMMIS_ONE(simd_t, s0);
@@ -6385,7 +7321,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		auto y3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + n - 16 / _Mysize));
 
 		__WJR_MEMMIS_FOUR(simd::sse, s0, s0 + delta, s0 + n - 16 / _Mysize - delta, s0 + n - 16 / _Mysize);
-
+		
 		return s0 + n;
 	}
 
@@ -6461,14 +7397,9 @@ _WJR_ALGO_END
 #undef __WJR_MEMMIS_ONE
 
 #endif // _WJR_FAST_MEMMIS
-
-#endif // __WJR_ALGO_MEMMIS_H
-#pragma once
-#ifndef __WJR_ALGO_MEMRMIS_H
-#define __WJR_ALGO_MEMRMIS_H
-
-
-
+#ifndef __WJR_ALGO_ALOG_H
+#error "This file should not be included directly. Include <wjr/algo.h> instead."
+#endif 
 
 #if defined(_WJR_FAST_MEMMIS)
 
@@ -6641,7 +7572,7 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-						auto x = simd_t::load(reinterpret_cast<const sint*>(s0 - width));
+					auto x = simd_t::load(reinterpret_cast<const sint*>(s0 - width));
 					auto y = simd_t::load(reinterpret_cast<const sint*>(s1 - width));
 
 					__WJR_MEMRMIS_ONE(simd_t, s0);
@@ -6782,14 +7713,9 @@ _WJR_ALGO_END
 #undef __WJR_MEMRMIS_ONE
 
 #endif // _WJR_FAST_MEMMIS
-
-#endif // __WJR_ALGO_MEMRMIS_H
-#pragma once
-#ifndef __WJR_ALGO_MEMCNT_H
-#define __WJR_ALGO_MEMCNT_H
-
-
-
+#ifndef __WJR_ALGO_ALOG_H
+#error "This file should not be included directly. Include <wjr/algo.h> instead."
+#endif 
 
 #if defined(_WJR_FAST_MEMCNT)
 
@@ -6847,9 +7773,9 @@ _WJR_ALGO_END
 		}	                                                                    \
 	}
 
-	_WJR_ALGO_BEGIN
+_WJR_ALGO_BEGIN
 
-	template<typename T>
+template<typename T>
 size_t __memcnt(const T* s, T val, size_t n) {
 	constexpr bool is_avx =
 #if WJR_AVX2
@@ -6882,30 +7808,273 @@ size_t __memcnt(const T* s, T val, size_t n) {
 _WJR_ALGO_END
 
 #endif // _WJR_FAST_MEMCNT
-
-#endif // __WJR_ALGO_MEMCNT_H
-#pragma once
-#ifndef __WJR_ALGO_MEMSET_H
-#define __WJR_ALGO_MEMSET_H
-
-
+#ifndef __WJR_ALGO_ALOG_H
+#error "This file should not be included directly. Include <wjr/algo.h> instead."
+#endif 
 
 #if defined(_WJR_FAST_MEMSET)
 
 _WJR_ALGO_BEGIN
 
-extern void __memset(uint8_t*, uint8_t, size_t);
-extern void __memset(uint16_t*, uint16_t, size_t);
-extern void __memset(uint32_t*, uint32_t, size_t);
-#if defined(WJR_X86_64)
-extern void __memset(uint64_t*, uint64_t, size_t);
+template<typename T>
+void __memset(T* s, T val, size_t n) {
+	using namespace wjr::literals;
+	constexpr size_t _Mysize = sizeof(T);
+
+#if WJR_AVX2
+	using simd_t = simd::avx;
+#else
+	using simd_t = simd::sse;
+#endif // WJR_AVX2
+
+	using sint = typename simd_t::int_type;
+	constexpr uintptr_t width = simd_t::width() / (8 * _Mysize);
+	constexpr uintptr_t bound = width * _Mysize;
+
+	if constexpr (_Mysize != 1) {
+		if (
+			is_constant_p(val) &&
+			broadcast<T, uint8_t>(static_cast<uint8_t>(val)) == val) {
+			return __memset(reinterpret_cast<uint8_t*>(s), static_cast<uint8_t>(val), n * _Mysize);
+		}
+	}
+
+	constexpr size_t __constant_threshold = 2_KiB / _Mysize;
+	constexpr size_t __rep_noaligned_threshold = 1_KiB / _Mysize;
+
+#if defined(_WJR_CPUINFO)
+#if defined(WJR_INLINE_ASM)
+	const bool __use_rep = wjr::is_enhanced_rep();
+#else
+	const bool __use_rep = false;
 #endif
+	const size_t __nt_threshold = (wjr::__max_cache_size + wjr::__max_cache_size / 8) / _Mysize;
+	const size_t __large_threshold = __use_rep ? 256 / _Mysize : __nt_threshold;
+#endif // _WJR_CPUINFO
+
+	if (is_constant_p(n) && n <= __constant_threshold) {
+		for (size_t i = 0; i < n; ++i) {
+			s[i] = val;
+		}
+		return;
+	}
+
+	if (n >= 16 / _Mysize) {
+		if (n >= width * 4) {
+			auto q = simd_t::set1(val, T());
+
+#if defined(_WJR_CPUINFO)
+			// non-temporal algorithm
+			if (_Mysize == 1 ||
+				(is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0))) {
+
+				if (is_unlikely(n >= __large_threshold)) {
+
+#if defined(WJR_INLINE_ASM)
+					auto u64v = broadcast<uint64_t, T>(val);
+					if (__use_rep && n < __rep_noaligned_threshold) {
+						if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 8) &&
+							reinterpret_cast<uintptr_t>(s) % 8 == 0) {
+						}
+						else {
+							*reinterpret_cast<uint64_t*>(s) = u64v;
+							auto __align_s = 8 - reinterpret_cast<uintptr_t>(s) % 8;
+							s += __align_s / _Mysize;
+							n -= __align_s / _Mysize;
+						}
+						*reinterpret_cast<uint64_t*>(s + n - 8 / _Mysize) = u64v;
+						n &= -(8 / _Mysize);
+						n /= (8 / _Mysize);
+						asm volatile(
+							"rep stosq"
+							: "+D"(s), "+c"(n)
+							: "a"(u64v)
+							: "memory"
+							);
+						return;
+					}
+#endif // WJR_INLINE_ASM
+
+					// align(64)
+					if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 64) &&
+						reinterpret_cast<uintptr_t>(s) % 64 == 0) {
+						// do nothing
+					}
+					else {
+#if WJR_AVX2
+						simd_t::storeu(reinterpret_cast<sint*>(s), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
+#else
+						simd_t::storeu(reinterpret_cast<sint*>(s), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
+#endif // WJR_AVX2
+						auto __align_s = 64 - reinterpret_cast<uintptr_t>(s) % 64;
+						s += __align_s / _Mysize;
+						n -= __align_s / _Mysize;
+					}
+
+#if defined(WJR_INLINE_ASM)
+					if (__use_rep && n < __nt_threshold) {
+
+#if WJR_AVX2
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
+#else 
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 4), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 3), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
+#endif // 
+
+						n &= -(64 / _Mysize);
+						n /= (8 / _Mysize);
+						asm volatile(
+							"rep stosq"
+							: "+D"(s), "+c"(n)
+							: "a"(broadcast<uint64_t, T>(val))
+							: "memory"
+							);
+						return;
+					}
+#endif
+
+					do {
+						simd_t::stream(reinterpret_cast<sint*>(s), q);
+						simd_t::stream(reinterpret_cast<sint*>(s + width), q);
+						simd_t::stream(reinterpret_cast<sint*>(s + width * 2), q);
+						simd_t::stream(reinterpret_cast<sint*>(s + width * 3), q);
+						s += width * 4;
+						n -= width * 4;
+					} while (n >= width * 4);
+					simd::sse::sfence();
+					goto WJR_MACRO_LABEL(aft_align);
+				}
+			}
+#endif // _WJR_CPUINFO
+
+			// align algorithm
+			if (is_constant_p(reinterpret_cast<uintptr_t>(s) % bound) &&
+				reinterpret_cast<uintptr_t>(s) % bound == 0) {
+				// do nothing
+			}
+			else if (_Mysize == 1 ||
+				is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0)) {
+				simd_t::storeu(reinterpret_cast<sint*>(s), q);
+				auto __align_s = bound - reinterpret_cast<uintptr_t>(s) % bound;
+				s += __align_s / _Mysize;
+				n -= __align_s / _Mysize;
+				if (is_unlikely(n < width * 4)) {
+					// n = [width * 4 - width / _Mysize, width * 4)
+					goto WJR_MACRO_LABEL(aft_align);
+				}
+			}
+			else {
+				// unalign algorithm
+				do {
+					simd_t::storeu(reinterpret_cast<sint*>(s), q);
+					simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
+					simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
+					simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
+					s += width * 4;
+					n -= width * 4;
+				} while (n >= width * 4);
+				s += n;
+
+				simd_t::storeu(reinterpret_cast<sint*>(s - width * 4), q);
+				simd_t::storeu(reinterpret_cast<sint*>(s - width * 3), q);
+				simd_t::storeu(reinterpret_cast<sint*>(s - width * 2), q);
+				simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
+				return;
+			}
+
+			do {
+				simd_t::store(reinterpret_cast<sint*>(s), q);
+				simd_t::store(reinterpret_cast<sint*>(s + width), q);
+				simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
+				simd_t::store(reinterpret_cast<sint*>(s + width * 3), q);
+				s += width * 4;
+				n -= width * 4;
+			} while (n >= width * 4);
+
+			WJR_MACRO_LABEL(aft_align) :
+
+				auto t = s + n - width;
+			s = reinterpret_cast<T*>(
+				(reinterpret_cast<uintptr_t>(s + n - width * 3)) & (~(bound - 1)));
+			simd_t::store(reinterpret_cast<sint*>(s), q);
+			simd_t::store(reinterpret_cast<sint*>(s + width), q);
+			simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
+			simd_t::storeu(reinterpret_cast<sint*>(t), q);
+
+			return;
+		}
+
+#if WJR_AVX2
+		static_assert(width * 4 == 128 / _Mysize, "width * 4 == 128 / _Mysize");
+		if (n >= 64 / _Mysize) {
+			auto q = simd::avx::set1(val, T());
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s), q);
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s + 32 / _Mysize), q);
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - 64 / _Mysize), q);
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - 32 / _Mysize), q);
+			return;
+		}
+#endif // WJR_AVX2
+		auto q = simd::sse::set1(val, T());
+		auto delta = (n & (32 / _Mysize)) >> 1;
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s), q);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s + delta), q);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize) - delta), q);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize)), q);
+		return;
+	}
+
+	if constexpr (_Mysize == 8) {
+		if (n != 0) {
+			*s = val;
+		}
+		return;
+	}
+
+	if constexpr (_Mysize <= 4) {
+		if (n >= 4 / _Mysize) {
+			auto u32v = broadcast<uint32_t, T>(val);
+			auto delta = (n & (8 / _Mysize)) >> 1;
+			*reinterpret_cast<uint32_t*>(s) = u32v;
+			*reinterpret_cast<uint32_t*>(s + delta) = u32v;
+			if constexpr (_Mysize != 4) {
+				*reinterpret_cast<uint32_t*>(s + n - (4 / _Mysize) - delta) = u32v;
+			}
+			*reinterpret_cast<uint32_t*>(s + n - (4 / _Mysize)) = u32v;
+			return;
+		}
+	}
+
+	if constexpr (_Mysize == 4) {
+		return;
+	}
+
+	if constexpr (_Mysize == 2) {
+		if (n != 0) *s = val;
+		return;
+	}
+
+	if constexpr (_Mysize == 1) {
+		if (n != 0) {
+			*s = val;
+			if (n != 1) {
+				*reinterpret_cast<uint16_t*>(s + n - 2) = broadcast<uint16_t, uint8_t>(val);
+			}
+		}
+		return;
+	}
+}
 
 _WJR_ALGO_END
 
 #endif // _WJR_FAST_MEMSET
-
-#endif // __WJR_ALGO_MEMSET_H
 
 _WJR_ALGO_BEGIN
 
@@ -7187,7 +8356,7 @@ constexpr bool __has_fast_memset_helper_v = __has_fast_memset_helper<TEST, T, U>
 
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
 static void __memset_helper(T* s, const U& val, size_t n) {
-
+	
 	if (is_constant_p(n) && n <= 4 / sizeof(T)) {
 		std::fill_n(s, n, val);
 		return;
@@ -7215,7 +8384,7 @@ static void __memset_helper(T* s, const U& val, size_t n) {
 	auto __s = reinterpret_cast<value_type*>(s);
 	auto __val = *reinterpret_cast<const value_type*>(&_Val);
 	static_assert(std::is_same_v<decltype(__val), value_type>, "type mismatch");
-
+	
 #if defined(_WJR_FAST_MEMSET)
 	__memset(__s, __val, n * (sizeof(T) / __max_bytes_num));
 #else
@@ -7311,14 +8480,14 @@ _WJR_BEGIN
 
 template<typename _Iter, typename _Val, typename _Pred,
 	typename _Iter_value = iter_val_t<_Iter>>
-	struct __has_fast_find : std::conjunction<
+struct __has_fast_find : std::conjunction<
 	is_contiguous_iterator<_Iter>,
 	std::conditional_t<
 	wjr::is_reverse_iterator_v<_Iter>,
 	algo::__has_fast_memrchr<_Iter_value, _Val, _Pred>,
 	algo::__has_fast_memchr<_Iter_value, _Val, _Pred>
 	>
-	> {};
+>{};
 
 template<typename _Iter, typename _Val, typename _Pred>
 constexpr bool __has_fast_find_v = __has_fast_find<_Iter, _Val, _Pred>::value;
@@ -7380,10 +8549,10 @@ constexpr find_if_not_fn find_if_not{};
 
 template<typename _Iter, typename _Val,
 	typename _Iter_value = iter_val_t<_Iter>>
-	struct __has_fast_count : std::conjunction<
+struct __has_fast_count : std::conjunction<
 	wjr::is_contiguous_iterator<_Iter>,
 	algo::__has_fast_memcnt<_Iter_value, _Val>
-	> {};
+>{};
 
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_count_v = __has_fast_count<_Iter, _Val>::value;
@@ -7427,15 +8596,15 @@ constexpr count_if_fn count_if{};
 
 // First use algo::memcmp
 // Then use memcmp
-template<typename _Iter1, typename _Iter2, typename _Pred,
+template<typename _Iter1, typename _Iter2, typename _Pred, 
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
-	struct __has_fast_equal_helper : std::conjunction<
+struct __has_fast_equal_helper : std::conjunction<
 	wjr::is_contiguous_iterator<_Iter1>,
 	wjr::is_contiguous_iterator<_Iter2>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
 	algo::__has_fast_memcmp<_Iter_value1, _Iter_value2, _Pred>
-	> {};
+>{};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 struct __has_fast_equal : std::bool_constant<__has_fast_equal_helper<_Iter1, _Iter2, _Pred>::value> {};
@@ -7446,7 +8615,7 @@ constexpr bool __has_fast_equal_v = __has_fast_equal<_Iter1, _Iter2, _Pred>::val
 template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
-	struct __has_fast_mismatch : std::conjunction <
+struct __has_fast_mismatch : std::conjunction <
 	wjr::is_contiguous_iterator<_Iter1>,
 	wjr::is_contiguous_iterator<_Iter2>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
@@ -7455,7 +8624,7 @@ template<typename _Iter1, typename _Iter2, typename _Pred,
 	algo::__has_fast_memrmis<_Iter_value1, _Iter_value2, _Pred>,
 	algo::__has_fast_memmis<_Iter_value1, _Iter_value2, _Pred>
 	>
-	> {};
+>{};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_mismatch_v = __has_fast_mismatch<_Iter1, _Iter2, _Pred>::value;
@@ -7474,7 +8643,7 @@ struct mismatch_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-		if (!wjr::is_constant_evaluated()) {
+		if(!wjr::is_constant_evaluated()){
 #if defined(_WJR_FAST_MEMMIS)
 			if constexpr (__has_fast_mismatch_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = std::distance(_First1, _Last1);
@@ -7502,7 +8671,7 @@ struct mismatch_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-		if (!wjr::is_constant_evaluated()) {
+		if(!wjr::is_constant_evaluated()){
 			if constexpr (__has_fast_mismatch_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = _Last1 - _First1;
 				const auto m = _Last2 - _First2;
@@ -7531,7 +8700,7 @@ struct equal_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-		if (!wjr::is_constant_evaluated()) {
+		if(!wjr::is_constant_evaluated()){
 			if constexpr (__has_fast_equal_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = _Last1 - _First1;
 				if (is_unlikely(n == 0)) { return true; }
@@ -7553,7 +8722,7 @@ struct equal_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-		if (!wjr::is_constant_evaluated()) {
+		if(!wjr::is_constant_evaluated()){
 			if constexpr (__has_fast_equal_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = std::distance(_First1, _Last1);
 				const auto m = std::distance(_First2, _Last2);
@@ -7571,10 +8740,10 @@ constexpr equal_fn equal{};
 template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
-	struct __has_fast_lexicographical_compare : std::conjunction<
+struct __has_fast_lexicographical_compare : std::conjunction<
 	wjr::is_any_of<_Pred, std::less<>, std::not_equal_to<>>,
 	__has_fast_mismatch<_Iter1, _Iter2, _Pred>
-	> {};
+>{};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_lexicographical_compare_v = __has_fast_lexicographical_compare<_Iter1, _Iter2, _Pred>::value;
@@ -7621,10 +8790,10 @@ constexpr lexicographical_compare_fn lexicographical_compare{};
 
 template<typename _Iter, typename _Val,
 	typename _Iter_ref = iter_ref_t<_Iter>>
-	struct __has_fast_fill : std::conjunction<
-	is_contiguous_iterator<_Iter>,
+struct __has_fast_fill : std::conjunction<
+	is_contiguous_iterator<_Iter>, 
 	algo::__has_fast_assign_memset<remove_cref_t<_Iter_ref>, add_cref_t<_Val>>
-	> {};
+>{};
 
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_fill_v = __has_fast_fill<_Iter, _Val>::value;
@@ -7674,7 +8843,7 @@ constexpr fill_n_fn fill_n{};
 template<typename _Input, typename _Output,
 	typename _Input_ref = iter_ref_t<_Input>,
 	typename _Output_ref = iter_ref_t<_Output>>
-	struct __has_fast_copy : std::conjunction<
+struct __has_fast_copy : std::conjunction<
 	is_contiguous_iterator<_Input>,
 	is_contiguous_iterator<_Output>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Input> == wjr::is_reverse_iterator_v<_Output>>,
@@ -7809,7 +8978,7 @@ struct destroy_at_fn {
 			std::allocator_traits<Alloc>::destroy(al, get_address(iter));
 		}
 	}
-
+	
 };
 
 constexpr destroy_at_fn destroy_at;
@@ -7828,7 +8997,7 @@ struct destroy_fn {
 	template<typename Alloc, typename _Iter>
 	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Iter _Last) const {
 		using value_type = iter_val_t<_Iter>;
-		if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter>
+		if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter> 
 			&& std::is_trivially_destructible_v<value_type>)) {
 			for (; _First != _Last; ++_First) {
 				wjr::destroy_at(al, _First);
@@ -7958,7 +9127,7 @@ constexpr uninitialized_value_construct_n_fn uninitialized_value_construct_n;
 template<typename _Input, typename _Output,
 	typename _Input_ref = iter_ref_t<_Input>,
 	typename _Output_ref = iter_ref_t<_Output>>
-	struct __has_fast_uninitialized_copy : std::conjunction<
+struct __has_fast_uninitialized_copy : std::conjunction<
 	is_contiguous_iterator<_Input>,
 	is_contiguous_iterator<_Output>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Input> == wjr::is_reverse_iterator_v<_Output>>,
@@ -8190,7 +9359,7 @@ struct uninitialized_move_n_fn {
 	template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(
 		Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) const {
-		if constexpr (is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>) {
+		if constexpr(is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>){
 			return this->operator()(_First, n, _Dest);
 		}
 		else {
@@ -8249,178 +9418,19 @@ _WJR_END
 
 #endif
 
-#pragma once
-#ifndef __WJR_ALLOCATOR_H
-#define __WJR_ALLOCATOR_H
-
-#include <new>
-
-
-_WJR_BEGIN
-
-template<typename _Ty>
-struct __aligned_helper {
-	constexpr static size_t value = std::max((size_t)alignof(_Ty), (size_t)16ull);
-};
-
-template<>
-struct __aligned_helper<void> {
-	constexpr static size_t value = 16;
-};
-
-#if defined(_DEBUG)
-#define WJR_TEST_ALLOCATOR
-#endif
-
-#if defined(WJR_TEST_ALLOCATOR)
-struct __test_allocator {
-	~__test_allocator();
-	long long _Count = 0;
-};
-extern __test_allocator __test_allocator_instance;
-#endif
-
-template<typename _Ty, size_t _Al = __aligned_helper<_Ty>::value, size_t _Off = 0>
-class aligned_allocator {
-public:
-	static_assert(!std::is_const_v<_Ty>, "The C++ Standard forbids containers of const elements "
-		"because allocator<const T> is ill-formed.");
-	static_assert(_Al >= 8, "The alignment must be greater than or equal to 8.");
-	static_assert(_Off >= 0 && _Off < _Al,
-		"The offset must be greater than or equal to 0 and less than the alignment.");
-	static_assert((_Al& (_Al - 1)) == 0, "The alignment must be a power of 2.");
-
-	using value_type = _Ty;
-
-#if !defined(WJR_CPP_20)
-	using pointer = _Ty*;
-	using const_pointer = const _Ty*;
-
-	using reference = _Ty&;
-	using const_reference = const _Ty&;
-#endif // !WJR_CPP_20
-
-	using size_type = size_t;
-	using difference_type = ptrdiff_t;
-
-	using propagate_on_container_move_assignment = std::true_type;
-	using is_always_equal = std::true_type;
-
-	template <typename _Other>
-	struct rebind {
-		using other = aligned_allocator<_Other, _Al, _Off>;
-	};
-
-#if !defined(WJR_CPP_20)
-	WJR_NODISCARD _Ty* address(_Ty& _Val) const noexcept {
-		return std::addressof(_Val);
-	}
-
-	WJR_NODISCARD const _Ty* address(const _Ty& _Val) const noexcept {
-		return std::addressof(_Val);
-	}
-#endif // !WJR_CPP_20
-
-	constexpr aligned_allocator() noexcept {}
-
-	constexpr aligned_allocator(const aligned_allocator&) noexcept = default;
-	template <typename _Other>
-	constexpr aligned_allocator(const aligned_allocator<_Other, _Al, _Off>&) noexcept {}
-	WJR_CONSTEXPR20 ~aligned_allocator() = default;
-	WJR_CONSTEXPR20 aligned_allocator& operator=(const aligned_allocator&) = default;
-
-	WJR_CONSTEXPR20 void deallocate(_Ty* const _Ptr, const size_t _Count) {
-#if defined(WJR_TEST_ALLOCATOR)
-		__test_allocator_instance._Count -= _Count * sizeof(_Ty) + _Off;
-#endif
-		assume(reinterpret_cast<uintptr_t>(_Ptr) % _Al == _Off);
-		auto ptr = reinterpret_cast<char*>(_Ptr) - _Off;
-		::operator delete(ptr, _Count * sizeof(_Ty) + _Off, static_cast<std::align_val_t>(_Al));
-	}
-
-	WJR_NODISCARD WJR_CONSTEXPR20 _Ty* allocate(const size_t _Count) {
-#if defined(WJR_TEST_ALLOCATOR)
-		__test_allocator_instance._Count += _Count * sizeof(_Ty) + _Off;
-#endif
-		auto ptr = static_cast<char*>(::operator new(_Count * sizeof(_Ty) + _Off,
-			static_cast<std::align_val_t>(_Al))) + _Off;
-		assume(reinterpret_cast<uintptr_t>(ptr) % _Al == _Off);
-		return reinterpret_cast<_Ty*>(ptr);
-	}
-
-#if !defined(WJR_CPP_20)
-	WJR_NODISCARD size_t max_size() const noexcept {
-		return static_cast<size_t>(-1) / sizeof(_Ty);
-	}
-#endif // !WJR_CPP_20
-};
-
-template <size_t _Al, size_t _Off>
-class aligned_allocator<void, _Al, _Off> {
-public:
-	using value_type = void;
-#if !defined(WJR_CPP_20)
-	using pointer = void*;
-	using const_pointer = const void*;
-#endif // !WJR_CPP_20
-
-	using size_type = size_t;
-	using difference_type = ptrdiff_t;
-
-	using propagate_on_container_move_assignment = std::true_type;
-	using is_always_equal = std::true_type;
-
-#if !defined(WJR_CPP_20)
-	template <class _Other>
-	struct rebind {
-		using other = aligned_allocator<_Other>;
-	};
-#endif // !WJR_CPP_20
-};
-
-template <typename _Ty, typename _Other, size_t _Al, size_t _Off>
-WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
-	const aligned_allocator<_Ty, _Al, _Off>&,
-	const aligned_allocator<_Other, _Al, _Off>&) noexcept {
-	return true;
-}
-
-template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
-WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
-	const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
-	const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
-	return false;
-}
-
-template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
-WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator!=(
-	const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
-	const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
-	return !(lhs == rhs);
-}
-
-template<typename T, size_t _Al, size_t _Off>
-struct is_default_allocator<aligned_allocator<T, _Al, _Off>> : std::true_type {};
-
-_WJR_END
-
-#endif // __WJR_ALLOCATOR_H
 
 _WJR_BEGIN
 
 /*
 * vector_data ->
-* 1.vector_data()
+* 1.vector_data() 
 * 2.vector_data(_Al&al, const size_t _Newsize, const size_t _Newcapacity)
 * 4.vector_data(const vector_data&) = delete
 * 5.vector_data(vector_data&&) = delete
 * 6.static void copyConstruct(_Al& al, const vector_data& _Src, vector_data& _Dest)
 * 7.static void moveConstruct(_Al& al, vector_data&& _Src, vector_data& _Dest)
-* 6,7均要求_Dest为空，要求无任何数据，并且内存也要已经回收
-* 复杂度要求 O(1) 或者 O(n) ，尽可能的令n = 0
 * 8.static void Swap(_Al& al, vector_data& _Left, vector_data& _Right) [noexcept] [optional]
 * 9.static void Deallocate(_Al& al, vector_data& _Data)
-* 回收_Data的内存
 * 10.static size_t getGrowthCapacity(const size_t _Oldcapacity, const size_t _Newsize) [optinal]
 * 11.static void shrinkToFit(_Al&al, vector_data& _Data) [optional]
 * 12.size_t size() const;
@@ -8450,6 +9460,16 @@ struct vector_data {
 	~vector_data() = default;
 
 	WJR_CONSTEXPR20 vector_data(
+		_Alty& al, 
+		const size_type _Newsize,
+		const size_type _Newcapacity,
+		extend_tag)
+		: _Myfirst(_Alty_traits::allocate(al, _Newcapacity)),
+		_Mylast(_Myfirst + _Newsize),
+		_Myend(_Myfirst + _Newcapacity) {
+	}
+
+	WJR_CONSTEXPR20 vector_data(
 		_Alty& al,
 		const size_type _Newsize,
 		const size_type _Newcapacity)
@@ -8460,7 +9480,7 @@ struct vector_data {
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_data& _Src, vector_data& _Dest) {
 		{
-			vector_data data(al, _Src.size(), _Src.size());
+			vector_data data(al, _Src.size(), _Src.size(), extend_tag{});
 			_Dest._Myfirst = data._Myfirst;
 			_Dest._Mylast = data._Mylast;
 			_Dest._Myend = data._Myend;
@@ -8513,19 +9533,19 @@ struct vector_data {
 		return _Myfirst;
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 pointer LastPtr() noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
 		return _Mylast;
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer LastPtr() const noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
 		return _Mylast;
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 pointer EndPtr() noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
 		return _Myend;
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer EndPtr() const noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
 		return _Myend;
 	}
 
@@ -8564,7 +9584,7 @@ struct vector_static_data {
 	vector_static_data& operator=(const vector_static_data&) = delete;
 	~vector_static_data() = default;
 
-	WJR_CONSTEXPR20 static void _lengthError(const size_type _Newcapacity) {
+	WJR_CONSTEXPR20 static void _lengthError(const size_type _Newcapacity){
 		std::string str = "vector_static_data is too small to hold the requested data";
 		str += "\n old capacity = " + std::to_string(_MaxCapacity);
 		str += "\n allocate new capacity = " + std::to_string(_Newcapacity);
@@ -8573,10 +9593,20 @@ struct vector_static_data {
 	}
 
 	WJR_CONSTEXPR20 vector_static_data(
+		_Alty& al, 
+		const size_type _Newsize,
+		const size_type _Newcapacity,
+		extend_tag) {
+		_lengthError(_Newcapacity);
+	}
+
+	WJR_CONSTEXPR20 vector_static_data(
 		_Alty& al,
 		const size_type _Newsize,
-		const size_type _Newcapacity) {
-		_lengthError(_Newcapacity);
+		const size_type _Newcapacity) : _M_size(_Newsize) {
+		if (_Newcapacity > _MaxCapacity) {
+			_lengthError(_Newcapacity);
+		}
 	}
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_static_data& _Src, vector_static_data& _Dest) {
@@ -8618,19 +9648,19 @@ struct vector_static_data {
 		return reinterpret_cast<const_pointer>(_M_storage);
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 pointer LastPtr() noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
 		return data() + size();
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer LastPtr() const noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
 		return data() + size();
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 pointer EndPtr() noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
 		return data() + capacity();
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer EndPtr() const noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
 		return data() + capacity();
 	}
 
@@ -8659,7 +9689,7 @@ struct vector_sso_data {
 
 	static_assert(N > 0, "N must be greater than 0");
 
-	constexpr static size_t _MaxAlignment = std::max(alignof(T),
+	constexpr static size_t _MaxAlignment = std::max(alignof(T), 
 		std::max(alignof(size_type), alignof(pointer)));
 	constexpr static size_t _MaxMemroy = std::max(
 		(sizeof(T) * N + _MaxAlignment - 1) & (~(_MaxAlignment - 1)),
@@ -8675,16 +9705,29 @@ struct vector_sso_data {
 	WJR_CONSTEXPR20 vector_sso_data(
 		_Alty& al,
 		const size_type _Newsize,
-		const size_type _Newcapacity)
+		const size_type _Newcapacity,
+		extend_tag)
 		: _M_ptr(_Alty_traits::allocate(al, _Newcapacity)),
-		_M_size(_Newsize),
+		_M_size(_Newsize), 
 		_M_capacity(_Newcapacity) {
+		wjr::assume(_Newcapacity > _MaxCapacity);
+	}
+
+	WJR_CONSTEXPR20 vector_sso_data(
+		_Alty& al,
+		const size_type _Newsize,
+		const size_type _Newcapacity)
+		: _M_size(_Newsize){
+		if (_Newcapacity > _MaxCapacity) {
+			_M_ptr = _Alty_traits::allocate(al, _Newcapacity);
+			_M_capacity = _Newcapacity;
+		}
 	}
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_sso_data& _Src, vector_sso_data& _Dest) {
 		const auto _Size = _Src._M_size;
 		if (!_Src.is_small()) {
-			vector_sso_data data(al, _Size, _Size);
+			vector_sso_data data(al, _Size, _Size, extend_tag{});
 			_Dest._M_ptr = data._M_ptr;
 			_Dest._M_capacity = data._M_capacity;
 		}
@@ -8693,8 +9736,9 @@ struct vector_sso_data {
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty& al, vector_sso_data&& _Src, vector_sso_data& _Dest) {
+		wjr::assume(_Dest.is_small());
 		const auto _Size = _Src._M_size;
-		if (!_Src.is_small()) {
+		if(!_Src.is_small()){
 			_Dest._M_ptr = _Src._M_ptr;
 			_Dest._M_capacity = _Src._M_capacity;
 		}
@@ -8703,7 +9747,7 @@ struct vector_sso_data {
 			wjr::uninitialized_move_n(al, _Src.data(), _Size, _Dest.data());
 			wjr::destroy_n(al, _Src.data(), _Size);
 		}
-
+		
 		_Dest._M_size = _Size;
 
 		_Src.reset_ptr();
@@ -8751,28 +9795,26 @@ struct vector_sso_data {
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 pointer data() noexcept {
-		wjr::assume(!is_small() || _M_ptr == reinterpret_cast<pointer>(_M_storage));
 		return _M_ptr;
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 const_pointer data() const noexcept {
-		wjr::assume(!is_small() || _M_ptr == reinterpret_cast<pointer>(_M_storage));
 		return _M_ptr;
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 pointer LastPtr() noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
 		return data() + size();
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer LastPtr() const noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
 		return data() + size();
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 pointer EndPtr() noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
 		return data() + capacity();
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer EndPtr() const noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
 		return data() + capacity();
 	}
 
@@ -8784,7 +9826,7 @@ struct vector_sso_data {
 		_M_size += _Size;
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 bool is_small() const noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 bool is_small() const noexcept{
 		const bool f = static_cast<const void*>(_M_ptr) == static_cast<const void*>(_M_storage);
 		return f;
 	}
@@ -8833,7 +9875,7 @@ public:
 
 	using data_type = Data;
 
-	WJR_CONSTEXPR20 vector()
+	WJR_CONSTEXPR20 vector() 
 		noexcept(std::is_nothrow_default_constructible_v<_Alty>
 			&& std::is_nothrow_default_constructible_v<data_type>) = default;
 
@@ -8856,10 +9898,10 @@ public:
 
 private:
 	constexpr static bool _IsNoThrowCopyConstruct =
-		noexcept(data_type::copyConstruct(std::declval<_Alty&>(),
+		noexcept(data_type::copyConstruct(std::declval<_Alty&>(), 
 			std::declval<const data_type&>(), std::declval<data_type&>()));
 	constexpr static bool _IsNoThrowMoveConstruct =
-		noexcept(data_type::moveConstruct(std::declval<_Alty&>(),
+		noexcept(data_type::moveConstruct(std::declval<_Alty&>(), 
 			std::declval<data_type&&>(), std::declval<data_type&>()));
 	struct __vector_copy_tag {};
 public:
@@ -8875,7 +9917,7 @@ public:
 	}
 
 	WJR_CONSTEXPR20 vector(const vector& other)
-		: vector(other, _Alty_traits::select_on_container_copy_construction(other.getAllocator()),
+		: vector(other, _Alty_traits::select_on_container_copy_construction(other.getAllocator()), 
 			__vector_copy_tag{}) {}
 
 	WJR_CONSTEXPR20 vector(const vector& other, const allocator_type& al)
@@ -8910,7 +9952,7 @@ private:
 			if (_Size != 0) {
 				const auto _Oldcapacity = capacity();
 				if (_Oldcapacity < _Size) {
-					data_type _Data(al, 0, _Size);
+					data_type _Data(al, 0, _Size, extend_tag{});
 					moveConstruct(al, std::move(_Data), getData());
 				}
 				set_size(_Size);
@@ -9010,15 +10052,15 @@ public:
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 iterator end() noexcept {
-		return LastPtr();
+		return lastPtr();
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 const_iterator end() const noexcept {
-		return LastPtr();
+		return lastPtr();
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 const_iterator cend() const noexcept {
-		return LastPtr();
+		return lastPtr();
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 reverse_iterator rbegin() noexcept {
@@ -9077,7 +10119,7 @@ public:
 			const auto _Oldsize = size();
 			const auto _Newcapacity = getGrowthCapacity(_Oldcapacity, n);
 
-			data_type _Newdata(al, _Oldsize, _Newcapacity);
+			data_type _Newdata(al, _Oldsize, _Newcapacity, extend_tag{});
 			wjr::uninitialized_move_n(al, data(), _Oldsize, _Newdata.data());
 
 			tidy();
@@ -9116,11 +10158,11 @@ public:
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 reference back() noexcept {
-		return *(LastPtr() - 1);
+		return *(lastPtr() - 1);
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 const_reference back() const noexcept {
-		return *(LastPtr() - 1);
+		return *(lastPtr() - 1);
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 pointer data() noexcept {
@@ -9139,8 +10181,8 @@ public:
 	WJR_INLINE_CONSTEXPR20 reference emplace_back(Args&&... args) {
 		auto& al = getAllocator();
 		const auto _Myfirst = data();
-		const auto _Mylast = LastPtr();
-		const auto _Myend = EndPtr();
+		const auto _Mylast = lastPtr();
+		const auto _Myend = endPtr();
 		if (_Mylast != _Myend) {
 			wjr::construct_at(al, _Mylast, std::forward<Args>(args)...);
 			inc_size(1);
@@ -9161,7 +10203,7 @@ public:
 
 	WJR_INTRINSIC_CONSTEXPR20 void pop_back() noexcept {
 		inc_size(-1);
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 		wjr::destroy_at(getAllocator(), _Mylast);
 	}
 
@@ -9231,12 +10273,12 @@ public:
 
 	// unstandard functions
 
-	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const data_type& _Src, data_type& _Dest)
+	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const data_type& _Src, data_type& _Dest) 
 		noexcept(_IsNoThrowCopyConstruct) {
 		data_type::copyConstruct(al, _Src, _Dest);
 	}
 
-	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, data_type&& _Src, data_type& _Dest)
+	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, data_type&& _Src, data_type& _Dest) 
 		noexcept(_IsNoThrowMoveConstruct) {
 		data_type::moveConstruct(al, std::move(_Src), _Dest);
 	}
@@ -9264,7 +10306,7 @@ public:
 		wjr::destroy_n(al, _Data.data(), _Data.size());
 	}
 
-	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, data_type& _Data)
+	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, data_type& _Data) 
 		noexcept(noexcept(data_type::Deallocate(al, _Data))) {
 		data_type::Deallocate(al, _Data);
 		assume(_Data.size() == 0);
@@ -9291,7 +10333,7 @@ public:
 		_D, const size_type, const size_type>, int> = 0>
 	WJR_INTRINSIC_CONSTEXPR20 static size_type getGrowthCapacity(
 		const size_type _Oldcapacity, const size_type _Newsize) noexcept {
-		assume(_Newsize > _Oldcapacity);
+		wjr::assume(_Newsize > _Oldcapacity);
 		const auto _Newcapacity = _Oldcapacity + _Oldcapacity / 2;
 		const auto _FixedCapacity = _Newcapacity < _Newsize ? _Newsize : _Newcapacity;
 		const auto ret = _FixedCapacity < 32 ? ((_FixedCapacity + 3) & (-4)) :
@@ -9319,22 +10361,21 @@ public:
 		return _Myval.second();
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 pointer LastPtr() noexcept {
-		return getData().LastPtr();
+	WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
+		return getData().lastPtr();
 	}
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer LastPtr() const noexcept {
-		return getData().LastPtr();
-	}
-
-	WJR_INTRINSIC_CONSTEXPR20 pointer EndPtr() noexcept {
-		return getData().EndPtr();
-	}
-	WJR_INTRINSIC_CONSTEXPR20 const_pointer EndPtr() const noexcept {
-		return getData().EndPtr();
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
+		return getData().lastPtr();
 	}
 
-	// 非标准扩展函数
-	// English : non-standard extension functions
+	WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
+		return getData().endPtr();
+	}
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
+		return getData().endPtr();
+	}
+
+	// non-standard extension functions
 
 	WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 		getData().set_size(_Size);
@@ -9364,13 +10405,13 @@ public:
 
 private:
 
-	template<typename...Args, std::enable_if_t<is_any_index_of_v<sizeof...(Args), 1, 2>, int> = 0>
+	template<typename...Args, std::enable_if_t<is_any_index_of_v<sizeof...(Args),1,2>, int> = 0>
 	WJR_CONSTEXPR20 void _M_construct_n(const size_type _Count, Args&&... args) {
 		if (_Count != 0) {
 			auto& al = getAllocator();
 			const auto _Oldcapacity = capacity();
 			if (_Oldcapacity < _Count) {
-				data_type _Newdata(al, 0, _Count);
+				data_type _Newdata(al, 0, _Count, extend_tag{});
 				moveConstruct(al, std::move(_Newdata), getData());
 			}
 			set_size(_Count);
@@ -9399,7 +10440,7 @@ private:
 
 	WJR_CONSTEXPR20 void _M_erase_at_end(const pointer _Where) noexcept {
 		const auto _Myfirst = data();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 		wjr::destroy(getAllocator(), _Where, _Mylast);
 		const auto __new_size = static_cast<size_type>(_Where - _Myfirst);
 		set_size(__new_size);
@@ -9407,7 +10448,7 @@ private:
 
 	WJR_CONSTEXPR20 iterator _M_erase(iterator _Where) noexcept {
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 		if (_Where + 1 != _Mylast) {
 			wjr::move(_Where + 1, _Mylast, _Where);
 		}
@@ -9418,7 +10459,7 @@ private:
 
 	WJR_CONSTEXPR20 iterator _M_erase(iterator _First, iterator _Last) noexcept {
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 		if (_First != _Last) {
 			if (_Last != _Mylast) {
 				wjr::move(_Last, _Mylast, _First);
@@ -9444,8 +10485,8 @@ private:
 		if (_First != _Last) {
 			auto& al = getAllocator();
 			const pointer _Myfirst = data();
-			const pointer _Mylast = LastPtr();
-			const pointer _Myend = EndPtr();
+			const pointer _Mylast = lastPtr();
+			const pointer _Myend = endPtr();
 
 			const auto n = static_cast<size_type>(std::distance(_First, _Last));
 			const auto __rest = static_cast<size_type>(_Myend - _Mylast);
@@ -9471,7 +10512,7 @@ private:
 				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
 				const auto __old_pos = static_cast<size_type>(_Where - _Myfirst);
 				const auto _Newcapacity = getGrowthCapacity(capacity(), __old_size + n);
-				data_type _Newdata(al, __old_size + n, _Newcapacity);
+				data_type _Newdata(al, __old_size + n, _Newcapacity, extend_tag{});
 				const pointer _Newfirst = _Newdata.data();
 
 				wjr::uninitialized_copy(al, _First, _Last, _Newfirst + __old_pos);
@@ -9496,8 +10537,8 @@ private:
 		if (_First != _Last) {
 			auto& al = getAllocator();
 			const pointer _Myfirst = data();
-			const pointer _Mylast = LastPtr();
-			const pointer _Myend = EndPtr();
+			const pointer _Mylast = lastPtr();
+			const pointer _Myend = endPtr();
 
 			const auto n = static_cast<size_type>(std::distance(_First, _Last));
 			const auto __rest = static_cast<size_type>(_Myend - _Mylast);
@@ -9510,7 +10551,7 @@ private:
 				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
 				const auto _Newcapacity = getGrowthCapacity(capacity(), __old_size + n);
 
-				data_type _Newdata(al, __old_size + n, _Newcapacity);
+				data_type _Newdata(al, __old_size + n, _Newcapacity, extend_tag{});
 				const pointer _Newfirst = _Newdata.data();
 
 				wjr::uninitialized_copy(al, _First, _Last, _Newfirst + __old_size);
@@ -9525,7 +10566,7 @@ private:
 	template<typename iter>
 	WJR_CONSTEXPR20 void _M_assign_aux(iter _First, iter _Last, std::input_iterator_tag) {
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 
 		pointer cur = _Myfirst;
 
@@ -9545,7 +10586,7 @@ private:
 		auto& al = getAllocator();
 		if (_Count > capacity()) {
 			tidy();
-			data_type _Newdata(al, _Count, _Count);
+			data_type _Newdata(al, _Count, _Count, extend_tag{});
 			moveConstruct(al, std::move(_Newdata), getData());
 			wjr::uninitialized_fill_n(al, data(), _Count, _Val);
 			return;
@@ -9565,7 +10606,7 @@ private:
 		auto _Count = static_cast<size_type>(std::distance(_First, _Last));
 		auto& al = getAllocator();
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 
 		if (_Count <= size()) {
 			wjr::copy(_First, _Last, _Myfirst);
@@ -9580,7 +10621,7 @@ private:
 		}
 		else {
 			auto _Newcapacity = getGrowthCapacity(capacity(), _Count);
-			data_type _Newdata(al, _Count, _Newcapacity);
+			data_type _Newdata(al, _Count, _Newcapacity, extend_tag{});
 			const pointer _Newfirst = _Newdata.data();
 			wjr::uninitialized_copy(al, _First, _Last, _Newfirst);
 
@@ -9615,14 +10656,14 @@ private:
 	WJR_CONSTEXPR20 void _M_realloc_insert(iterator _Where, Args&&...args) {
 		auto& al = getAllocator();
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 
 		const auto __old_pos = static_cast<size_type>(_Where - _Myfirst);
 		const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
 		const auto __new_size = __old_size + 1;
 		const auto _Newcapacity = getGrowthCapacity(__old_size, __new_size);
 
-		data_type _Newdata(al, __new_size, _Newcapacity);
+		data_type _Newdata(al, __new_size, _Newcapacity, extend_tag{});
 
 		const pointer _Newfirst = _Newdata.data();
 		const pointer _Newwhere = _Newfirst + __old_pos;
@@ -9640,13 +10681,13 @@ private:
 	WJR_CONSTEXPR20 void _M_realloc_insert_at_end(Args&&...args) {
 		auto& al = getAllocator();
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 
 		const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
 		const auto __new_size = __old_size + 1;
 		const auto _Newcapacity = getGrowthCapacity(__old_size, __new_size);
 
-		data_type _Newdata(al, __new_size, _Newcapacity);
+		data_type _Newdata(al, __new_size, _Newcapacity, extend_tag{});
 		const pointer _Newfirst = _Newdata.data();
 
 		const pointer _Newwhere = _Newfirst + __old_size;
@@ -9665,8 +10706,8 @@ private:
 
 		auto& al = getAllocator();
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
-		const pointer _Myend = EndPtr();
+		const pointer _Mylast = lastPtr();
+		const pointer _Myend = endPtr();
 
 		const auto __rest = static_cast<size_type>(_Myend - _Mylast);
 
@@ -9688,7 +10729,7 @@ private:
 		}
 		else {
 			const auto _Newcapacity = getGrowthCapacity(capacity(), size() + n);
-			data_type _Newdata(al, size() + n, _Newcapacity);
+			data_type _Newdata(al, size() + n, _Newcapacity, extend_tag{});
 			const pointer _Newfirst = _Newdata.data();
 
 			const auto __old_pos = static_cast<size_type>(_Where - _Myfirst);
@@ -9733,7 +10774,7 @@ private:
 		}
 		else {
 			auto _Newcapacity = getGrowthCapacity(_Oldcapacity, _Newsize);
-			data_type _Newdata(al, _Newsize, _Newcapacity);
+			data_type _Newdata(al, _Newsize, _Newcapacity, extend_tag{});
 			const pointer _Newfirst = _Newdata.data();
 
 			wjr::uninitialized_fill_n(al, _Newfirst + _Oldsize, n, _Val);
@@ -9747,7 +10788,7 @@ private:
 	template<typename Args>
 	WJR_CONSTEXPR20 void _M_insert_aux(iterator _Where, Args&& args) {
 		auto& al = getAllocator();
-		const pointer _Mylast = LastPtr();
+		const pointer _Mylast = lastPtr();
 
 		wjr::construct_at(al, _Mylast, std::move(*(_Mylast - 1)));
 
@@ -9763,8 +10804,8 @@ private:
 
 		auto& al = getAllocator();
 		const pointer _Myfirst = data();
-		const pointer _Mylast = LastPtr();
-		const pointer _Myend = LastPtr();
+		const pointer _Mylast = lastPtr();
+		const pointer _Myend = lastPtr();
 
 		if (_Mylast != _Myend) {
 			if (_Where == _Mylast) {
@@ -9864,297 +10905,13 @@ namespace std {
 
 #endif // !__WJR_VECTOR_H
 
-#if defined(_WJR_FAST_MEMSET)
-
-_WJR_ALGO_BEGIN
-
-template<typename T>
-void __memset_helper(T* s, T val, size_t n) {
-	using namespace wjr::literals;
-	constexpr size_t _Mysize = sizeof(T);
-
-#if WJR_AVX2
-	using simd_t = simd::avx;
-#else
-	using simd_t = simd::sse;
-#endif // WJR_AVX2
-
-	using sint = typename simd_t::int_type;
-	constexpr uintptr_t width = simd_t::width() / (8 * _Mysize);
-	constexpr uintptr_t bound = width * _Mysize;
-
-	if constexpr (_Mysize != 1) {
-		if (
-			is_constant_p(val) &&
-			broadcast<T, uint8_t>(static_cast<uint8_t>(val)) == val) {
-			return __memset(reinterpret_cast<uint8_t*>(s), static_cast<uint8_t>(val), n * _Mysize);
-		}
-	}
-
-	constexpr size_t __constant_threshold = 2_KiB / _Mysize;
-	constexpr size_t __rep_noaligned_threshold = 1_KiB / _Mysize;
-
-#if defined(_WJR_CPUINFO)
-#if defined(WJR_INLINE_ASM)
-	const bool __use_rep = wjr::is_enhanced_rep();
-#else
-	const bool __use_rep = false;
-#endif
-	const size_t __nt_threshold = wjr::max_cache_size / _Mysize;
-	const size_t __large_threshold = __use_rep ? 256 / _Mysize : __nt_threshold;
-#endif // _WJR_CPUINFO
-
-	if (is_constant_p(n) && n <= __constant_threshold) {
-		for (size_t i = 0; i < n; ++i) {
-			s[i] = val;
-		}
-		return;
-	}
-
-	if (n >= 16 / _Mysize) {
-		if (n >= width * 4) {
-			auto q = simd_t::set1(val, T());
-
-#if defined(_WJR_CPUINFO)
-			// non-temporal algorithm
-			if (_Mysize == 1 ||
-				(is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0))) {
-
-				if (is_unlikely(n >= __large_threshold)) {
-
-#if defined(WJR_INLINE_ASM)
-					auto u64v = broadcast<uint64_t, T>(val);
-					if (__use_rep && n < __rep_noaligned_threshold) {
-						if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 8) &&
-							reinterpret_cast<uintptr_t>(s) % 8 == 0) {
-						}
-						else {
-							*reinterpret_cast<uint64_t*>(s) = u64v;
-							auto __align_s = 8 - reinterpret_cast<uintptr_t>(s) % 8;
-							s += __align_s / _Mysize;
-							n -= __align_s / _Mysize;
-						}
-						*reinterpret_cast<uint64_t*>(s + n - 8 / _Mysize) = u64v;
-						n &= -(8 / _Mysize);
-						n /= (8 / _Mysize);
-						asm volatile(
-							"rep stosq"
-							: "+D"(s), "+c"(n)
-							: "a"(u64v)
-							: "memory"
-							);
-						return;
-					}
-#endif // WJR_INLINE_ASM
-
-					// align(64)
-					if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 64) &&
-						reinterpret_cast<uintptr_t>(s) % 64 == 0) {
-						// do nothing
-					}
-					else {
-#if WJR_AVX2
-						simd_t::storeu(reinterpret_cast<sint*>(s), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
-#else
-						simd_t::storeu(reinterpret_cast<sint*>(s), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
-#endif // WJR_AVX2
-						auto __align_s = 64 - reinterpret_cast<uintptr_t>(s) % 64;
-						s += __align_s / _Mysize;
-						n -= __align_s / _Mysize;
-					}
-
-#if defined(WJR_INLINE_ASM)
-					if (__use_rep && n < __nt_threshold) {
-
-#if WJR_AVX2
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
-#else 
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 4), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 3), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
-#endif // 
-
-						n &= -(64 / _Mysize);
-						n /= (8 / _Mysize);
-						asm volatile(
-							"rep stosq"
-							: "+D"(s), "+c"(n)
-							: "a"(broadcast<uint64_t, T>(val))
-							: "memory"
-							);
-						return;
-					}
-#endif
-
-					do {
-						simd_t::stream(reinterpret_cast<sint*>(s), q);
-						simd_t::stream(reinterpret_cast<sint*>(s + width), q);
-						simd_t::stream(reinterpret_cast<sint*>(s + width * 2), q);
-						simd_t::stream(reinterpret_cast<sint*>(s + width * 3), q);
-						s += width * 4;
-						n -= width * 4;
-					} while (n >= width * 4);
-					simd::sse::sfence();
-					goto WJR_MACRO_LABEL(aft_align);
-				}
-			}
-#endif // _WJR_CPUINFO
-
-			// align algorithm
-			if (is_constant_p(reinterpret_cast<uintptr_t>(s) % bound) &&
-				reinterpret_cast<uintptr_t>(s) % bound == 0) {
-				// do nothing
-			}
-			else if (_Mysize == 1 ||
-				is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0)) {
-				simd_t::storeu(reinterpret_cast<sint*>(s), q);
-				auto __align_s = bound - reinterpret_cast<uintptr_t>(s) % bound;
-				s += __align_s / _Mysize;
-				n -= __align_s / _Mysize;
-				if (is_unlikely(n < width * 4)) {
-					// n = [width * 4 - width / _Mysize, width * 4)
-					goto WJR_MACRO_LABEL(aft_align);
-				}
-			}
-			else {
-				// unalign algorithm
-				do {
-					simd_t::storeu(reinterpret_cast<sint*>(s), q);
-					simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
-					simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
-					simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
-					s += width * 4;
-					n -= width * 4;
-				} while (n >= width * 4);
-				s += n;
-
-				simd_t::storeu(reinterpret_cast<sint*>(s - width * 4), q);
-				simd_t::storeu(reinterpret_cast<sint*>(s - width * 3), q);
-				simd_t::storeu(reinterpret_cast<sint*>(s - width * 2), q);
-				simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
-				return;
-			}
-
-			do {
-				simd_t::store(reinterpret_cast<sint*>(s), q);
-				simd_t::store(reinterpret_cast<sint*>(s + width), q);
-				simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
-				simd_t::store(reinterpret_cast<sint*>(s + width * 3), q);
-				s += width * 4;
-				n -= width * 4;
-			} while (n >= width * 4);
-
-			WJR_MACRO_LABEL(aft_align) :
-
-				auto t = s + n - width;
-			s = reinterpret_cast<T*>(
-				(reinterpret_cast<uintptr_t>(s + n - width * 3)) & (~(bound - 1)));
-			simd_t::store(reinterpret_cast<sint*>(s), q);
-			simd_t::store(reinterpret_cast<sint*>(s + width), q);
-			simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
-			simd_t::storeu(reinterpret_cast<sint*>(t), q);
-
-			return;
-		}
-
-#if WJR_AVX2
-		static_assert(width * 4 == 128 / _Mysize, "width * 4 == 128 / _Mysize");
-		if (n >= 64 / _Mysize) {
-			auto q = simd::avx::set1(val, T());
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s), q);
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s + 32 / _Mysize), q);
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - 64 / _Mysize), q);
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - 32 / _Mysize), q);
-			return;
-		}
-#endif // WJR_AVX2
-		auto q = simd::sse::set1(val, T());
-		auto delta = (n & (32 / _Mysize)) >> 1;
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s), q);
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s + delta), q);
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize) - delta), q);
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize)), q);
-		return;
-	}
-
-	if constexpr (_Mysize == 8) {
-		if (n != 0) {
-			*s = val;
-		}
-		return;
-	}
-
-	if constexpr (_Mysize <= 4) {
-		if (n >= 4 / _Mysize) {
-			auto u32v = broadcast<uint32_t, T>(val);
-			auto delta = (n & (8 / _Mysize)) >> 1;
-			*reinterpret_cast<uint32_t*>(s) = u32v;
-			*reinterpret_cast<uint32_t*>(s + delta) = u32v;
-			if constexpr (_Mysize != 4) {
-				*reinterpret_cast<uint32_t*>(s + n - (4 / _Mysize) - delta) = u32v;
-			}
-			*reinterpret_cast<uint32_t*>(s + n - (4 / _Mysize)) = u32v;
-			return;
-		}
-	}
-
-	if constexpr (_Mysize == 4) {
-		return;
-	}
-
-	if constexpr (_Mysize == 2) {
-		if (n != 0) *s = val;
-		return;
-	}
-
-	if constexpr (_Mysize == 1) {
-		if (n != 0) {
-			*s = val;
-			if (n != 1) {
-				*reinterpret_cast<uint16_t*>(s + n - 2) = broadcast<uint16_t, uint8_t>(val);
-			}
-		}
-		return;
-	}
-}
-
-void __memset(uint8_t* s, uint8_t val, size_t n) { return __memset_helper(s, val, n); }
-void __memset(uint16_t* s, uint16_t val, size_t n) { return __memset_helper(s, val, n); }
-void __memset(uint32_t* s, uint32_t val, size_t n) { return __memset_helper(s, val, n); }
-#if defined(WJR_X86_64)
-void __memset(uint64_t* s, uint64_t val, size_t n) { return __memset_helper(s, val, n); }
-#endif
-
-_WJR_ALGO_END
-
-#endif // _WJR_FAST_MEMSET
-
-#include <stdio.h>
-
-_WJR_BEGIN
-#if defined(WJR_TEST_ALLOCATOR)
-__test_allocator::~__test_allocator() {
-	if (_Count != 0) {
-		printf("memory leak: %lld bytes", _Count);
-	}
-}
-__test_allocator __test_allocator_instance;
-#endif
-_WJR_END
-
 _WJR_BEGIN
 
 #if defined(_WJR_CPUINFO)
 const cpu_features::X86Info cpuinfo = cpu_features::GetX86Info();
 const cpu_features::CacheInfo cacheinfo = cpu_features::GetX86CacheInfo();
 const cpu_features::X86Microarchitecture microarchitecture = cpu_features::GetX86Microarchitecture(&cpuinfo);
-const size_t max_cache_size = []() {
+const size_t __max_cache_size = []() {
 	size_t max_size = 0;
 	for (int i = 0; i < cacheinfo.size; ++i) {
 		if (cacheinfo.levels[i].cache_type != cpu_features::CacheType::CPU_FEATURE_CACHE_NULL) {
@@ -10172,4 +10929,17 @@ const bool __is_amd = []() {
 }();
 #endif // _WJR_CPUINFO
 
+_WJR_END
+
+#include <stdio.h>
+
+_WJR_BEGIN
+#if defined(WJR_TEST_ALLOCATOR)
+__test_allocator::~__test_allocator() {
+	if (_Count != 0) {
+		printf("memory leak: %lld bytes", _Count);
+	}
+}
+__test_allocator __test_allocator_instance;
+#endif
 _WJR_END
