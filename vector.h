@@ -258,7 +258,7 @@
 #if defined(NWJR_FAST_MEMCPY)
 #endif
 
-#if defined(WJR_INLINE_ASM)
+#if defined(WJR_INTEL)
 #define _WJR_ENHANCED_REP
 #endif
 
@@ -270,6 +270,17 @@
 
 #if defined(NWJR_CPUINFO)
 #undef _WJR_CPUINFO
+#endif
+
+//#define WJR_MAX_CACHE_SIZE 4096 * 1024
+//#define NWJR_INTEL
+
+#if defined(WJR_MAX_CACHE_SIZE) || defined(_WJR_CPUINFO)
+#define _WJR_NON_TEMPORARY
+#endif
+
+#if defined(NWJR_NON_TEMPORARY)
+#undef _WJR_NON_TEMPORARY
 #endif
 
 #if (defined(WJR_COMPILER_GCC) && WJR_HAS_GCC(10, 1, 0)) ||	\
@@ -562,18 +573,45 @@ inline bool is_popcnt() {
 	return cpuinfo.features.popcnt;
 }
 
-inline bool is_intel() { return __is_intel; }
-inline bool is_amd() { return __is_amd; }
+#endif // _WJR_CPUINFO
 
-inline bool is_enhanced_rep() {
-#if defined(_WJR_ENHANCED_REP)
-	return is_intel();
+#if defined(_WJR_NON_TEMPORARY)
+inline size_t max_cache_size() {
+#if defined(WJR_MAX_CACHE_SIZE)
+	return WJR_MAX_CACHE_SIZE;
+#else
+	return __max_cache_size;
+#endif
+}
+#endif // _WJR_NON_TEMPORARY
+
+inline bool is_intel() {
+#if defined(_WJR_INTEL)
+	return true;
+#elif defined(NWJR_INTEL)
+	return false;
+#elif defined(_WJR_CPUINFO)
+	return __is_intel;
 #else
 	return false;
 #endif
 }
 
-#endif // _WJR_CPUINFO
+inline bool is_amd() {
+#if defined(_WJR_AMD)
+	return true;
+#elif defined(NWJR_AMD)
+	return false;
+#elif defined(_WJR_CPUINFO)
+	return __is_amd;
+#else
+	return false;
+#endif
+}
+
+inline bool is_enhanced_rep() {
+	return is_intel();
+}
 
 _WJR_END
 
@@ -713,13 +751,13 @@ template<typename T>
 using add_cref_t = add_lref_t<std::add_const_t<T>>;
 
 template<typename T>
-struct is_standard_comparator : 
-	is_any_of<remove_cvref_t<T>, 
-	std::less<>, 
-	std::less_equal<>, 
-	std::equal_to<>, 
+struct is_standard_comparator :
+	is_any_of<remove_cvref_t<T>,
+	std::less<>,
+	std::less_equal<>,
+	std::equal_to<>,
 	std::not_equal_to<>,
-	std::greater<>, 
+	std::greater<>,
 	std::greater_equal<>
 	> {};
 
@@ -837,7 +875,7 @@ template<typename T>
 constexpr bool is_random_iter_v = is_random_iter<T>::value;
 
 template<size_t n>
-struct __uint_helper{};
+struct __uint_helper {};
 
 template<>
 struct __uint_helper<8> {
@@ -856,7 +894,7 @@ struct __uint_helper<64> {
 	using type = unsigned long long;
 };
 
-template<size_t n> 
+template<size_t n>
 using uint_t = typename __uint_helper<n>::type;
 
 template<size_t n>
@@ -946,7 +984,7 @@ enum class ipmc_result {
 	exit
 };
 
-template<typename T, typename U, typename _Pred, 
+template<typename T, typename U, typename _Pred,
 	std::enable_if_t<is_any_of_v<_Pred, std::equal_to<>, std::not_equal_to<>>, int> = 0>
 constexpr ipmc_result is_possible_memory_comparable(const U& v, _Pred pred) {
 	static_assert(std::is_integral_v<T> && std::is_integral_v<U>, "T and U must be integral types");
@@ -961,13 +999,13 @@ constexpr ipmc_result is_possible_memory_comparable(const U& v, _Pred pred) {
 				|| _Val <= std::numeric_limits<nt>::max()) ? ipmc_result::exit : ipmc_result::none;
 		}
 		else {
-			return (std::numeric_limits<nt>::max() < _Val && _Val < std::numeric_limits<nt>::min()) ? 
+			return (std::numeric_limits<nt>::max() < _Val && _Val < std::numeric_limits<nt>::min()) ?
 				ipmc_result::all : ipmc_result::exit;
 		}
 	}
 	else {
 		if constexpr (std::is_same_v<_Pred, std::equal_to<>>) {
-			return (std::numeric_limits<nt>::min() <= _Val && _Val <= std::numeric_limits<nt>::max()) ? 
+			return (std::numeric_limits<nt>::min() <= _Val && _Val <= std::numeric_limits<nt>::max()) ?
 				ipmc_result::exit : ipmc_result::none;
 		}
 		else {
@@ -1145,7 +1183,7 @@ template<typename T>
 void _Test_default_convertible(const T&);
 
 template<typename T>
-struct _Is_default_convertible<T, std::void_t<decltype(_Test_default_convertible<T>({}))>> : std::true_type{};
+struct _Is_default_convertible < T, std::void_t<decltype(_Test_default_convertible<T>({})) >> : std::true_type{};
 
 template<typename T>
 using is_default_convertible = _Is_default_convertible<T>;
@@ -1185,14 +1223,14 @@ template<typename T, typename U>
 constexpr bool is_nothrow_swappable_with_v = is_nothrow_swappable_with<T, U>::value;
 
 template<typename T>
-struct is_nothrow_swappable : 
+struct is_nothrow_swappable :
 	is_nothrow_swappable_with<std::add_lvalue_reference_t<T>, std::add_lvalue_reference_t<T>> {};
 
 template<typename T>
 constexpr bool is_nothrow_swappable_v = is_nothrow_swappable<T>::value;
 
 template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-struct __make_iter_wrapper : public std::tuple<iter, iter>{
+struct __make_iter_wrapper : public std::tuple<iter, iter> {
 	using _Mybase = std::tuple<iter, iter>;
 	using _Mybase::_Mybase;
 	using _Mybase::operator=;
@@ -1274,7 +1312,7 @@ namespace std {
 _WJR_BEGIN
 
 template<typename _Container>
-constexpr auto size(const _Container& c){
+constexpr auto size(const _Container& c) {
 	if constexpr (std::has_member_function_size_v<_Container>) {
 		return c.size();
 	}
@@ -1298,208 +1336,208 @@ _WJR_BEGIN
 
 template<size_t index, typename T>
 struct _Pair_wrapper1 {
-    template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
-    constexpr _Pair_wrapper1() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
-        : val() {}
-    template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
-    constexpr _Pair_wrapper1(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
-        : val(other) {}
-    template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
-    constexpr _Pair_wrapper1(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
-        : val(std::forward<_Ty>(other)) {}
-    template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
-    constexpr _Pair_wrapper1(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
-        : val(std::forward<Args>(args)...) {}
-    _Pair_wrapper1(const _Pair_wrapper1&) = default;
-    _Pair_wrapper1(_Pair_wrapper1&&) noexcept = default;
-    _Pair_wrapper1& operator=(const _Pair_wrapper1&) = default;
+	template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
+	constexpr _Pair_wrapper1() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
+		: val() {}
+	template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
+	constexpr _Pair_wrapper1(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
+		: val(other) {}
+	template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
+	constexpr _Pair_wrapper1(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
+		: val(std::forward<_Ty>(other)) {}
+	template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
+	constexpr _Pair_wrapper1(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+		: val(std::forward<Args>(args)...) {}
+	_Pair_wrapper1(const _Pair_wrapper1&) = default;
+	_Pair_wrapper1(_Pair_wrapper1&&) noexcept = default;
+	_Pair_wrapper1& operator=(const _Pair_wrapper1&) = default;
 	_Pair_wrapper1& operator=(_Pair_wrapper1&&) noexcept = default;
-    constexpr T& value() noexcept { return val; }
-    constexpr const T& value() const noexcept { return val; }
+	constexpr T& value() noexcept { return val; }
+	constexpr const T& value() const noexcept { return val; }
 private:
-    T val;
+	T val;
 };
 
 template<size_t index, typename T>
-struct _Pair_wrapper2 : private T{
-    using _Mybase = T;
-    template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
-    constexpr _Pair_wrapper2() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
-        : _Mybase() {}
-    template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
-    constexpr _Pair_wrapper2(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
-        : _Mybase(other) {}
-    template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
-    constexpr _Pair_wrapper2(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
-        : _Mybase(std::forward<_Ty>(other)) {}
-    template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
-    constexpr _Pair_wrapper2(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
-        : _Mybase(std::forward<Args>(args)...) {}
-    _Pair_wrapper2(const _Pair_wrapper2&) = default;
-    _Pair_wrapper2(_Pair_wrapper2&&) noexcept= default;
+struct _Pair_wrapper2 : private T {
+	using _Mybase = T;
+	template<typename _Ty = T, std::enable_if_t<std::is_default_constructible_v<_Ty>, int> = 0>
+	constexpr _Pair_wrapper2() noexcept(std::is_nothrow_default_constructible_v<_Ty>)
+		: _Mybase() {}
+	template<typename _Ty = T, std::enable_if_t<std::is_copy_constructible_v<_Ty>, int> = 0>
+	constexpr _Pair_wrapper2(const _Ty& other) noexcept(std::is_nothrow_copy_constructible_v<_Ty>)
+		: _Mybase(other) {}
+	template<typename _Ty = T, std::enable_if_t<std::is_move_constructible_v<_Ty>, int> = 0>
+	constexpr _Pair_wrapper2(_Ty&& other) noexcept(std::is_nothrow_move_constructible_v<_Ty>)
+		: _Mybase(std::forward<_Ty>(other)) {}
+	template<typename...Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
+	constexpr _Pair_wrapper2(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+		: _Mybase(std::forward<Args>(args)...) {}
+	_Pair_wrapper2(const _Pair_wrapper2&) = default;
+	_Pair_wrapper2(_Pair_wrapper2&&) noexcept = default;
 	_Pair_wrapper2& operator=(const _Pair_wrapper2&) = default;
 	_Pair_wrapper2& operator=(_Pair_wrapper2&&) noexcept = default;
-    constexpr T& value() noexcept { return *this; }
-    constexpr const T& value() const noexcept { return *this; }
+	constexpr T& value() noexcept { return *this; }
+	constexpr const T& value() const noexcept { return *this; }
 };
 
 template<size_t index, typename T>
 using _Pair_wrapper = std::conditional_t<
-    std::conjunction_v<std::is_class<T>, std::is_empty<T>, std::negation<std::is_final<T>>>,
-    _Pair_wrapper2<index, T>,
-    _Pair_wrapper1<index, T>
+	std::conjunction_v<std::is_class<T>, std::is_empty<T>, std::negation<std::is_final<T>>>,
+	_Pair_wrapper2<index, T>,
+	_Pair_wrapper1<index, T>
 >;
 
 template<typename T, typename U>
 class pair : private _Pair_wrapper<0, T>, private _Pair_wrapper<1, U> {
 
-    template<typename _Ty, typename _Uy>
-    using _Is_default_constructible = std::conjunction <
-        std::is_default_constructible<_Ty>,
-        std::is_default_constructible<_Uy>>;
-    template<typename _Ty, typename _Uy>
+	template<typename _Ty, typename _Uy>
+	using _Is_default_constructible = std::conjunction <
+		std::is_default_constructible<_Ty>,
+		std::is_default_constructible<_Uy>>;
+	template<typename _Ty, typename _Uy>
 	using _Is_default_convertible = std::conjunction <
 		is_default_convertible<_Ty>,
 		is_default_convertible<_Uy>>;
 
-    template<typename _Ty, typename _Uy>
+	template<typename _Ty, typename _Uy>
 	using _Is_copy_constructible = std::conjunction <
 		std::is_copy_constructible<_Ty>,
 		std::is_copy_constructible<_Uy>>;
 
 	template<typename _Ty, typename _Uy, typename _Vty, typename _Wuy>
 	using _Is_convertible = std::conjunction <
-        std::is_convertible<_Vty, _Ty>,
+		std::is_convertible<_Vty, _Ty>,
 		std::is_convertible<_Wuy, _Uy>>;
-		
-    template<typename _Ty, typename _Uy, typename _Vty, typename _Wuy>
-    using _Is_constructible = std::conjunction<
-        std::is_constructible<_Ty, _Vty>,
-        std::is_constructible<_Uy, _Wuy>>;
-    
-public:
-    using _Mybase1 = _Pair_wrapper<0, T>;
-    using _Mybase2 = _Pair_wrapper<1, U>;
 
-    using first_type = T;
+	template<typename _Ty, typename _Uy, typename _Vty, typename _Wuy>
+	using _Is_constructible = std::conjunction<
+		std::is_constructible<_Ty, _Vty>,
+		std::is_constructible<_Uy, _Wuy>>;
+
+public:
+	using _Mybase1 = _Pair_wrapper<0, T>;
+	using _Mybase2 = _Pair_wrapper<1, U>;
+
+	using first_type = T;
 	using second_type = U;
 
-    template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
+	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
 		std::conjunction_v<_Is_default_constructible<_Ty, _Uy>,
-        _Is_default_convertible<_Ty, _Uy>>, bool> = true>
-	constexpr pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
+		_Is_default_convertible<_Ty, _Uy>>, bool> = true>
+		constexpr pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
+			std::is_nothrow_default_constructible<_Uy>>)
+		: _Mybase1(), _Mybase2() {}
+
+	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
+		std::conjunction_v<_Is_default_constructible<_Ty, _Uy>,
+		std::negation<_Is_default_convertible<_Ty, _Uy>>>, bool> = false>
+	constexpr explicit pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
 		std::is_nothrow_default_constructible<_Uy>>)
 		: _Mybase1(), _Mybase2() {}
 
 	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
-        std::conjunction_v<_Is_default_constructible<_Ty, _Uy>,
-        std::negation<_Is_default_convertible<_Ty, _Uy>>>, bool> = false>
-    constexpr explicit pair() noexcept(std::conjunction_v<std::is_nothrow_default_constructible<_Ty>,
-        std::is_nothrow_default_constructible<_Uy>>)
-        : _Mybase1(), _Mybase2() {}
+		std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
+		_Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>, bool> = true>
+		constexpr pair(const T& _First, const U& _Second)
+		noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
+		: _Mybase1(_First), _Mybase2(_Second) {}
 
-    template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
-        std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
-        _Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>, bool> = true>
-    constexpr pair(const T& _First, const U& _Second)
-        noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
-        : _Mybase1(_First), _Mybase2(_Second) {}
+	template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
+		std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
+		std::negation<_Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>>, bool> = false>
+	constexpr explicit pair(const T& _First, const U& _Second)
+		noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
+		: _Mybase1(_First), _Mybase2(_Second) {}
 
-    template<typename _Ty = T, typename _Uy = U, std::enable_if_t<
-        std::conjunction_v<_Is_copy_constructible<_Ty, _Uy>,
-        std::negation<_Is_convertible<_Ty, _Uy, const _Ty&, const _Uy&>>>, bool> = false>
-    constexpr explicit pair(const T& _First, const U& _Second)
-        noexcept(std::conjunction_v<std::is_nothrow_copy_constructible<_Ty>, std::is_nothrow_copy_constructible<_Uy>>)
-        : _Mybase1(_First), _Mybase2(_Second) {}
-
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
 		_Is_convertible<T, U, _Other1, _Other2>>, bool> = true>
-	constexpr pair(_Other1&& _First, _Other2&& _Second)
-        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-        : _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
+		constexpr pair(_Other1&& _First, _Other2&& _Second)
+		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+		: _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
 
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
-        std::negation<_Is_convertible<T, U, _Other1, _Other2>>>, bool> = false>
-    constexpr explicit pair(_Other1&& _First, _Other2&& _Second)
-        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-        : _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
-
-    pair(const pair&) = default;
-    pair(pair&&) noexcept = default;
-
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-        std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
-		_Is_convertible<T, U, const _Other1&, const _Other2&>>, bool> = true>
-    constexpr pair(const pair<_Other1, _Other2>& other)
-        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
-        : _Mybase1(other.first()), _Mybase2(other.second()) {}
-
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-        std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
-        std::negation<_Is_convertible<T, U, const _Other1&, const _Other2&>>>, bool> = false>
-    constexpr explicit pair(const pair<_Other1, _Other2>& other)
-        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
-        : _Mybase1(other.first()), _Mybase2(other.second()) {}
-
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
-		_Is_convertible<T, U, _Other1, _Other2>>, bool> = true>
-    constexpr pair(pair<_Other1, _Other2>&& other)
-        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-        : _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
-
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-        std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
 		std::negation<_Is_convertible<T, U, _Other1, _Other2>>>, bool> = false>
-    constexpr explicit pair(pair<_Other1, _Other2>&& other)
-        noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
-        : _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
+	constexpr explicit pair(_Other1&& _First, _Other2&& _Second)
+		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+		: _Mybase1(std::forward<_Other1>(_First)), _Mybase2(std::forward<_Other2>(_Second)) {}
 
-    template<typename _Tuple1, typename _Tuple2, size_t...N1, size_t...N2>
-    constexpr pair(_Tuple1& tp1, _Tuple2& tp2, std::index_sequence<N1...>, std::index_sequence<N2...>)
-        : _Mybase1(std::get<N1>(std::move(tp1))...), _Mybase2(std::get<N2>(std::move(tp2))...) {}
+	pair(const pair&) = default;
+	pair(pair&&) noexcept = default;
 
-    template<typename...Args1, typename...Args2>
-    constexpr pair(std::piecewise_construct_t, std::tuple<Args1...> tp1, std::tuple<Args2...> tp2)
-        : pair(tp1, tp2, std::index_sequence_for<Args1...>{}, std::index_sequence_for<Args2...>{}) {}
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
+		_Is_convertible<T, U, const _Other1&, const _Other2&>>, bool> = true>
+		constexpr pair(const pair<_Other1, _Other2>& other)
+		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
+		: _Mybase1(other.first()), _Mybase2(other.second()) {}
 
-    constexpr pair& 
-        operator=(std::conditional_t<std::conjunction_v<std::is_copy_assignable<T>,
-            std::is_copy_assignable<U>>,const pair&, const wjr::disable_tag&> other)
-        noexcept(std::conjunction_v<std::is_nothrow_copy_assignable<T>, std::is_nothrow_copy_assignable<U>>) {
-        first() = other.first();
-        second() = other.second();
-        return *this;
-    }
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<_Is_constructible<T, U, const _Other1&, const _Other2&>,
+		std::negation<_Is_convertible<T, U, const _Other1&, const _Other2&>>>, bool> = false>
+	constexpr explicit pair(const pair<_Other1, _Other2>& other)
+		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, const _Other1&>, std::is_nothrow_constructible<U, const _Other2&>>)
+		: _Mybase1(other.first()), _Mybase2(other.second()) {}
 
-    constexpr pair& 
-        operator=(std::conditional_t<std::conjunction_v<std::is_move_assignable<T>,
-            std::is_move_assignable<U>>, pair&&, wjr::disable_tag&&> other)
-        noexcept(std::conjunction_v<std::is_nothrow_move_assignable<T>, std::is_nothrow_move_assignable<U>>) {
-        first() = std::forward<T>(other.first());
-        second() = std::forward<U>(other.second());
-        return *this;
-    }
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+		_Is_convertible<T, U, _Other1, _Other2>>, bool> = true>
+		constexpr pair(pair<_Other1, _Other2>&& other)
+		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+		: _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
 
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>, 
-        std::is_assignable<T&, const _Other1&>,
-		std::is_assignable<U&, const _Other2&>>, int> = 0>
-	constexpr pair& operator=(const pair<_Other1, _Other2>& other)
-		noexcept(std::conjunction_v<std::is_nothrow_assignable<T&, const _Other1&>, 
-            std::is_nothrow_assignable<U&, const _Other2&>>) {
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<_Is_constructible<T, U, _Other1, _Other2>,
+		std::negation<_Is_convertible<T, U, _Other1, _Other2>>>, bool> = false>
+	constexpr explicit pair(pair<_Other1, _Other2>&& other)
+		noexcept(std::conjunction_v<std::is_nothrow_constructible<T, _Other1>, std::is_nothrow_constructible<U, _Other2>>)
+		: _Mybase1(std::forward<_Other1>(other.first())), _Mybase2(std::forward<_Other2>(other.second())) {}
+
+	template<typename _Tuple1, typename _Tuple2, size_t...N1, size_t...N2>
+	constexpr pair(_Tuple1& tp1, _Tuple2& tp2, std::index_sequence<N1...>, std::index_sequence<N2...>)
+		: _Mybase1(std::get<N1>(std::move(tp1))...), _Mybase2(std::get<N2>(std::move(tp2))...) {}
+
+	template<typename...Args1, typename...Args2>
+	constexpr pair(std::piecewise_construct_t, std::tuple<Args1...> tp1, std::tuple<Args2...> tp2)
+		: pair(tp1, tp2, std::index_sequence_for<Args1...>{}, std::index_sequence_for<Args2...>{}) {}
+
+	constexpr pair&
+		operator=(std::conditional_t<std::conjunction_v<std::is_copy_assignable<T>,
+			std::is_copy_assignable<U>>, const pair&, const wjr::disable_tag&> other)
+		noexcept(std::conjunction_v<std::is_nothrow_copy_assignable<T>, std::is_nothrow_copy_assignable<U>>) {
 		first() = other.first();
 		second() = other.second();
 		return *this;
 	}
 
-    template<typename _Other1, typename _Other2, std::enable_if_t<
-		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>, 
+	constexpr pair&
+		operator=(std::conditional_t<std::conjunction_v<std::is_move_assignable<T>,
+			std::is_move_assignable<U>>, pair&&, wjr::disable_tag&&> other)
+		noexcept(std::conjunction_v<std::is_nothrow_move_assignable<T>, std::is_nothrow_move_assignable<U>>) {
+		first() = std::forward<T>(other.first());
+		second() = std::forward<U>(other.second());
+		return *this;
+	}
+
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>,
+		std::is_assignable<T&, const _Other1&>,
+		std::is_assignable<U&, const _Other2&>>, int> = 0>
+		constexpr pair& operator=(const pair<_Other1, _Other2>& other)
+		noexcept(std::conjunction_v<std::is_nothrow_assignable<T&, const _Other1&>,
+			std::is_nothrow_assignable<U&, const _Other2&>>) {
+		first() = other.first();
+		second() = other.second();
+		return *this;
+	}
+
+	template<typename _Other1, typename _Other2, std::enable_if_t<
+		std::conjunction_v<std::negation<std::is_same<pair, pair<_Other1, _Other2>>>,
 		std::is_assignable<T&, _Other1>,
 		std::is_assignable<U&, _Other2>>, int> = 0>
-    constexpr pair& operator=(pair<_Other1, _Other2>&& other)
+		constexpr pair& operator=(pair<_Other1, _Other2>&& other)
 		noexcept(std::conjunction_v<std::is_nothrow_assignable<T&, _Other1>,
 			std::is_nothrow_assignable<U&, _Other2>>) {
 		first() = std::forward<_Other1>(other.first());
@@ -1514,15 +1552,15 @@ public:
 		swap(second(), other.second());
 	}
 
-    constexpr T& first() noexcept { return _Mybase1::value(); }
-    constexpr const T& first() const noexcept { return _Mybase1::value(); }
-    constexpr U& second() noexcept { return _Mybase2::value(); }
-    constexpr const U& second() const noexcept { return _Mybase2::value(); }
+	constexpr T& first() noexcept { return _Mybase1::value(); }
+	constexpr const T& first() const noexcept { return _Mybase1::value(); }
+	constexpr U& second() noexcept { return _Mybase2::value(); }
+	constexpr const U& second() const noexcept { return _Mybase2::value(); }
 };
 
 #ifdef WJR_CPP17
 template<typename T, typename U>
-pair(T, U)->pair<T, U>;
+pair(T, U) -> pair<T, U>;
 #endif
 
 template<typename T, typename U>
@@ -1556,7 +1594,7 @@ WJR_NODISCARD constexpr bool operator>=(const pair<T, U>& lhs, const pair<T, U>&
 }
 
 template<typename T, typename U>
-WJR_NODISCARD constexpr pair<unrefwrap_t<T>, unrefwrap_t<U>> make_pair(T&& t, U&& u) 
+WJR_NODISCARD constexpr pair<unrefwrap_t<T>, unrefwrap_t<U>> make_pair(T&& t, U&& u)
 noexcept(std::conjunction_v<std::is_nothrow_constructible<unrefwrap_t<T>, T>,
 	std::is_nothrow_constructible<unrefwrap_t<U>, U>>) {
 	return pair<unrefwrap_t<T>, unrefwrap_t<U>>(std::forward<T>(t), std::forward<U>(u));
@@ -1566,9 +1604,9 @@ _WJR_END
 
 namespace std {
 
-    template<typename T, typename U>
-    using _Wjr_pair = wjr::pair<T, U>;
-	
+	template<typename T, typename U>
+	using _Wjr_pair = wjr::pair<T, U>;
+
 	template<typename T, typename U, enable_if_t<conjunction_v<wjr::is_swappable<T>, wjr::is_swappable<U>>, int> = 0>
 	void swap(_Wjr_pair<T, U>& lhs, _Wjr_pair<T, U>& rhs)
 		noexcept(noexcept(lhs.swap(rhs))) {
@@ -1583,84 +1621,84 @@ namespace std {
 		using type = conditional_t<I == 0, T, U>;
 	};
 
-    template<typename _Ret, typename _Pair>
+	template<typename _Ret, typename _Pair>
 	WJR_NODISCARD constexpr _Ret& _Wjr_pair_get(_Pair& p, integral_constant<size_t, 0>) noexcept {
 		return p.first();
 	}
 
 	template<typename _Ret, typename _Pair>
-    WJR_NODISCARD constexpr _Ret& _Wjr_pair_get(_Pair& p, integral_constant<size_t, 1>) noexcept {
-        return p.second();
-    }
+	WJR_NODISCARD constexpr _Ret& _Wjr_pair_get(_Pair& p, integral_constant<size_t, 1>) noexcept {
+		return p.second();
+	}
 
-    template<size_t I, typename T, typename U>
+	template<size_t I, typename T, typename U>
 	WJR_NODISCARD constexpr tuple_element_t<I, _Wjr_pair<T, U>>& get(_Wjr_pair<T, U>& p) noexcept {
 		using _Ret = tuple_element_t<I, _Wjr_pair<T, U>>&;
-        return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
+		return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
 	}
 
 	template<typename T, typename U>
 	WJR_NODISCARD constexpr T& get(_Wjr_pair<T, U>& p) noexcept {
-        return get<0>(p);
+		return get<0>(p);
 	}
 
 	template<typename U, typename T>
 	WJR_NODISCARD constexpr U& get(_Wjr_pair<T, U>& p) noexcept {
-        return get<1>(p);
+		return get<1>(p);
 	}
 
-    template<size_t I, typename T, typename U>
-    WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>& get(const _Wjr_pair<T, U>& p) noexcept {
-        using _Ret = const tuple_element_t<I, _Wjr_pair<T, U>>&;
-        return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
-    }
+	template<size_t I, typename T, typename U>
+	WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>& get(const _Wjr_pair<T, U>& p) noexcept {
+		using _Ret = const tuple_element_t<I, _Wjr_pair<T, U>>&;
+		return _Wjr_pair_get<_Ret>(p, integral_constant<size_t, I>{});
+	}
 
-    template<typename T, typename U>
-    WJR_NODISCARD constexpr const T& get(const _Wjr_pair<T, U>& p) noexcept {
-        return get<0>(p);
-    }
+	template<typename T, typename U>
+	WJR_NODISCARD constexpr const T& get(const _Wjr_pair<T, U>& p) noexcept {
+		return get<0>(p);
+	}
 
-    template<typename U, typename T>
-    WJR_NODISCARD constexpr const U& get(const _Wjr_pair<T, U>& p) noexcept {
-        return get<1>(p);
-    }
+	template<typename U, typename T>
+	WJR_NODISCARD constexpr const U& get(const _Wjr_pair<T, U>& p) noexcept {
+		return get<1>(p);
+	}
 
 
-    template <size_t I, typename T, typename U>
-    WJR_NODISCARD constexpr tuple_element_t<I, _Wjr_pair<T, U>>&& get(
-        _Wjr_pair<T, U>&& p) noexcept {
-        using _RRtype = tuple_element_t<I, _Wjr_pair<T, U>>&&;
-        return forward<_RRtype>(get<I>(p));
-    }
+	template <size_t I, typename T, typename U>
+	WJR_NODISCARD constexpr tuple_element_t<I, _Wjr_pair<T, U>>&& get(
+		_Wjr_pair<T, U>&& p) noexcept {
+		using _RRtype = tuple_element_t<I, _Wjr_pair<T, U>>&&;
+		return forward<_RRtype>(get<I>(p));
+	}
 
-    template <typename T, typename U>
-    WJR_NODISCARD constexpr T&& get(_Wjr_pair<T, U>&& p) noexcept {
-        return get<0>(move(p));
-    }
+	template <typename T, typename U>
+	WJR_NODISCARD constexpr T&& get(_Wjr_pair<T, U>&& p) noexcept {
+		return get<0>(move(p));
+	}
 
-    template <typename U, typename T>
-    WJR_NODISCARD constexpr U&& get(_Wjr_pair<T, U>&& p) noexcept {
-        return get<1>(move(p));
-    }
+	template <typename U, typename T>
+	WJR_NODISCARD constexpr U&& get(_Wjr_pair<T, U>&& p) noexcept {
+		return get<1>(move(p));
+	}
 
-    template <size_t I, typename T, typename U>
-    WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>&& get(
-        const _Wjr_pair<T, U>&& p) noexcept { 
-        using _RRtype = const tuple_element_t<I, _Wjr_pair<T, U>>&&;
-        return forward<_RRtype>(get<I>(p));
-    }
+	template <size_t I, typename T, typename U>
+	WJR_NODISCARD constexpr const tuple_element_t<I, _Wjr_pair<T, U>>&& get(
+		const _Wjr_pair<T, U>&& p) noexcept {
+		using _RRtype = const tuple_element_t<I, _Wjr_pair<T, U>>&&;
+		return forward<_RRtype>(get<I>(p));
+	}
 
-    template <typename T, typename U>
-    WJR_NODISCARD constexpr const T&& get(
-        const _Wjr_pair<T, U>&& p) noexcept {
-        return get<0>(move(p));
-    }
+	template <typename T, typename U>
+	WJR_NODISCARD constexpr const T&& get(
+		const _Wjr_pair<T, U>&& p) noexcept {
+		return get<0>(move(p));
+	}
 
-    template <typename U, typename T>
-    WJR_NODISCARD constexpr const U&& get(
-        const _Wjr_pair<T, U>&& p) noexcept {
-        return get<1>(move(p));
-    }
+	template <typename U, typename T>
+	WJR_NODISCARD constexpr const U&& get(
+		const _Wjr_pair<T, U>&& p) noexcept {
+		return get<1>(move(p));
+	}
 
 }
 
@@ -1702,11 +1740,11 @@ template<size_t N>
 constexpr size_t _Get_max_bytes_num() {
 #if defined(WJR_X86_64)
 	if constexpr (N % 8 == 0)return 8;
-	else 
+	else
 #endif
-	if constexpr (N % 4 == 0)return 4;
-	else if constexpr (N % 2 == 0)return 2;
-	else return 1;
+		if constexpr (N % 4 == 0)return 4;
+		else if constexpr (N % 2 == 0)return 2;
+		else return 1;
 }
 
 template<size_t C, typename _Ty>
@@ -1787,9 +1825,9 @@ size_t _Get_bytes_num(const _Ty& val) {
 template<typename T, typename U,
 	bool =
 	std::is_same_v<bool, std::remove_reference_t<U>> >= std::is_same_v<bool, T> &&
-	((std::is_integral_v<T> && std::is_integral_v<std::remove_reference_t<U>>) ||
+	((std::is_integral_v<T>&& std::is_integral_v<std::remove_reference_t<U>>) ||
 		(std::is_floating_point_v<T> && std::is_floating_point_v<std::remove_reference_t<U>>)) &&
-	!std::is_volatile_v<T> && 
+	!std::is_volatile_v<T> &&
 	!std::is_volatile_v<std::remove_reference_t<U>>
 >
 struct __is_byte_constructible {
@@ -1800,13 +1838,13 @@ struct __is_byte_constructible {
 	}
 };
 
-template<typename T, bool = 
+template<typename T, bool =
 	std::is_trivially_copyable_v<T> &&
 	!std::is_volatile_v<T>>
-struct __is_byte_copy_constructible_helper {
+	struct __is_byte_copy_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
-	constexpr static const T& get(const T& val){
+	constexpr static const T& get(const T& val) {
 		return val;
 	}
 };
@@ -1820,7 +1858,7 @@ struct __is_byte_copy_constructible_helper<T, false> {
 template<typename T, bool =
 	std::is_trivially_copyable_v<T> &&
 	!std::is_volatile_v<T>>
-struct __is_byte_move_constructible_helper {
+	struct __is_byte_move_constructible_helper {
 	constexpr static bool is_copy = true;
 	constexpr static bool is_fill = !std::is_empty_v<T>;
 	constexpr static const T& get(const T& val) {
@@ -1881,6 +1919,18 @@ constexpr unsigned long long operator"" _MiB(unsigned long long n) {
 
 constexpr unsigned long long operator"" _GiB(unsigned long long n) {
 	return n * 1024 * 1024 * 1024;
+}
+
+constexpr unsigned long long operator""_KB(unsigned long long n) {
+	return n * 1000;
+}
+
+constexpr unsigned long long operator""_MB(unsigned long long n) {
+	return n * 1000 * 1000;
+}
+
+constexpr unsigned long long operator""_GB(unsigned long long n) {
+	return n * 1000 * 1000 * 1000;
 }
 
 _WJR_LITERALS_END
@@ -2310,7 +2360,7 @@ struct sse {
 	WJR_INTRINSIC_INLINE static __m128i max_epi8(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i max_epi16(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i max_epi32(__m128i a, __m128i b);
-	
+
 	WJR_INTRINSIC_INLINE static __m128i max_epu8(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i max_epu16(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i max_epu32(__m128i a, __m128i b);
@@ -2325,7 +2375,7 @@ struct sse {
 	WJR_INTRINSIC_INLINE static int8_t max_epi8(__m128i a);
 	WJR_INTRINSIC_INLINE static int16_t max_epi16(__m128i a);
 	WJR_INTRINSIC_INLINE static int32_t max_epi32(__m128i a);
-	
+
 	WJR_INTRINSIC_INLINE static uint8_t max_epu8(__m128i a);
 	WJR_INTRINSIC_INLINE static uint16_t max_epu16(__m128i a);
 	WJR_INTRINSIC_INLINE static uint32_t max_epu32(__m128i a);
@@ -2342,7 +2392,7 @@ struct sse {
 	WJR_INTRINSIC_INLINE static __m128i min_epi8(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i min_epi16(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i min_epi32(__m128i a, __m128i b);
-	
+
 	WJR_INTRINSIC_INLINE static __m128i min_epu8(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i min_epu16(__m128i a, __m128i b);
 	WJR_INTRINSIC_INLINE static __m128i min_epu32(__m128i a, __m128i b);
@@ -2357,7 +2407,7 @@ struct sse {
 	WJR_INTRINSIC_INLINE static int8_t min_epi8(__m128i a);
 	WJR_INTRINSIC_INLINE static int16_t min_epi16(__m128i a);
 	WJR_INTRINSIC_INLINE static int32_t min_epi32(__m128i a);
-	
+
 	WJR_INTRINSIC_INLINE static uint8_t min_epu8(__m128i a);
 	WJR_INTRINSIC_INLINE static uint16_t min_epu16(__m128i a);
 	WJR_INTRINSIC_INLINE static uint32_t min_epu32(__m128i a);
@@ -2365,7 +2415,7 @@ struct sse {
 	WJR_INTRINSIC_INLINE static int8_t min(__m128i a, int8_t);
 	WJR_INTRINSIC_INLINE static int16_t min(__m128i a, int16_t);
 	WJR_INTRINSIC_INLINE static int32_t min(__m128i a, int32_t);
-	
+
 	WJR_INTRINSIC_INLINE static uint8_t min(__m128i a, uint8_t);
 	WJR_INTRINSIC_INLINE static uint16_t min(__m128i a, uint16_t);
 	WJR_INTRINSIC_INLINE static uint32_t min(__m128i a, uint32_t);
@@ -2378,7 +2428,7 @@ struct sse {
 	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int8_t);
 	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int32_t);
 	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, int64_t);
-	
+
 	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint8_t);
 	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint32_t);
 	WJR_INTRINSIC_INLINE static mask_type movemask(__m128i v, uint64_t);
@@ -2779,7 +2829,7 @@ struct avx {
 		char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
 		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
 		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0);
-	
+
 	WJR_INTRINSIC_INLINE static __m256i set_epi16(
 		short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
 		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0);
@@ -2795,14 +2845,14 @@ struct avx {
 		char e23, char e22, char e21, char e20, char e19, char e18, char e17, char e16,
 		char e15, char e14, char e13, char e12, char e11, char e10, char e9, char e8,
 		char e7, char e6, char e5, char e4, char e3, char e2, char e1, char e0);
-	
+
 	WJR_INTRINSIC_INLINE static __m256i setr_epi16(
 		short e15, short e14, short e13, short e12, short e11, short e10, short e9, short e8,
 		short e7, short e6, short e5, short e4, short e3, short e2, short e1, short e0);
 
 	WJR_INTRINSIC_INLINE static __m256i setr_epi32(
 		int e7, int e6, int e5, int e4, int e3, int e2, int e1, int e0);
-	
+
 	WJR_INTRINSIC_INLINE static __m256i setr_epi64x(
 		long long e3, long long e2, long long e1, long long e0);
 
@@ -2894,7 +2944,7 @@ struct avx {
 	WJR_INTRINSIC_INLINE static uint16_t add_epu16(__m256i v);
 	WJR_INTRINSIC_INLINE static uint32_t add_epu32(__m256i v);
 	WJR_INTRINSIC_INLINE static uint64_t add_epu64(__m256i v);
-	
+
 	WJR_INTRINSIC_INLINE static int8_t add_epi8(__m256i v);
 	WJR_INTRINSIC_INLINE static int16_t add_epi16(__m256i v);
 	WJR_INTRINSIC_INLINE static int32_t add_epi32(__m256i v);
@@ -3100,7 +3150,7 @@ struct avx {
 	WJR_INTRINSIC_INLINE static __m256i max_epi8(__m256i a, __m256i b);
 	WJR_INTRINSIC_INLINE static __m256i max_epi16(__m256i a, __m256i b);
 	WJR_INTRINSIC_INLINE static __m256i max_epi32(__m256i a, __m256i b);
-	
+
 	WJR_INTRINSIC_INLINE static __m256i max_epu8(__m256i a, __m256i b);
 	WJR_INTRINSIC_INLINE static __m256i max_epu16(__m256i a, __m256i b);
 	WJR_INTRINSIC_INLINE static __m256i max_epu32(__m256i a, __m256i b);
@@ -3122,7 +3172,7 @@ struct avx {
 	WJR_INTRINSIC_INLINE static int8_t max(__m256i a, int8_t);
 	WJR_INTRINSIC_INLINE static int16_t max(__m256i a, int16_t);
 	WJR_INTRINSIC_INLINE static int32_t max(__m256i a, int32_t);
-	
+
 	WJR_INTRINSIC_INLINE static uint8_t max(__m256i a, uint8_t);
 	WJR_INTRINSIC_INLINE static uint16_t max(__m256i a, uint16_t);
 	WJR_INTRINSIC_INLINE static uint32_t max(__m256i a, uint32_t);
@@ -3134,7 +3184,7 @@ struct avx {
 	WJR_INTRINSIC_INLINE static __m256i min_epu8(__m256i a, __m256i b);
 	WJR_INTRINSIC_INLINE static __m256i min_epu16(__m256i a, __m256i b);
 	WJR_INTRINSIC_INLINE static __m256i min_epu32(__m256i a, __m256i b);
-	
+
 	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int8_t);
 	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, int16_t);
 	WJR_INTRINSIC_INLINE static __m256i min(__m256i a, __m256i b, uint8_t);
@@ -3145,7 +3195,7 @@ struct avx {
 	WJR_INTRINSIC_INLINE static int8_t min_epi8(__m256i a);
 	WJR_INTRINSIC_INLINE static int16_t min_epi16(__m256i a);
 	WJR_INTRINSIC_INLINE static int32_t min_epi32(__m256i a);
-	
+
 	WJR_INTRINSIC_INLINE static uint8_t min_epu8(__m256i a);
 	WJR_INTRINSIC_INLINE static uint16_t min_epu16(__m256i a);
 	WJR_INTRINSIC_INLINE static uint32_t min_epu32(__m256i a);
@@ -4184,6 +4234,12 @@ struct _Broadcast<__m128i, uint64_t> {
 		return _mm_set1_epi64x(v);
 	}
 };
+template<>
+struct _Broadcast<__m128i, __m128i> {
+	__m128i operator()(__m128i v) const {
+		return v;
+	}
+};
 #endif // WJR_SSE2
 
 #if WJR_AVX
@@ -4209,6 +4265,12 @@ template<>
 struct _Broadcast<__m256i, uint64_t> {
 	__m256i operator()(uint64_t v) const {
 		return _mm256_set1_epi64x(v);
+	}
+};
+template<>
+struct _Broadcast<__m256i, __m256i> {
+	__m256i operator()(__m256i v) const {
+		return v;
 	}
 };
 template<>
@@ -6263,7 +6325,7 @@ _WJR_ALGO_BEGIN
 
 template<typename T, typename _Pred>
 const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
-	using namespace wjr::literals;	
+	using namespace wjr::literals;
 	constexpr size_t _Mysize = sizeof(T);
 
 #if WJR_AVX2
@@ -6274,6 +6336,17 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 	using sint = typename simd_t::int_type;
 	constexpr uintptr_t width = simd_t::width() / (8 * _Mysize);
 	constexpr uintptr_t bound = width * _Mysize;
+
+	constexpr size_t __constant_threshold = 8 / _Mysize;
+
+	if (is_constant_p(n) && n <= __constant_threshold) {
+		for (size_t i = 0; i < n; ++i) {
+			if (pred(s[i], val)) {
+				return s + i;
+			}
+		}
+		return s + n;
+	}
 
 	if (is_unlikely(n == 0)) return s;
 
@@ -6288,7 +6361,7 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 				// do nothing
 			}
 			else if (_Mysize == 1 ||
-					reinterpret_cast<uintptr_t>(s) % _Mysize == 0) {
+				reinterpret_cast<uintptr_t>(s) % _Mysize == 0) {
 				auto x = simd_t::loadu(reinterpret_cast<const sint*>(s));
 
 				__WJR_MEMCHR_ONE(simd_t, s);
@@ -6353,7 +6426,7 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 				auto x3 = simd_t::load(reinterpret_cast<const sint*>(s + width * 3));
 
 				__WJR_MEMCHR_FOUR(simd_t, s, s + width, s + width * 2, s + width * 3);
-				
+
 				s += width * 4;
 				n -= width * 4;
 			} while (n >= width * 4);
@@ -6364,8 +6437,8 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
-					
+						auto x = simd_t::load(reinterpret_cast<const sint*>(s));
+
 					__WJR_MEMCHR_ONE(simd_t, s);
 					s += width;
 				}
@@ -6536,6 +6609,17 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 	constexpr uintptr_t width = simd_t::width() / (8 * _Mysize);
 	constexpr uintptr_t bound = width * _Mysize;
 
+	constexpr size_t __constant_threshold = 8 / _Mysize;
+
+	if (is_constant_p(n) && n <= __constant_threshold) {
+		for (size_t i = 0; i < n; ++i) {
+			if (pred(s[i], val)) {
+				return s + i;
+			}
+		}
+		return s + n;
+	}
+
 	if (is_unlikely(n == 0)) return s;
 
 	s += n;
@@ -6629,7 +6713,7 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-					s -= width;
+						s -= width;
 					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
 
 					__WJR_MEMRCHR_ONE(simd_t, s + width);
@@ -6667,7 +6751,7 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 			auto x3 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s - 32 / _Mysize));
 
 			__WJR_MEMRCHR_FOUR(simd::avx, s - n + 32 / _Mysize, s - n + 64 / _Mysize, s - 32 / _Mysize, s);
-			
+
 			return s - n;
 		}
 #endif // WJR_AVX2
@@ -6687,7 +6771,7 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 
 	if constexpr (_Mysize == 8) {
 		// n = [1, 2)
-		return pred(s[-1], val) ? s: s - 1;
+		return pred(s[-1], val) ? s : s - 1;
 	}
 
 	if constexpr (_Mysize == 2) {
@@ -6832,12 +6916,12 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 		if (n >= width * 4) {
 			const T* _lst0;
 			const T* _lst1;
-			
+
 			auto _off0 = reinterpret_cast<uintptr_t>(s0) % bound;
 			auto _off1 = reinterpret_cast<uintptr_t>(s1) % bound;
 
 			// align 2 pointer
-			if (_off0 == _off1 && 
+			if (_off0 == _off1 &&
 				(_Mysize == 1 || _off0 % _Mysize == 0)) {
 				if (is_constant_p(_off0) && _off0 == 0) {
 					// do nothing
@@ -6946,7 +7030,7 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-					auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
+						auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
 					auto y = simd_t::load(reinterpret_cast<const sint*>(s1));
 
 					__WJR_MEMCMP_ONE(simd_t);
@@ -7059,9 +7143,9 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			auto x = simd::sse::set_epi32(D0, C0, B0, A0);
 			auto y = simd::sse::set_epi32(D1, C1, B1, A1);
-			
+
 			__WJR_MEMCMP_ONE(simd::sse);
-			
+
 			return true;
 		}
 	}
@@ -7256,7 +7340,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-					auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
+						auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
 					auto y = simd_t::load(reinterpret_cast<const sint*>(s1));
 
 					__WJR_MEMMIS_ONE(simd_t, s0);
@@ -7321,7 +7405,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		auto y3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + n - 16 / _Mysize));
 
 		__WJR_MEMMIS_FOUR(simd::sse, s0, s0 + delta, s0 + n - 16 / _Mysize - delta, s0 + n - 16 / _Mysize);
-		
+
 		return s0 + n;
 	}
 
@@ -7572,7 +7656,7 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				default: unreachable(); break;
 				case 4: {
 					WJR_MACRO_LABEL(aft_align) :
-					auto x = simd_t::load(reinterpret_cast<const sint*>(s0 - width));
+						auto x = simd_t::load(reinterpret_cast<const sint*>(s0 - width));
 					auto y = simd_t::load(reinterpret_cast<const sint*>(s1 - width));
 
 					__WJR_MEMRMIS_ONE(simd_t, s0);
@@ -7719,90 +7803,225 @@ _WJR_ALGO_END
 
 #if defined(_WJR_FAST_MEMCNT)
 
-#define __WJR_MEMCNT_SMALL_INIT_BEGIN(...)	size_t cnt = 0;
-#define __WJR_MEMCNT_SMALL_INIT_END(...) return cnt;
-
-#define __WJR_MEMCNT_SMALL_FUNC(s, val, i, n)	                                \
-	{	                                                                        \
-		if(n <= 4){	                                                            \
-			for(size_t j = 0;j < n;++j){	                                    \
-				cnt += (s[i + j] == val);	                                    \
-			}	                                                                \
-		}else{	                                                                \
-			auto q = traits::set1(val, T());	                                \
-			auto ns = n * sizeof(T);	                                        \
-			auto ql = ns >> 1;	                                                \
-			auto sl = ql << 1;	                                                \
-			auto x = traits::preloadu_si16x(s + i, ql);	                        \
-			auto r = traits::cmpeq(x, q, T());	                                \
-			auto z = traits::movemask_epi8(r) & ((1u << sl) - 1);	            \
-			cnt += wjr::popcount(static_cast<value_type>(z)) / _Mycor;	        \
-			if constexpr(sizeof(T) == 1){	                                    \
-				if(ns & 1){	                                                    \
-					cnt += (s[i + n - 1] == val);	                            \
-				}	                                                            \
-			}	                                                                \
-		}	                                                                    \
-	}
-
-#define __WJR_MEMCNT_MID_INIT_BEGIN(...)	                                    \
-	auto c = traits::zeros();	                                                \
-	auto step = _Maxstep;	                                                    \
-	auto q = traits::set1(val, T());
-
-#define __WJR_MEMCNT_MID_INIT_END(s, val)	cnt += traits::add(c, T());
-
-#define __WJR_MEMCNT_MID_FUNC(s, val, i)	                                    \
-	{	                                                                        \
-		auto x = traits::loadu(reinterpret_cast<const simd_type*>(s + i));	    \
-		auto r = traits::cmpeq(x, q, T{});	                                    \
-		c = traits::sub(c, r, T{});				                                \
-	}
-
-#define __WJR_MEMCNT_LARGE_FUNC(s, val, i)		                                \
-	{	                                                                        \
-		__WJR_MEMCNT_MID_FUNC(s, val, i)	                                    \
-		__WJR_MEMCNT_MID_FUNC(s, val, (i + _Mysize * 1))	                    \
-		__WJR_MEMCNT_MID_FUNC(s, val, (i + _Mysize * 2))	                    \
-		__WJR_MEMCNT_MID_FUNC(s, val, (i + _Mysize * 3))	                    \
-		--step;																	\
-		if (!step) {	                                                        \
-			cnt += traits::add(c, T{});	                                        \
-			c = traits::zeros();	                                            \
-			step = _Maxstep;	                                                \
-		}	                                                                    \
-	}
-
 _WJR_ALGO_BEGIN
 
 template<typename T>
 size_t __memcnt(const T* s, T val, size_t n) {
-	constexpr bool is_avx =
+	using namespace wjr::literals;
+	constexpr size_t _Mysize = sizeof(T);
+
 #if WJR_AVX2
-		true;
+	using simd_t = simd::avx;
 #else
-		false;
-#endif
-	using traits = std::conditional_t<is_avx, simd::avx, simd::sse>;
-	using simd_type = typename traits::int_type;
-	using value_type = typename traits::mask_type;
-	constexpr int _Mysize = traits::width() / (8 * sizeof(T));
-	constexpr int _Mycor = sizeof(T) / sizeof(uint8_t);
-	// Prevent overflow
-	constexpr auto _Maxstep_four = std::numeric_limits<T>::max() / _Mysize + 1;
-	static_assert(_Maxstep_four >= 4 && _Maxstep_four % 4 == 0, "invalid _Maxstep");
-	constexpr auto _Maxstep = _Maxstep_four / 4;
+	using simd_t = simd::sse;
+#endif // WJR_AVX2
+	using sint = typename simd_t::int_type;
+	constexpr uintptr_t width = simd_t::width() / (8 * _Mysize);
+	constexpr uintptr_t bound = width * _Mysize;
 
-	using namespace enum_ops;
-	constexpr auto tag =
-		GetSmallThreshold(_Mysize) |
-		GetVectorizedLength(_Mysize);
+	constexpr auto max_step_4 = std::numeric_limits<T>::max() / width + 1;
+	static_assert(max_step_4 >= 4 && max_step_4 % 4 == 0, "invalid _Maxstep");
+	constexpr auto max_step = max_step / 4;
 
-	WJR_AUTO_VECTORIZE(tag, n,
-		__WJR_MEMCNT_SMALL_FUNC, __WJR_MEMCNT_MID_FUNC, __WJR_MEMCNT_LARGE_FUNC,
-		__WJR_MEMCNT_SMALL_INIT_BEGIN, __WJR_MEMCNT_SMALL_INIT_END,
-		__WJR_MEMCNT_MID_INIT_BEGIN, __WJR_MEMCNT_MID_INIT_END,
-		s, val);
+	if (is_unlikely(n == 0)) return 0;
+
+	if (n >= 16 / _Mysize) {
+		if (n >= width * 4) {
+			const T* _lst;
+
+			auto y = simd_t::set1(val, T());
+
+			if (is_constant_p(reinterpret_cast<uintptr_t>(s) % bound) &&
+				reinterpret_cast<uintptr_t>(s) % bound == 0) {
+				// do nothing
+			}
+			else if (_Mysize == 1 ||
+				reinterpret_cast<uintptr_t>(s) % _Mysize == 0) {
+				auto x = simd_t::loadu(reinterpret_cast<const sint*>(s));
+
+				__WJR_MEMCHR_ONE(simd_t, s);
+
+				auto __align_s = bound - reinterpret_cast<uintptr_t>(s) % bound;
+				s += __align_s / _Mysize;
+				n -= __align_s / _Mysize;
+				if (is_unlikely(n < width * 4)) {
+					_lst = s + n;
+					goto WJR_MACRO_LABEL(aft_align);
+				}
+			}
+			else {
+				// unalign algorithm
+				do {
+					auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s));
+					auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s + width));
+					auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s + width * 2));
+					auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s + width * 3));
+
+					__WJR_MEMCHR_FOUR(simd_t, s, s + width, s + width * 2, s + width * 3);
+
+					s += width * 4;
+					n -= width * 4;
+				} while (n >= width * 4);
+
+				_lst = s + n;
+				if (n != 0) {
+					switch ((n + width - 1) / width) {
+					default: unreachable(); break;
+					case 4: {
+						auto x = simd_t::loadu(reinterpret_cast<const sint*>(s));
+
+						__WJR_MEMCHR_ONE(simd_t, s);
+						s += width;
+					}
+					case 3: {
+						auto x = simd_t::loadu(reinterpret_cast<const sint*>(s));
+
+						__WJR_MEMCHR_ONE(simd_t, s);
+						s += width;
+					}
+					case 2: {
+						auto x = simd_t::loadu(reinterpret_cast<const sint*>(s));
+
+						__WJR_MEMCHR_ONE(simd_t, s);
+					}
+					case 1: {
+						auto x = simd_t::loadu(reinterpret_cast<const sint*>(_lst - width));
+
+						__WJR_MEMCHR_ONE(simd_t, _lst - width);
+					}
+					}
+				}
+				return _lst;
+			}
+
+			do {
+				auto x0 = simd_t::load(reinterpret_cast<const sint*>(s));
+				auto x1 = simd_t::load(reinterpret_cast<const sint*>(s + width));
+				auto x2 = simd_t::load(reinterpret_cast<const sint*>(s + width * 2));
+				auto x3 = simd_t::load(reinterpret_cast<const sint*>(s + width * 3));
+
+				__WJR_MEMCHR_FOUR(simd_t, s, s + width, s + width * 2, s + width * 3);
+
+				s += width * 4;
+				n -= width * 4;
+			} while (n >= width * 4);
+
+			_lst = s + n;
+			if (n != 0) {
+				switch ((n + width - 1) / width) {
+				default: unreachable(); break;
+				case 4: {
+					WJR_MACRO_LABEL(aft_align) :
+						auto x = simd_t::load(reinterpret_cast<const sint*>(s));
+
+					__WJR_MEMCHR_ONE(simd_t, s);
+					s += width;
+				}
+				case 3: {
+					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
+
+					__WJR_MEMCHR_ONE(simd_t, s);
+					s += width;
+				}
+				case 2: {
+					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
+
+					__WJR_MEMCHR_ONE(simd_t, s);
+				}
+				case 1: {
+					auto x = simd_t::loadu(reinterpret_cast<const sint*>(_lst - width));
+
+					__WJR_MEMCHR_ONE(simd_t, _lst - width);
+				}
+				}
+			}
+			return _lst;
+		}
+
+#if WJR_AVX2
+		static_assert(width * 4 == 128 / _Mysize, "width * 4 == 128 / _Mysize");
+		if (n >= 64 / _Mysize) {
+			auto y = simd::avx::set1(val, T());
+
+			auto x0 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s));
+			auto x1 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s + 32 / _Mysize));
+			auto x2 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s + n - 64 / _Mysize));
+			auto x3 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s + n - 32 / _Mysize));
+
+			__WJR_MEMCHR_FOUR(simd::avx, s, s + 32 / _Mysize, s + n - 64 / _Mysize, s + n - 32 / _Mysize);
+
+			return s + n;
+		}
+#endif // WJR_AVX2
+
+		auto y = simd::sse::set1(val, T());
+		auto delta = (n & (32 / _Mysize)) >> 1;
+
+		auto x0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s));
+		auto x1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s + delta));
+		auto x2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s + n - 16 / _Mysize - delta));
+		auto x3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s + n - 16 / _Mysize));
+
+		__WJR_MEMCHR_FOUR(simd::sse, s, s + delta, s + n - 16 / _Mysize - delta, s + n - 16 / _Mysize);
+
+		return s + n;
+	}
+
+	if constexpr (_Mysize == 8) {
+		// n = [1, 2)
+		return pred(*s, val) ? s : s + 1;
+	}
+
+	if constexpr (_Mysize == 2) {
+		// n = [1, 8)
+		if (n >= 4) {
+			// n = [4, 8)
+			auto A = *reinterpret_cast<const uint64_t*>(s);
+			auto B = *reinterpret_cast<const uint64_t*>(s + n - 4);
+
+			auto x = simd::sse::set_epi64x(B, A);
+			auto y = simd::sse::set1(val, T());
+			auto r = simd::sse::cmp(x, y, pred, T());
+			uint16_t z = simd::sse::movemask_epi8(r);
+
+			if (z == 0)return s + n;
+			auto i = wjr::countr_zero(z) / _Mysize;
+			auto q = i >= 4 ? i + n - 8 : i;
+			return s + q;
+		}
+	}
+
+	if constexpr (_Mysize == 1) {
+		// n = [1, 16)
+		if (n >= 4) {
+			// n = [4, 16)
+			auto delta = (n & 8) >> 1;
+
+			auto A = *reinterpret_cast<const uint32_t*>(s);
+			auto B = *reinterpret_cast<const uint32_t*>(s + delta);
+			auto C = *reinterpret_cast<const uint32_t*>(s + n - 4 - delta);
+			auto D = *reinterpret_cast<const uint32_t*>(s + n - 4);
+
+			auto x = simd::sse::set_epi32(D, C, B, A);
+			auto y = simd::sse::set1(val, T());
+			auto r = simd::sse::cmp(x, y, pred, T());
+			uint16_t z = simd::sse::movemask_epi8(r);
+
+			if (z == 0) return s + n;
+			auto i = wjr::countr_zero(z);
+			auto q = i >= 8 ? i + (n - 12 - delta) : i;
+			return s + q;
+		}
+	}
+
+	if constexpr (_Mysize <= 4) {
+		// n = [1, 4)
+		if (pred(s[0], val)) return s;
+		if (n == 1) return s + 1;
+		if (pred(s[1], val)) return s + 1;
+		if (n == 2) return s + 2;
+		return pred(s[2], val) ? s + 2 : s + 3;
+	}
 }
 
 _WJR_ALGO_END
@@ -7814,11 +8033,22 @@ _WJR_ALGO_END
 
 #if defined(_WJR_FAST_MEMSET)
 
+#if WJR_AVX2
+#define __WJR_ALIGN64byte(ptr)	\
+	simd_t::storeu(reinterpret_cast<sint*>((ptr)), q);	\
+	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width), q);
+#else
+#define __WJR_ALIGN64byte(ptr)	\
+	simd_t::storeu(reinterpret_cast<sint*>((ptr)), q);	\
+	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width), q);	\
+	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width * 2), q);	\
+	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width * 3), q);
+#endif // __WJR_MEMSET64byte
+
 _WJR_ALGO_BEGIN
 
 template<typename T>
 void __memset(T* s, T val, size_t n) {
-	using namespace wjr::literals;
 	constexpr size_t _Mysize = sizeof(T);
 
 #if WJR_AVX2
@@ -7839,18 +8069,13 @@ void __memset(T* s, T val, size_t n) {
 		}
 	}
 
-	constexpr size_t __constant_threshold = 2_KiB / _Mysize;
-	constexpr size_t __rep_noaligned_threshold = 1_KiB / _Mysize;
+	constexpr size_t __constant_threshold = 2048 / _Mysize;
 
-#if defined(_WJR_CPUINFO)
-#if defined(WJR_INLINE_ASM)
 	const bool __use_rep = wjr::is_enhanced_rep();
-#else
-	const bool __use_rep = false;
-#endif
-	const size_t __nt_threshold = (wjr::__max_cache_size + wjr::__max_cache_size / 8) / _Mysize;
-	const size_t __large_threshold = __use_rep ? 256 / _Mysize : __nt_threshold;
-#endif // _WJR_CPUINFO
+
+#if defined(_WJR_NON_TEMPORARY)
+	const size_t __nt_threshold = (wjr::max_cache_size() + wjr::max_cache_size() / 8) / _Mysize;
+#endif // _WJR_NON_TEMPORARY
 
 	if (is_constant_p(n) && n <= __constant_threshold) {
 		for (size_t i = 0; i < n; ++i) {
@@ -7860,19 +8085,18 @@ void __memset(T* s, T val, size_t n) {
 	}
 
 	if (n >= 16 / _Mysize) {
-		if (n >= width * 4) {
-			auto q = simd_t::set1(val, T());
+		auto qx = simd::sse::set1(val, T());
+		if (n >= 128 / _Mysize) {
+			// [128, ...)
+			auto q = broadcast<sint, __m128i>(qx);
 
-#if defined(_WJR_CPUINFO)
-			// non-temporal algorithm
-			if (_Mysize == 1 ||
-				(is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0))) {
+			if (is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0)) {
 
-				if (is_unlikely(n >= __large_threshold)) {
+				if (n < 1024 / _Mysize) {
 
 #if defined(WJR_INLINE_ASM)
-					auto u64v = broadcast<uint64_t, T>(val);
-					if (__use_rep && n < __rep_noaligned_threshold) {
+					if (__use_rep) {
+						auto u64v = broadcast<uint64_t, T>(val);
 						if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 8) &&
 							reinterpret_cast<uintptr_t>(s) % 8 == 0) {
 						}
@@ -7891,42 +8115,52 @@ void __memset(T* s, T val, size_t n) {
 							: "a"(u64v)
 							: "memory"
 							);
-						return;
+					}
+					else {
+#endif // WJR_INLINE_ASM
+						WJR_MACRO_LABEL(non_align) :
+							do {
+								simd_t::storeu(reinterpret_cast<sint*>(s), q);
+								simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
+								simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
+								simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
+								s += width * 4;
+								n -= width * 4;
+							} while (n >= width * 4);
+							s += n;
+
+							simd_t::storeu(reinterpret_cast<sint*>(s - width * 4), q);
+							simd_t::storeu(reinterpret_cast<sint*>(s - width * 3), q);
+							simd_t::storeu(reinterpret_cast<sint*>(s - width * 2), q);
+							simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
+#if defined(WJR_INLINE_ASM)
 					}
 #endif // WJR_INLINE_ASM
 
-					// align(64)
-					if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 64) &&
-						reinterpret_cast<uintptr_t>(s) % 64 == 0) {
-						// do nothing
-					}
-					else {
-#if WJR_AVX2
-						simd_t::storeu(reinterpret_cast<sint*>(s), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
-#else
-						simd_t::storeu(reinterpret_cast<sint*>(s), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
-#endif // WJR_AVX2
-						auto __align_s = 64 - reinterpret_cast<uintptr_t>(s) % 64;
-						s += __align_s / _Mysize;
-						n -= __align_s / _Mysize;
-					}
+					return;
+				}
+
+				// align first 64 byte
+
+				if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 64) &&
+					reinterpret_cast<uintptr_t>(s) % 64 == 0) {
+					// do nothing
+				}
+				else {
+					__WJR_ALIGN64byte(s);
+					auto __align_s = 64 - reinterpret_cast<uintptr_t>(s) % 64;
+					s += __align_s / _Mysize;
+					n -= __align_s / _Mysize;
+				}
+
+#if defined(_WJR_NON_TEMPORARY)
+				if (n < __nt_threshold) {
+#endif // _WJR_NON_TEMPORARY
 
 #if defined(WJR_INLINE_ASM)
-					if (__use_rep && n < __nt_threshold) {
-
-#if WJR_AVX2
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
-#else 
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 4), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 3), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width * 2), q);
-						simd_t::storeu(reinterpret_cast<sint*>(s + n - width), q);
-#endif // 
+					if (__use_rep) {
+						// align last 64 byte
+						__WJR_ALIGN64byte(s + n - (64 / _Mysize));
 
 						n &= -(64 / _Mysize);
 						n /= (8 / _Mysize);
@@ -7938,8 +8172,20 @@ void __memset(T* s, T val, size_t n) {
 							);
 						return;
 					}
-#endif
+#endif // WJR_INLINE_ASM
 
+					do {
+						simd_t::store(reinterpret_cast<sint*>(s), q);
+						simd_t::store(reinterpret_cast<sint*>(s + width), q);
+						simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
+						simd_t::store(reinterpret_cast<sint*>(s + width * 3), q);
+						s += width * 4;
+						n -= width * 4;
+					} while (n >= width * 4);
+
+#if defined(_WJR_NON_TEMPORARY)
+				}
+				else {
 					do {
 						simd_t::stream(reinterpret_cast<sint*>(s), q);
 						simd_t::stream(reinterpret_cast<sint*>(s + width), q);
@@ -7949,85 +8195,61 @@ void __memset(T* s, T val, size_t n) {
 						n -= width * 4;
 					} while (n >= width * 4);
 					simd::sse::sfence();
-					goto WJR_MACRO_LABEL(aft_align);
 				}
-			}
-#endif // _WJR_CPUINFO
+#endif // _WJR_NON_TEMPORARY
 
-			// align algorithm
-			if (is_constant_p(reinterpret_cast<uintptr_t>(s) % bound) &&
-				reinterpret_cast<uintptr_t>(s) % bound == 0) {
-				// do nothing
-			}
-			else if (_Mysize == 1 ||
-				is_likely(reinterpret_cast<uintptr_t>(s) % _Mysize == 0)) {
-				simd_t::storeu(reinterpret_cast<sint*>(s), q);
-				auto __align_s = bound - reinterpret_cast<uintptr_t>(s) % bound;
-				s += __align_s / _Mysize;
-				n -= __align_s / _Mysize;
-				if (is_unlikely(n < width * 4)) {
-					// n = [width * 4 - width / _Mysize, width * 4)
-					goto WJR_MACRO_LABEL(aft_align);
-				}
-			}
-			else {
-				// unalign algorithm
-				do {
-					simd_t::storeu(reinterpret_cast<sint*>(s), q);
-					simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
-					simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
-					simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
-					s += width * 4;
-					n -= width * 4;
-				} while (n >= width * 4);
-				s += n;
+				// store last 64 byte
 
-				simd_t::storeu(reinterpret_cast<sint*>(s - width * 4), q);
-				simd_t::storeu(reinterpret_cast<sint*>(s - width * 3), q);
-				simd_t::storeu(reinterpret_cast<sint*>(s - width * 2), q);
-				simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
-				return;
-			}
-
-			do {
+				auto t = s + n - width;
+				s = reinterpret_cast<T*>(
+					(reinterpret_cast<uintptr_t>(s + n - width * 3)) & (~(bound - 1)));
 				simd_t::store(reinterpret_cast<sint*>(s), q);
 				simd_t::store(reinterpret_cast<sint*>(s + width), q);
 				simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
-				simd_t::store(reinterpret_cast<sint*>(s + width * 3), q);
-				s += width * 4;
-				n -= width * 4;
-			} while (n >= width * 4);
+				simd_t::storeu(reinterpret_cast<sint*>(t), q);
 
-			WJR_MACRO_LABEL(aft_align) :
-
-				auto t = s + n - width;
-			s = reinterpret_cast<T*>(
-				(reinterpret_cast<uintptr_t>(s + n - width * 3)) & (~(bound - 1)));
-			simd_t::store(reinterpret_cast<sint*>(s), q);
-			simd_t::store(reinterpret_cast<sint*>(s + width), q);
-			simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
-			simd_t::storeu(reinterpret_cast<sint*>(t), q);
-
+				return;
+			}
+			// non-aligned algorithm
+			goto WJR_MACRO_LABEL(non_align);
 			return;
 		}
 
 #if WJR_AVX2
+		// [16, 128)
 		static_assert(width * 4 == 128 / _Mysize, "width * 4 == 128 / _Mysize");
-		if (n >= 64 / _Mysize) {
-			auto q = simd::avx::set1(val, T());
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s), q);
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s + 32 / _Mysize), q);
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - 64 / _Mysize), q);
-			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - 32 / _Mysize), q);
+		if (n > 32 / _Mysize) {
+			// (32, 128)
+			auto qy = wjr::broadcast<__m256i, __m128i>(qx);
+			auto delta = (n & (64 / _Mysize)) >> 1;
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s), qy);
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s + delta), qy);
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - (32 / _Mysize) - delta), qy);
+			simd::avx::storeu(reinterpret_cast<__m256i*>(s + n - (32 / _Mysize)), qy);
 			return;
 		}
-#endif // WJR_AVX2
-		auto q = simd::sse::set1(val, T());
+		// [16, 32]
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s), qx);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize)), qx);
+#else
+		// [16, 128)
+		if (n >= 64) {
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s), qx);
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s + (16 / _Mysize)), qx);
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s + (32 / _Mysize)), qx);
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s + (48 / _Mysize)), qx);
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (64 / _Mysize)), qx);
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (48 / _Mysize)), qx);
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (32 / _Mysize)), qx);
+			simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize)), qx);
+			return;
+		}
 		auto delta = (n & (32 / _Mysize)) >> 1;
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s), q);
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s + delta), q);
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize) - delta), q);
-		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize)), q);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s), qx);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s + delta), qx);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize) - delta), qx);
+		simd::sse::storeu(reinterpret_cast<__m128i*>(s + n - (16 / _Mysize)), qx);
+#endif // WJR_AVX2
 		return;
 	}
 
@@ -8073,6 +8295,8 @@ void __memset(T* s, T val, size_t n) {
 }
 
 _WJR_ALGO_END
+
+#undef __WJR_ALIGN64byte
 
 #endif // _WJR_FAST_MEMSET
 
@@ -8356,7 +8580,7 @@ constexpr bool __has_fast_memset_helper_v = __has_fast_memset_helper<TEST, T, U>
 
 template<template<typename X, typename Y> typename TEST, typename T, typename U>
 static void __memset_helper(T* s, const U& val, size_t n) {
-	
+
 	if (is_constant_p(n) && n <= 4 / sizeof(T)) {
 		std::fill_n(s, n, val);
 		return;
@@ -8384,7 +8608,7 @@ static void __memset_helper(T* s, const U& val, size_t n) {
 	auto __s = reinterpret_cast<value_type*>(s);
 	auto __val = *reinterpret_cast<const value_type*>(&_Val);
 	static_assert(std::is_same_v<decltype(__val), value_type>, "type mismatch");
-	
+
 #if defined(_WJR_FAST_MEMSET)
 	__memset(__s, __val, n * (sizeof(T) / __max_bytes_num));
 #else
@@ -8480,14 +8704,14 @@ _WJR_BEGIN
 
 template<typename _Iter, typename _Val, typename _Pred,
 	typename _Iter_value = iter_val_t<_Iter>>
-struct __has_fast_find : std::conjunction<
+	struct __has_fast_find : std::conjunction<
 	is_contiguous_iterator<_Iter>,
 	std::conditional_t<
 	wjr::is_reverse_iterator_v<_Iter>,
 	algo::__has_fast_memrchr<_Iter_value, _Val, _Pred>,
 	algo::__has_fast_memchr<_Iter_value, _Val, _Pred>
 	>
->{};
+	> {};
 
 template<typename _Iter, typename _Val, typename _Pred>
 constexpr bool __has_fast_find_v = __has_fast_find<_Iter, _Val, _Pred>::value;
@@ -8549,10 +8773,10 @@ constexpr find_if_not_fn find_if_not{};
 
 template<typename _Iter, typename _Val,
 	typename _Iter_value = iter_val_t<_Iter>>
-struct __has_fast_count : std::conjunction<
+	struct __has_fast_count : std::conjunction<
 	wjr::is_contiguous_iterator<_Iter>,
 	algo::__has_fast_memcnt<_Iter_value, _Val>
->{};
+	> {};
 
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_count_v = __has_fast_count<_Iter, _Val>::value;
@@ -8596,15 +8820,15 @@ constexpr count_if_fn count_if{};
 
 // First use algo::memcmp
 // Then use memcmp
-template<typename _Iter1, typename _Iter2, typename _Pred, 
+template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
-struct __has_fast_equal_helper : std::conjunction<
+	struct __has_fast_equal_helper : std::conjunction<
 	wjr::is_contiguous_iterator<_Iter1>,
 	wjr::is_contiguous_iterator<_Iter2>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
 	algo::__has_fast_memcmp<_Iter_value1, _Iter_value2, _Pred>
->{};
+	> {};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 struct __has_fast_equal : std::bool_constant<__has_fast_equal_helper<_Iter1, _Iter2, _Pred>::value> {};
@@ -8615,7 +8839,7 @@ constexpr bool __has_fast_equal_v = __has_fast_equal<_Iter1, _Iter2, _Pred>::val
 template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
-struct __has_fast_mismatch : std::conjunction <
+	struct __has_fast_mismatch : std::conjunction <
 	wjr::is_contiguous_iterator<_Iter1>,
 	wjr::is_contiguous_iterator<_Iter2>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
@@ -8624,7 +8848,7 @@ struct __has_fast_mismatch : std::conjunction <
 	algo::__has_fast_memrmis<_Iter_value1, _Iter_value2, _Pred>,
 	algo::__has_fast_memmis<_Iter_value1, _Iter_value2, _Pred>
 	>
->{};
+	> {};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_mismatch_v = __has_fast_mismatch<_Iter1, _Iter2, _Pred>::value;
@@ -8643,7 +8867,7 @@ struct mismatch_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-		if(!wjr::is_constant_evaluated()){
+		if (!wjr::is_constant_evaluated()) {
 #if defined(_WJR_FAST_MEMMIS)
 			if constexpr (__has_fast_mismatch_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = std::distance(_First1, _Last1);
@@ -8671,7 +8895,7 @@ struct mismatch_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-		if(!wjr::is_constant_evaluated()){
+		if (!wjr::is_constant_evaluated()) {
 			if constexpr (__has_fast_mismatch_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = _Last1 - _First1;
 				const auto m = _Last2 - _First2;
@@ -8700,7 +8924,7 @@ struct equal_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-		if(!wjr::is_constant_evaluated()){
+		if (!wjr::is_constant_evaluated()) {
 			if constexpr (__has_fast_equal_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = _Last1 - _First1;
 				if (is_unlikely(n == 0)) { return true; }
@@ -8722,7 +8946,7 @@ struct equal_fn {
 
 	template<typename _Iter1, typename _Iter2, typename _Pred>
 	WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-		if(!wjr::is_constant_evaluated()){
+		if (!wjr::is_constant_evaluated()) {
 			if constexpr (__has_fast_equal_v<_Iter1, _Iter2, _Pred>) {
 				const auto n = std::distance(_First1, _Last1);
 				const auto m = std::distance(_First2, _Last2);
@@ -8740,10 +8964,10 @@ constexpr equal_fn equal{};
 template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
-struct __has_fast_lexicographical_compare : std::conjunction<
+	struct __has_fast_lexicographical_compare : std::conjunction<
 	wjr::is_any_of<_Pred, std::less<>, std::not_equal_to<>>,
 	__has_fast_mismatch<_Iter1, _Iter2, _Pred>
->{};
+	> {};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_lexicographical_compare_v = __has_fast_lexicographical_compare<_Iter1, _Iter2, _Pred>::value;
@@ -8790,10 +9014,10 @@ constexpr lexicographical_compare_fn lexicographical_compare{};
 
 template<typename _Iter, typename _Val,
 	typename _Iter_ref = iter_ref_t<_Iter>>
-struct __has_fast_fill : std::conjunction<
-	is_contiguous_iterator<_Iter>, 
+	struct __has_fast_fill : std::conjunction<
+	is_contiguous_iterator<_Iter>,
 	algo::__has_fast_assign_memset<remove_cref_t<_Iter_ref>, add_cref_t<_Val>>
->{};
+	> {};
 
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_fill_v = __has_fast_fill<_Iter, _Val>::value;
@@ -8843,7 +9067,7 @@ constexpr fill_n_fn fill_n{};
 template<typename _Input, typename _Output,
 	typename _Input_ref = iter_ref_t<_Input>,
 	typename _Output_ref = iter_ref_t<_Output>>
-struct __has_fast_copy : std::conjunction<
+	struct __has_fast_copy : std::conjunction<
 	is_contiguous_iterator<_Input>,
 	is_contiguous_iterator<_Output>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Input> == wjr::is_reverse_iterator_v<_Output>>,
@@ -8978,7 +9202,7 @@ struct destroy_at_fn {
 			std::allocator_traits<Alloc>::destroy(al, get_address(iter));
 		}
 	}
-	
+
 };
 
 constexpr destroy_at_fn destroy_at;
@@ -8997,7 +9221,7 @@ struct destroy_fn {
 	template<typename Alloc, typename _Iter>
 	WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Iter _Last) const {
 		using value_type = iter_val_t<_Iter>;
-		if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter> 
+		if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter>
 			&& std::is_trivially_destructible_v<value_type>)) {
 			for (; _First != _Last; ++_First) {
 				wjr::destroy_at(al, _First);
@@ -9127,7 +9351,7 @@ constexpr uninitialized_value_construct_n_fn uninitialized_value_construct_n;
 template<typename _Input, typename _Output,
 	typename _Input_ref = iter_ref_t<_Input>,
 	typename _Output_ref = iter_ref_t<_Output>>
-struct __has_fast_uninitialized_copy : std::conjunction<
+	struct __has_fast_uninitialized_copy : std::conjunction<
 	is_contiguous_iterator<_Input>,
 	is_contiguous_iterator<_Output>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Input> == wjr::is_reverse_iterator_v<_Output>>,
@@ -9359,7 +9583,7 @@ struct uninitialized_move_n_fn {
 	template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
 	WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(
 		Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) const {
-		if constexpr(is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>){
+		if constexpr (is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>) {
 			return this->operator()(_First, n, _Dest);
 		}
 		else {
@@ -9423,7 +9647,7 @@ _WJR_BEGIN
 
 /*
 * vector_data ->
-* 1.vector_data() 
+* 1.vector_data()
 * 2.vector_data(_Al&al, const size_t _Newsize, const size_t _Newcapacity)
 * 4.vector_data(const vector_data&) = delete
 * 5.vector_data(vector_data&&) = delete
@@ -9460,7 +9684,7 @@ struct vector_data {
 	~vector_data() = default;
 
 	WJR_CONSTEXPR20 vector_data(
-		_Alty& al, 
+		_Alty& al,
 		const size_type _Newsize,
 		const size_type _Newcapacity,
 		extend_tag)
@@ -9584,7 +9808,7 @@ struct vector_static_data {
 	vector_static_data& operator=(const vector_static_data&) = delete;
 	~vector_static_data() = default;
 
-	WJR_CONSTEXPR20 static void _lengthError(const size_type _Newcapacity){
+	WJR_CONSTEXPR20 static void _lengthError(const size_type _Newcapacity) {
 		std::string str = "vector_static_data is too small to hold the requested data";
 		str += "\n old capacity = " + std::to_string(_MaxCapacity);
 		str += "\n allocate new capacity = " + std::to_string(_Newcapacity);
@@ -9593,7 +9817,7 @@ struct vector_static_data {
 	}
 
 	WJR_CONSTEXPR20 vector_static_data(
-		_Alty& al, 
+		_Alty& al,
 		const size_type _Newsize,
 		const size_type _Newcapacity,
 		extend_tag) {
@@ -9689,7 +9913,7 @@ struct vector_sso_data {
 
 	static_assert(N > 0, "N must be greater than 0");
 
-	constexpr static size_t _MaxAlignment = std::max(alignof(T), 
+	constexpr static size_t _MaxAlignment = std::max(alignof(T),
 		std::max(alignof(size_type), alignof(pointer)));
 	constexpr static size_t _MaxMemroy = std::max(
 		(sizeof(T) * N + _MaxAlignment - 1) & (~(_MaxAlignment - 1)),
@@ -9708,7 +9932,7 @@ struct vector_sso_data {
 		const size_type _Newcapacity,
 		extend_tag)
 		: _M_ptr(_Alty_traits::allocate(al, _Newcapacity)),
-		_M_size(_Newsize), 
+		_M_size(_Newsize),
 		_M_capacity(_Newcapacity) {
 		wjr::assume(_Newcapacity > _MaxCapacity);
 	}
@@ -9717,7 +9941,7 @@ struct vector_sso_data {
 		_Alty& al,
 		const size_type _Newsize,
 		const size_type _Newcapacity)
-		: _M_size(_Newsize){
+		: _M_size(_Newsize) {
 		if (_Newcapacity > _MaxCapacity) {
 			_M_ptr = _Alty_traits::allocate(al, _Newcapacity);
 			_M_capacity = _Newcapacity;
@@ -9738,7 +9962,7 @@ struct vector_sso_data {
 	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty& al, vector_sso_data&& _Src, vector_sso_data& _Dest) {
 		wjr::assume(_Dest.is_small());
 		const auto _Size = _Src._M_size;
-		if(!_Src.is_small()){
+		if (!_Src.is_small()) {
 			_Dest._M_ptr = _Src._M_ptr;
 			_Dest._M_capacity = _Src._M_capacity;
 		}
@@ -9747,7 +9971,7 @@ struct vector_sso_data {
 			wjr::uninitialized_move_n(al, _Src.data(), _Size, _Dest.data());
 			wjr::destroy_n(al, _Src.data(), _Size);
 		}
-		
+
 		_Dest._M_size = _Size;
 
 		_Src.reset_ptr();
@@ -9826,7 +10050,7 @@ struct vector_sso_data {
 		_M_size += _Size;
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 bool is_small() const noexcept{
+	WJR_INTRINSIC_CONSTEXPR20 bool is_small() const noexcept {
 		const bool f = static_cast<const void*>(_M_ptr) == static_cast<const void*>(_M_storage);
 		return f;
 	}
@@ -9875,7 +10099,7 @@ public:
 
 	using data_type = Data;
 
-	WJR_CONSTEXPR20 vector() 
+	WJR_CONSTEXPR20 vector()
 		noexcept(std::is_nothrow_default_constructible_v<_Alty>
 			&& std::is_nothrow_default_constructible_v<data_type>) = default;
 
@@ -9898,10 +10122,10 @@ public:
 
 private:
 	constexpr static bool _IsNoThrowCopyConstruct =
-		noexcept(data_type::copyConstruct(std::declval<_Alty&>(), 
+		noexcept(data_type::copyConstruct(std::declval<_Alty&>(),
 			std::declval<const data_type&>(), std::declval<data_type&>()));
 	constexpr static bool _IsNoThrowMoveConstruct =
-		noexcept(data_type::moveConstruct(std::declval<_Alty&>(), 
+		noexcept(data_type::moveConstruct(std::declval<_Alty&>(),
 			std::declval<data_type&&>(), std::declval<data_type&>()));
 	struct __vector_copy_tag {};
 public:
@@ -9917,7 +10141,7 @@ public:
 	}
 
 	WJR_CONSTEXPR20 vector(const vector& other)
-		: vector(other, _Alty_traits::select_on_container_copy_construction(other.getAllocator()), 
+		: vector(other, _Alty_traits::select_on_container_copy_construction(other.getAllocator()),
 			__vector_copy_tag{}) {}
 
 	WJR_CONSTEXPR20 vector(const vector& other, const allocator_type& al)
@@ -10273,12 +10497,12 @@ public:
 
 	// unstandard functions
 
-	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const data_type& _Src, data_type& _Dest) 
+	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const data_type& _Src, data_type& _Dest)
 		noexcept(_IsNoThrowCopyConstruct) {
 		data_type::copyConstruct(al, _Src, _Dest);
 	}
 
-	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, data_type&& _Src, data_type& _Dest) 
+	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, data_type&& _Src, data_type& _Dest)
 		noexcept(_IsNoThrowMoveConstruct) {
 		data_type::moveConstruct(al, std::move(_Src), _Dest);
 	}
@@ -10306,7 +10530,7 @@ public:
 		wjr::destroy_n(al, _Data.data(), _Data.size());
 	}
 
-	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, data_type& _Data) 
+	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, data_type& _Data)
 		noexcept(noexcept(data_type::Deallocate(al, _Data))) {
 		data_type::Deallocate(al, _Data);
 		assume(_Data.size() == 0);
@@ -10405,7 +10629,7 @@ public:
 
 private:
 
-	template<typename...Args, std::enable_if_t<is_any_index_of_v<sizeof...(Args),1,2>, int> = 0>
+	template<typename...Args, std::enable_if_t<is_any_index_of_v<sizeof...(Args), 1, 2>, int> = 0>
 	WJR_CONSTEXPR20 void _M_construct_n(const size_type _Count, Args&&... args) {
 		if (_Count != 0) {
 			auto& al = getAllocator();
@@ -10904,8 +11128,6 @@ namespace std {
 #pragma pop_macro("new")
 
 #endif // !__WJR_VECTOR_H
-
-_WJR_BEGIN
 
 #if defined(_WJR_CPUINFO)
 const cpu_features::X86Info cpuinfo = cpu_features::GetX86Info();
