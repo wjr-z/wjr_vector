@@ -8118,21 +8118,37 @@ void __memset(T* s, T val, size_t n) {
 					}
 					else {
 #endif // WJR_INLINE_ASM
-						WJR_MACRO_LABEL(non_align) :
-							do {
-								simd_t::storeu(reinterpret_cast<sint*>(s), q);
-								simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
-								simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
-								simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
-								s += width * 4;
-								n -= width * 4;
-							} while (n >= width * 4);
-							s += n;
 
-							simd_t::storeu(reinterpret_cast<sint*>(s - width * 4), q);
-							simd_t::storeu(reinterpret_cast<sint*>(s - width * 3), q);
-							simd_t::storeu(reinterpret_cast<sint*>(s - width * 2), q);
-							simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
+						if (is_constant_p(reinterpret_cast<uintptr_t>(s) % bound) &&
+							reinterpret_cast<uintptr_t>(s) % bound == 0) {
+							// do nothing
+						}
+						else {
+							simd_t::storeu(reinterpret_cast<sint*>(s), q);
+							auto __align_s = bound - reinterpret_cast<uintptr_t>(s) % bound;
+							s += __align_s / _Mysize;
+							n -= __align_s / _Mysize;
+							if (n < width * 4) goto WJR_MACRO_LABEL(aft_align);
+						}
+
+						do {
+							simd_t::store(reinterpret_cast<sint*>(s), q);
+							simd_t::store(reinterpret_cast<sint*>(s + width), q);
+							simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
+							simd_t::store(reinterpret_cast<sint*>(s + width * 3), q);
+							s += width * 4;
+							n -= width * 4;
+						} while (n >= width * 4);
+
+						WJR_MACRO_LABEL(aft_align) :
+
+							s += n;
+						auto ptr = reinterpret_cast<T*>(
+							(reinterpret_cast<uintptr_t>(s - width * 3)) & (~(bound - 1)));
+						simd_t::store(reinterpret_cast<sint*>(ptr), q);
+						simd_t::store(reinterpret_cast<sint*>(ptr + width), q);
+						simd_t::store(reinterpret_cast<sint*>(ptr + width * 2), q);
+						simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
 #if defined(WJR_INLINE_ASM)
 					}
 #endif // WJR_INLINE_ASM
@@ -8200,18 +8216,31 @@ void __memset(T* s, T val, size_t n) {
 
 				// store last 64 byte
 
-				auto t = s + n - width;
-				s = reinterpret_cast<T*>(
-					(reinterpret_cast<uintptr_t>(s + n - width * 3)) & (~(bound - 1)));
-				simd_t::store(reinterpret_cast<sint*>(s), q);
-				simd_t::store(reinterpret_cast<sint*>(s + width), q);
-				simd_t::store(reinterpret_cast<sint*>(s + width * 2), q);
-				simd_t::storeu(reinterpret_cast<sint*>(t), q);
+				s += n;
+				auto ptr = reinterpret_cast<T*>(
+					(reinterpret_cast<uintptr_t>(s - width * 3)) & (~(bound - 1)));
+				simd_t::store(reinterpret_cast<sint*>(ptr), q);
+				simd_t::store(reinterpret_cast<sint*>(ptr + width), q);
+				simd_t::store(reinterpret_cast<sint*>(ptr + width * 2), q);
+				simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
 
 				return;
 			}
+
 			// non-aligned algorithm
-			goto WJR_MACRO_LABEL(non_align);
+			do {
+				simd_t::storeu(reinterpret_cast<sint*>(s), q);
+				simd_t::storeu(reinterpret_cast<sint*>(s + width), q);
+				simd_t::storeu(reinterpret_cast<sint*>(s + width * 2), q);
+				simd_t::storeu(reinterpret_cast<sint*>(s + width * 3), q);
+				s += width * 4;
+				n -= width * 4;
+			} while (n >= width * 4);
+			s += n;
+			simd_t::storeu(reinterpret_cast<sint*>(s - width * 4), q);
+			simd_t::storeu(reinterpret_cast<sint*>(s - width * 3), q);
+			simd_t::storeu(reinterpret_cast<sint*>(s - width * 2), q);
+			simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
 			return;
 		}
 
@@ -11128,6 +11157,8 @@ namespace std {
 #pragma pop_macro("new")
 
 #endif // !__WJR_VECTOR_H
+
+_WJR_BEGIN
 
 #if defined(_WJR_CPUINFO)
 const cpu_features::X86Info cpuinfo = cpu_features::GetX86Info();
