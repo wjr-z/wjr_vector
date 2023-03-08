@@ -258,7 +258,23 @@
 #if defined(NWJR_FAST_MEMCPY)
 #endif
 
-#if defined(WJR_INTEL)
+#if defined(WJR_INLINE_ASM) || defined(WJR_COMPILER_MSVC)
+#define _WJR_FAST_REP
+#endif
+
+#if defined(NWJR_FAST_REP) 
+#undef _WJR_FAST_REP
+#endif
+
+#if defined(NWJR_INTEL)
+#undef _WJR_INTEL
+#endif
+
+#if defined(NWJR_AMD)
+#undef _WJR_AMD
+#endif
+
+#if defined(_WJR_INTEL)
 #define _WJR_ENHANCED_REP
 #endif
 
@@ -271,9 +287,6 @@
 #if defined(NWJR_CPUINFO)
 #undef _WJR_CPUINFO
 #endif
-
-//#define WJR_MAX_CACHE_SIZE 4096 * 1024
-//#define NWJR_INTEL
 
 #if defined(WJR_MAX_CACHE_SIZE) || defined(_WJR_CPUINFO)
 #define _WJR_NON_TEMPORARY
@@ -610,7 +623,11 @@ inline bool is_amd() {
 }
 
 inline bool is_enhanced_rep() {
+#if defined(_WJR_ENHNACED_REP)
+	return true;
+#else
 	return is_intel();
+#endif
 }
 
 _WJR_END
@@ -689,13 +706,11 @@ WJR_INTRINSIC_CONSTEXPR bool is_constant_p(T x) noexcept {
 
 struct disable_tag {};
 
-struct reduce_tag {};
-struct move_tag {};
-
 struct default_construct_tag {};
 struct value_construct_tag {};
 
 struct extend_tag {};
+struct reserve_tag {};
 
 constexpr size_t byte_width = WJR_BYTE_WIDTH;
 
@@ -3588,7 +3603,7 @@ WJR_INTRINSIC_INLINE static T __wjr_msvc_sbb(T a, T b, T carry_in, T* carry_out)
 #endif
 
 template<typename T, std::enable_if_t<wjr::is_unsigned_integral_v<T>, int> = 0>
-WJR_INTRINSIC_CONSTEXPR20 static T sbb(T a, T b, T carry_in, T* carry_out) {
+WJR_INTRINSIC_CONSTEXPR20 T sbb(T a, T b, T carry_in, T* carry_out) {
 	if (!wjr::is_constant_evaluated()) {
 		if (!((is_constant_p(a) && is_constant_p(b)) || (is_constant_p(carry_in) && carry_in == 0))) {
 #if WJR_HAS_BUILTIN(__builtin_subc) || WJR_HAS_CLANG(5, 0, 0)
@@ -4023,6 +4038,81 @@ WJR_INTRINSIC_CONSTEXPR20 int popcnt(T x) noexcept {
 	}
 	return __wjr_fallback_popcount(x);
 }
+
+_WJR_ASM_END
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
+
+_WJR_ASM_BEGIN
+
+#if defined(_WJR_FAST_REP)
+
+WJR_INTRINSIC_INLINE void rep_stosb(unsigned char* s, unsigned char val, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__stosb(s, val, n);
+#else
+	asm volatile("rep stosb" : "+D"(s), "+c"(n) : "a"(val) : "memory");
+#endif
+}
+
+WJR_INTRINSIC_INLINE void rep_stosw(unsigned short* s, unsigned short val, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__stosw(s, val, n);
+#else
+	asm volatile("rep stosw" : "+D"(s), "+c"(n) : "a"(val) : "memory");
+#endif
+}
+
+WJR_INTRINSIC_INLINE void rep_stosd(unsigned int* s, unsigned int val, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__stosd(s, val, n);
+#else
+	asm volatile("rep stosd" : "+D"(s), "+c"(n) : "a"(val) : "memory");
+#endif
+}
+
+WJR_INTRINSIC_INLINE void rep_stosq(unsigned long long* s, unsigned long long val, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__stosq(s, val, n);
+#else
+	asm volatile("rep stosq" : "+D"(s), "+c"(n) : "a"(val) : "memory");
+#endif
+}
+
+WJR_INTRINSIC_INLINE void rep_movsb(unsigned char* d, const unsigned char* s, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__movsb(d, s, n);
+#else
+	asm volatile("rep movsb" : "+D"(d), "+S"(s), "+c"(n) : : "memory");
+#endif
+}
+
+WJR_INTRINSIC_INLINE void rep_movsw(unsigned short* d, const unsigned short* s, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__movsw(d, s, n);
+#else
+	asm volatile("rep movsw" : "+D"(d), "+S"(s), "+c"(n) : : "memory");
+#endif
+}
+
+WJR_INTRINSIC_INLINE void rep_movsd(unsigned int* d, const unsigned int* s, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__movsd(d, s, n);
+#else
+	asm volatile("rep movsd" : "+D"(d), "+S"(s), "+c"(n) : : "memory");
+#endif
+}
+
+WJR_INTRINSIC_INLINE void rep_movsq(unsigned long long* d, const unsigned long long* s, size_t n) {
+#if defined(WJR_COMPILER_MSVC)
+	__movsq(d, s, n);
+#else
+	asm volatile("rep movsq" : "+D"(d), "+S"(s), "+c"(n) : : "memory");
+#endif
+}
+
+#endif  // _WJR_FAST_REP
 
 _WJR_ASM_END
 
@@ -8034,13 +8124,13 @@ _WJR_ALGO_END
 #if defined(_WJR_FAST_MEMSET)
 
 #if WJR_AVX2
-#define __WJR_ALIGN64byte(ptr)	\
-	simd_t::storeu(reinterpret_cast<sint*>((ptr)), q);	\
+#define __WJR_ALIGN64byte(ptr)	                                    \
+	simd_t::storeu(reinterpret_cast<sint*>((ptr)), q);	            \
 	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width), q);
 #else
-#define __WJR_ALIGN64byte(ptr)	\
-	simd_t::storeu(reinterpret_cast<sint*>((ptr)), q);	\
-	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width), q);	\
+#define __WJR_ALIGN64byte(ptr)	                                    \
+	simd_t::storeu(reinterpret_cast<sint*>((ptr)), q);	            \
+	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width), q);	    \
 	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width * 2), q);	\
 	simd_t::storeu(reinterpret_cast<sint*>((ptr) + width * 3), q);
 #endif // __WJR_MEMSET64byte
@@ -8094,7 +8184,7 @@ void __memset(T* s, T val, size_t n) {
 
 				if (n < 1024 / _Mysize) {
 
-#if defined(WJR_INLINE_ASM)
+#if defined(_WJR_FAST_REP)
 					if (__use_rep) {
 						auto u64v = broadcast<uint64_t, T>(val);
 						if (is_constant_p(reinterpret_cast<uintptr_t>(s) % 8) &&
@@ -8109,15 +8199,10 @@ void __memset(T* s, T val, size_t n) {
 						*reinterpret_cast<uint64_t*>(s + n - 8 / _Mysize) = u64v;
 						n &= -(8 / _Mysize);
 						n /= (8 / _Mysize);
-						asm volatile(
-							"rep stosq"
-							: "+D"(s), "+c"(n)
-							: "a"(u64v)
-							: "memory"
-							);
+						wjr::masm::rep_stosq(s, u64v, n);
 					}
 					else {
-#endif // WJR_INLINE_ASM
+#endif // _WJR_FAST_REP
 
 						if (is_constant_p(reinterpret_cast<uintptr_t>(s) % bound) &&
 							reinterpret_cast<uintptr_t>(s) % bound == 0) {
@@ -8149,9 +8234,9 @@ void __memset(T* s, T val, size_t n) {
 						simd_t::store(reinterpret_cast<sint*>(ptr + width), q);
 						simd_t::store(reinterpret_cast<sint*>(ptr + width * 2), q);
 						simd_t::storeu(reinterpret_cast<sint*>(s - width), q);
-#if defined(WJR_INLINE_ASM)
+#if defined(_WJR_FAST_REP)
 					}
-#endif // WJR_INLINE_ASM
+#endif // _WJR_FAST_REP
 
 					return;
 				}
@@ -8173,22 +8258,18 @@ void __memset(T* s, T val, size_t n) {
 				if (n < __nt_threshold) {
 #endif // _WJR_NON_TEMPORARY
 
-#if defined(WJR_INLINE_ASM)
+#if defined(_WJR_FAST_REP)
 					if (__use_rep) {
 						// align last 64 byte
 						__WJR_ALIGN64byte(s + n - (64 / _Mysize));
 
 						n &= -(64 / _Mysize);
 						n /= (8 / _Mysize);
-						asm volatile(
-							"rep stosq"
-							: "+D"(s), "+c"(n)
-							: "a"(broadcast<uint64_t, T>(val))
-							: "memory"
-							);
+						auto u64v = broadcast<uint64_t, T>(val);
+						wjr::masm::rep_stosq(s, u64v, n);
 						return;
 					}
-#endif // WJR_INLINE_ASM
+#endif // _WJR_FAST_REP
 
 					do {
 						simd_t::store(reinterpret_cast<sint*>(s), q);
@@ -10130,7 +10211,7 @@ public:
 
 	WJR_CONSTEXPR20 vector()
 		noexcept(std::is_nothrow_default_constructible_v<_Alty>
-			&& std::is_nothrow_default_constructible_v<data_type>) = default;
+			&& std::is_nothrow_default_constructible_v<data_type>) : _Myval() {}
 
 	WJR_CONSTEXPR20 explicit vector(const allocator_type& al)
 		noexcept(std::is_nothrow_constructible_v<_Alty, const allocator_type&>
@@ -10656,6 +10737,27 @@ public:
 		_M_resize(_Newsize, value_construct_tag{});
 	}
 
+	WJR_CONSTEXPR20 void append(size_t n, const T& val) {
+		_M_append(n, val);
+	}
+
+	WJR_CONSTEXPR20 void append(size_t n, default_construct_tag) {
+		_M_append(n, default_construct_tag{});
+	}
+
+	WJR_CONSTEXPR20 void append(size_t n, value_construct_tag) {
+		_M_append(n, value_construct_tag{});
+	}
+
+	template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
+	WJR_CONSTEXPR20 void append(_Iter _First, _Iter _Last) {
+		_M_range_append(_First, _Last, typename std::iterator_traits<_Iter>::iterator_category())
+	}
+
+	WJR_CONSTEXPR20 void chop(size_t n) {
+		_M_erase_at_end(end() - n);
+	}
+
 private:
 
 	template<typename...Args, std::enable_if_t<is_any_index_of_v<sizeof...(Args), 1, 2>, int> = 0>
@@ -10675,6 +10777,18 @@ private:
 			else if constexpr (sizeof...(Args) == 2) {
 				wjr::uninitialized_copy(al, std::forward<Args>(args)..., _Ptr);
 			}
+		}
+	}
+
+	WJR_CONSTEXPR20 void _M_construct_reserve(const size_type _Count) {
+		if (_Count != 0) {
+			auto& al = getAllocator();
+			const auto _Oldcapacity = capacity();
+			if (_Oldcapacity < _Count) {
+				data_type _Newdata(al, 0, _Count, extend_tag{});
+				moveConstruct(al, std::move(_Newdata), getData());
+			}
+			set_size(_Count);
 		}
 	}
 
