@@ -10751,7 +10751,7 @@ public:
 
 	template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
 	WJR_CONSTEXPR20 void append(_Iter _First, _Iter _Last) {
-		_M_range_append(_First, _Last, typename std::iterator_traits<_Iter>::iterator_category())
+		_M_range_append(_First, _Last, typename std::iterator_traits<_Iter>::iterator_category());
 	}
 
 	WJR_CONSTEXPR20 void chop(size_t n) {
