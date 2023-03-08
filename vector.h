@@ -8199,7 +8199,7 @@ void __memset(T* s, T val, size_t n) {
 						*reinterpret_cast<uint64_t*>(s + n - 8 / _Mysize) = u64v;
 						n &= -(8 / _Mysize);
 						n /= (8 / _Mysize);
-						wjr::masm::rep_stosq(s, u64v, n);
+						wjr::masm::rep_stosq(reinterpret_cast<unsigned long long*>(s), u64v, n);
 					}
 					else {
 #endif // _WJR_FAST_REP
@@ -8266,7 +8266,7 @@ void __memset(T* s, T val, size_t n) {
 						n &= -(64 / _Mysize);
 						n /= (8 / _Mysize);
 						auto u64v = broadcast<uint64_t, T>(val);
-						wjr::masm::rep_stosq(s, u64v, n);
+						wjr::masm::rep_stosq(reinterpret_cast<unsigned long long*>(s), u64v, n);
 						return;
 					}
 #endif // _WJR_FAST_REP
