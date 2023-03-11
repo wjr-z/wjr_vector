@@ -7472,15 +7472,29 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		s1 += 128 / _Mysize;
 		n -= 128 / _Mysize;
 
-		size_t off0, off1;
-		
 		if (n <= width * 4) {
-			goto WJR_MACRO_LABEL(unaligned_last_4vec);
+
+			WJR_MACRO_LABEL(unaligned_last_4vec) :
+			
+			s0 += n;
+			s1 += n;
+
+			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
+			auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 3));
+			auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 2));
+			auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
+
+			auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 4));
+			auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 3));
+			auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 2));
+			auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
+
+			__WJR_MEMMIS_FOUR(simd_t, s0 - width * 4, s0 - width * 3, s0 - width * 2, s0 - width);
 		}
 
 		// align
-		off0 = reinterpret_cast<uintptr_t>(s0) % bound;
-		off1 = reinterpret_cast<uintptr_t>(s1) % bound;
+		const auto off0 = reinterpret_cast<uintptr_t>(s0) % bound;
+		const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
 
 		if (is_likely(off0 % _Mysize == 0)) {
 
@@ -7706,23 +7720,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		} while (n >= width * 4);
 
 		if (n != 0) {
-
-			WJR_MACRO_LABEL(unaligned_last_4vec):
-				
-			s0 += n;
-			s1 += n;
-
-			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
-			auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 3));
-			auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 2));
-			auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
-
-			auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 4));
-			auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 3));
-			auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 2));
-			auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
-
-			__WJR_MEMMIS_FOUR(simd_t, s0 - width * 4, s0 - width * 3, s0 - width * 2, s0 - width);
+			goto WJR_MACRO_LABEL(unaligned_last_4vec);
 		}
 		
 		return s0;
