@@ -7335,7 +7335,7 @@ _WJR_ALGO_END
 
 #if defined(_WJR_FAST_MEMMIS)
 
-#define __WJR_MEMMIS_ONE_NORMAL(st, _s)														        \
+#define __WJR_MEMMIS_ONE(st, _s)																	\
 	{	                                                                                            \
 		auto r = st::cmp(x, y, pred, T());	                                                        \
 		st::mask_type z = st::movemask_epi8(r);		                                                \
@@ -7344,7 +7344,7 @@ _WJR_ALGO_END
 		}	                                                                                        \
 	}
 
-#define __WJR_MEMMIS_FOUR_NORMAL(st, _s0, _s1, _s2, _s3)										    \
+#define __WJR_MEMMIS_FOUR(st, _s0, _s1, _s2, _s3)													\
 	{	                                                                                            \
 		auto r0 = st::cmp(x0, y0, pred, T());	                                                    \
 		auto r1 = st::cmp(x1, y1, pred, T());	                                                    \
@@ -7370,40 +7370,6 @@ _WJR_ALGO_END
 			return (_s3) + wjr::countr_one(tmp) / _Mysize;	                                        \
 		}	                                                                                        \
 	}
-
-#define __WJR_MEMMIS_ONE __WJR_MEMMIS_ONE_NORMAL
-#define __WJR_MEMMIS_FOUR __WJR_MEMMIS_FOUR_NORMAL
-
-#if WJR_SSSE3
-#undef __WJR_MEMMIS_FOUR
-
-#define __WJR_MEMMIS_FOUR(st, _s0, _s1, _s2, _s3)										            \
-	{	                                                                                            \
-		auto r0 = st::cmp(x0, y0, pred, T());	                                                    \
-		auto r1 = st::cmp(x1, y1, pred, T());	                                                    \
-		auto r2 = st::cmp(x2, y2, pred, T());	                                                    \
-		auto r3 = st::cmp(x3, y3, pred, T());	                                                    \
-																							        \
-		r3 = st::And(st::And(r0, r1), st::And(r2, r3));	                                            \
-		if(is_unlikely(!st::test_all_ones(r3))) {	                                                \
-			st::mask_type tmp = st::movemask_epi8(r0);	                                            \
-			if(tmp != st::mask()){	                                                                \
-				return (_s0) + wjr::countr_one(tmp) / _Mysize;	                                    \
-			}	                                                                                    \
-			tmp = st::movemask_epi8(r1);	                                                        \
-			if(tmp != st::mask()){	                                                                \
-				return (_s1) + wjr::countr_one(tmp) / _Mysize;	                                    \
-			}	                                                                                    \
-			tmp = st::movemask_epi8(r2);	                                                        \
-			if(tmp != st::mask()){	                                                                \
-				return (_s2) + wjr::countr_one(tmp) / _Mysize;	                                    \
-			}	                                                                                    \
-			tmp = st::movemask_epi8(r3);	                                                        \
-			return (_s3) + wjr::countr_one(tmp) / _Mysize;	                                        \
-		}	                                                                                        \
-	}
-
-#endif // WJR_SSSE3
 
 _WJR_ALGO_BEGIN
 
@@ -7431,7 +7397,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			auto y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
 
 			__WJR_MEMMIS_ONE(simd::sse, s0);
-			
+
 			// solve last 16 bytes
 
 			s0 += n;
@@ -7440,7 +7406,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + n - 16 / _Mysize));
 
 			__WJR_MEMMIS_ONE(simd::sse, s0 - 16 / _Mysize);
-			
+
 			return s0;
 		}
 
@@ -7509,8 +7475,8 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		if (n <= width * 4) {
 
 			WJR_MACRO_LABEL(unaligned_last_4vec) :
-			
-			s0 += n;
+
+				s0 += n;
 			s1 += n;
 
 			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
@@ -7536,7 +7502,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			if (off0 != off1) {
 				// only align first pointer
-				
+
 				if (is_constant_p(off0) && off0 == 0) {
 					// do nothing
 				}
@@ -7550,7 +7516,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 					s0 += __align_s / _Mysize;
 					s1 += __align_s / _Mysize;
 					n -= __align_s / _Mysize;
-					
+
 					if (is_unlikely(n < width * 4)) {
 						goto WJR_MACRO_LABEL(last_solve_align_0);
 					}
@@ -7578,7 +7544,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 					WJR_MACRO_LABEL(last_solve_align_0) :
 
-					s0 += n;
+						s0 += n;
 					s1 += n;
 
 					const auto ptr0 = reinterpret_cast<T*>(
@@ -7616,7 +7582,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				s0 += __align_s / _Mysize;
 				s1 += __align_s / _Mysize;
 				n -= __align_s / _Mysize;
-				
+
 				if (is_unlikely(n < width * 4)) {
 					goto WJR_MACRO_LABEL(last_solve_align_0_1);
 				}
@@ -7644,7 +7610,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 				WJR_MACRO_LABEL(last_solve_align_0_1) :
 
-				s0 += n;
+					s0 += n;
 				s1 += n;
 
 				auto ptr0 = reinterpret_cast<T*>(
@@ -7712,7 +7678,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 				WJR_MACRO_LABEL(last_solve_align_1) :
 
-				s0 += n;
+					s0 += n;
 				s1 += n;
 
 				const auto ptr1 = reinterpret_cast<T*>(
@@ -7735,7 +7701,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			return s0;
 		}
-		
+
 		// unaligned algorithm
 		do {
 			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
@@ -7758,9 +7724,9 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		if (n != 0) {
 			goto WJR_MACRO_LABEL(unaligned_last_4vec);
 		}
-		
+
 		return s0;
-	}
+			}
 
 	if constexpr (_Mysize == 8) {
 		// n = [1, 2)
@@ -7826,7 +7792,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		if (n == 2) return s0 + 2;
 		return pred(s0[2], s1[2]) ? s0 + 3 : s0 + 2;
 	}
-	
+
 }
 
 _WJR_ALGO_END
