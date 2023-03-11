@@ -7495,10 +7495,11 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		}
 
 		// align
-		const auto off0 = reinterpret_cast<uintptr_t>(s0) % bound;
-		const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
 
-		if (is_likely(off0 % _Mysize == 0)) {
+		if (is_likely(reinterpret_cast<uintptr_t>(s0) % _Mysize == 0)) {
+
+			const auto off0 = reinterpret_cast<uintptr_t>(s0) % bound;
+			const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
 
 			if (off0 != off1) {
 				// only align first pointer
@@ -7634,8 +7635,9 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			return s0;
 		}
 
-		if (is_likely(off1 % _Mysize == 0)) {
+		if (is_likely(reinterpret_cast<uintptr_t>(s1) % _Mysize == 0)) {
 
+			const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
 			// only align second pointer
 			if (is_constant_p(off1) && off1 == 0) {
 				// do nothing
@@ -7726,7 +7728,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		}
 
 		return s0;
-			}
+	}
 
 	if constexpr (_Mysize == 8) {
 		// n = [1, 2)
