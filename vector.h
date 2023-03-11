@@ -7335,41 +7335,75 @@ _WJR_ALGO_END
 
 #if defined(_WJR_FAST_MEMMIS)
 
-#define __WJR_MEMMIS_ONE(st, _s)														    \
-	{	                                                                                    \
-		auto r = st::cmp(x, y, pred, T());	                                                \
-		st::mask_type z = st::movemask_epi8(r);		                                        \
-		if(is_unlikely(z != st::mask())) {	                                                \
-			return (_s) + wjr::countr_one(z) / _Mysize;		                                \
-		}	                                                                                \
+#define __WJR_MEMMIS_ONE_NORMAL(st, _s)														        \
+	{	                                                                                            \
+		auto r = st::cmp(x, y, pred, T());	                                                        \
+		st::mask_type z = st::movemask_epi8(r);		                                                \
+		if(is_unlikely(z != st::mask())) {	                                                        \
+			return (_s) + wjr::countr_one(z) / _Mysize;		                                        \
+		}	                                                                                        \
 	}
 
-#define __WJR_MEMMIS_FOUR(st, _s0, _s1, _s2, _s3)										    \
-	{	                                                                                    \
-		auto r0 = st::cmp(x0, y0, pred, T());	                                            \
-		auto r1 = st::cmp(x1, y1, pred, T());	                                            \
-		auto r2 = st::cmp(x2, y2, pred, T());	                                            \
-		auto r3 = st::cmp(x3, y3, pred, T());	                                            \
-																							\
-		r3 = st::And(st::And(r0, r1), st::And(r2, r3));	                                    \
-		st::mask_type z = st::movemask_epi8(r3);		                                    \
-		if(is_unlikely(z != st::mask())) {	                                                \
-			st::mask_type tmp = st::movemask_epi8(r0);	                                    \
-			if(tmp != st::mask()){	                                                        \
-				return (_s0) + wjr::countr_one(tmp) / _Mysize;	                            \
-			}	                                                                            \
-			tmp = st::movemask_epi8(r1);	                                                \
-			if(tmp != st::mask()){	                                                        \
-				return (_s1) + wjr::countr_one(tmp) / _Mysize;	                            \
-			}	                                                                            \
-			tmp = st::movemask_epi8(r2);	                                                \
-			if(tmp != st::mask()){	                                                        \
-				return (_s2) + wjr::countr_one(tmp) / _Mysize;	                            \
-			}	                                                                            \
-			tmp = z;	                                                                    \
-			return (_s3) + wjr::countr_one(tmp) / _Mysize;	                                \
-		}	                                                                                \
+#define __WJR_MEMMIS_FOUR_NORMAL(st, _s0, _s1, _s2, _s3)										    \
+	{	                                                                                            \
+		auto r0 = st::cmp(x0, y0, pred, T());	                                                    \
+		auto r1 = st::cmp(x1, y1, pred, T());	                                                    \
+		auto r2 = st::cmp(x2, y2, pred, T());	                                                    \
+		auto r3 = st::cmp(x3, y3, pred, T());	                                                    \
+																							        \
+		r3 = st::And(st::And(r0, r1), st::And(r2, r3));	                                            \
+		st::mask_type z = st::movemask_epi8(r3);		                                            \
+		if(is_unlikely(z != st::mask())) {	                                                        \
+			st::mask_type tmp = st::movemask_epi8(r0);	                                            \
+			if(tmp != st::mask()){	                                                                \
+				return (_s0) + wjr::countr_one(tmp) / _Mysize;	                                    \
+			}	                                                                                    \
+			tmp = st::movemask_epi8(r1);	                                                        \
+			if(tmp != st::mask()){	                                                                \
+				return (_s1) + wjr::countr_one(tmp) / _Mysize;	                                    \
+			}	                                                                                    \
+			tmp = st::movemask_epi8(r2);	                                                        \
+			if(tmp != st::mask()){	                                                                \
+				return (_s2) + wjr::countr_one(tmp) / _Mysize;	                                    \
+			}	                                                                                    \
+			tmp = z;	                                                                            \
+			return (_s3) + wjr::countr_one(tmp) / _Mysize;	                                        \
+		}	                                                                                        \
 	}
+
+#define __WJR_MEMMIS_ONE __WJR_MEMMIS_ONE_NORMAL
+#define __WJR_MEMMIS_FOUR __WJR_MEMMIS_FOUR_NORMAL
+
+#if WJR_SSSE3
+#undef __WJR_MEMMIS_FOUR
+
+#define __WJR_MEMMIS_FOUR(st, _s0, _s1, _s2, _s3)										            \
+	{	                                                                                            \
+		auto r0 = st::cmp(x0, y0, pred, T());	                                                    \
+		auto r1 = st::cmp(x1, y1, pred, T());	                                                    \
+		auto r2 = st::cmp(x2, y2, pred, T());	                                                    \
+		auto r3 = st::cmp(x3, y3, pred, T());	                                                    \
+																							        \
+		r3 = st::And(st::And(r0, r1), st::And(r2, r3));	                                            \
+		if(is_unlikely(!st::test_all_ones(r3))) {	                                                \
+			st::mask_type tmp = st::movemask_epi8(r0);	                                            \
+			if(tmp != st::mask()){	                                                                \
+				return (_s0) + wjr::countr_one(tmp) / _Mysize;	                                    \
+			}	                                                                                    \
+			tmp = st::movemask_epi8(r1);	                                                        \
+			if(tmp != st::mask()){	                                                                \
+				return (_s1) + wjr::countr_one(tmp) / _Mysize;	                                    \
+			}	                                                                                    \
+			tmp = st::movemask_epi8(r2);	                                                        \
+			if(tmp != st::mask()){	                                                                \
+				return (_s2) + wjr::countr_one(tmp) / _Mysize;	                                    \
+			}	                                                                                    \
+			tmp = st::movemask_epi8(r3);	                                                        \
+			return (_s3) + wjr::countr_one(tmp) / _Mysize;	                                        \
+		}	                                                                                        \
+	}
+
+#endif // WJR_SSSE3
 
 _WJR_ALGO_BEGIN
 
@@ -7412,7 +7446,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 		// solve first min(n, 128 / _Mysize) bytes
 		// no branch algorithm
-		
+
 		{
 			const auto m = n <= 128 / _Mysize ? n : 128 / _Mysize;
 			const auto delta = n < (64 / _Mysize) ? 0 : (32 / _Mysize);
@@ -7439,7 +7473,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				auto y0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
 				auto y1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + 16 / _Mysize));
 				auto y2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + delta));
-				auto y3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + delta + 16 / _Mysize)));
+				auto y3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + delta + 16 / _Mysize));
 
 				__WJR_MEMMIS_FOUR(simd::sse, s0, s0 + 16 / _Mysize, s0 + delta, s0 + delta + 16 / _Mysize);
 			}
@@ -7490,6 +7524,8 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
 
 			__WJR_MEMMIS_FOUR(simd_t, s0 - width * 4, s0 - width * 3, s0 - width * 2, s0 - width);
+
+			return s0;
 		}
 
 		// align
