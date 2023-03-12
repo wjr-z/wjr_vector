@@ -7383,7 +7383,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 	using simd_t = simd::sse;
 #endif // WJR_AVX2
 	using sint = typename simd_t::int_type;
-	
+
 	constexpr uintptr_t width = simd_t::width() / (8 * _Mysize);
 	constexpr uintptr_t bound = width * _Mysize;
 
@@ -7397,10 +7397,9 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			auto y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
 
 			__WJR_MEMMIS_ONE(simd::sse, s0);
-			
+
 			// solve last 16 bytes
 
-			// Avoid temporary registers
 			s0 += n - 16 / _Mysize;
 			s1 += n - 16 / _Mysize;
 
@@ -7408,16 +7407,16 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
 
 			__WJR_MEMMIS_ONE(simd::sse, s0);
-			
+
 			return s0 + 16 / _Mysize;
 		}
 
 		// solve first min(n, 128 / _Mysize) bytes
 		// no branch algorithm
-		
+
 		{
 			const auto m = n <= 128 / _Mysize ? n : 128 / _Mysize;
-			const auto delta = n < (64 / _Mysize) ? 0 : (32 / _Mysize);
+			const auto delta = ((m - 1) & (64 / _Mysize)) >> 1;
 			const auto negdelta = m - 32 / _Mysize;
 
 #if WJR_AVX2
@@ -7465,21 +7464,19 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 					s0 + negdelta + 16 / _Mysize);
 			}
 #endif // WJR_AVX2
+
+			// m = std::min(n, 128 / _Mysize) 
+			// m == n -> n <= 128 / _Mysize
+			if (m == n) {
+				return s0 + n;
+			}
 		}
 
-		if (n <= 128 / _Mysize) {
-			return s0 + n;
-		}
-
-		s0 += 128 / _Mysize;
-		s1 += 128 / _Mysize;
-		n -= 128 / _Mysize;
-
-		if (n <= width * 4) {
+		if (n <= 128 / _Mysize + width * 4) {
 
 			WJR_MACRO_LABEL(unaligned_last_4vec) :
-			
-			s0 += n;
+
+				s0 += n;
 			s1 += n;
 
 			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
@@ -7497,6 +7494,10 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			return s0;
 		}
 
+		s0 += 128 / _Mysize;
+		s1 += 128 / _Mysize;
+		n -= 128 / _Mysize;
+
 		// align
 
 		if (is_likely(reinterpret_cast<uintptr_t>(s0) % _Mysize == 0)) {
@@ -7506,7 +7507,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			if (off0 != off1) {
 				// only align first pointer
-				
+
 				if (is_constant_p(off0) && off0 == 0) {
 					// do nothing
 				}
@@ -7520,7 +7521,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 					s0 += __align_s / _Mysize;
 					s1 += __align_s / _Mysize;
 					n -= __align_s / _Mysize;
-					
+
 					if (is_unlikely(n < width * 4)) {
 						goto WJR_MACRO_LABEL(last_solve_align_0);
 					}
@@ -7548,7 +7549,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 					WJR_MACRO_LABEL(last_solve_align_0) :
 
-					s0 += n;
+						s0 += n;
 					s1 += n;
 
 					const auto ptr0 = reinterpret_cast<T*>(
@@ -7586,7 +7587,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				s0 += __align_s / _Mysize;
 				s1 += __align_s / _Mysize;
 				n -= __align_s / _Mysize;
-				
+
 				if (is_unlikely(n < width * 4)) {
 					goto WJR_MACRO_LABEL(last_solve_align_0_1);
 				}
@@ -7614,7 +7615,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 				WJR_MACRO_LABEL(last_solve_align_0_1) :
 
-				s0 += n;
+					s0 += n;
 				s1 += n;
 
 				auto ptr0 = reinterpret_cast<T*>(
@@ -7683,7 +7684,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 				WJR_MACRO_LABEL(last_solve_align_1) :
 
-				s0 += n;
+					s0 += n;
 				s1 += n;
 
 				const auto ptr1 = reinterpret_cast<T*>(
@@ -7706,7 +7707,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			return s0;
 		}
-		
+
 		// unaligned algorithm
 		do {
 			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
@@ -7729,7 +7730,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		if (is_likely(n != 0)) {
 			goto WJR_MACRO_LABEL(unaligned_last_4vec);
 		}
-		
+
 		return s0;
 	}
 
@@ -7799,7 +7800,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		const size_t i2 = f ? i1 : n - 2;
 		return s0 + i2;
 	}
-	
+
 }
 
 _WJR_ALGO_END
@@ -7808,6 +7809,7 @@ _WJR_ALGO_END
 #undef __WJR_MEMMIS_ONE
 
 #endif // _WJR_FAST_MEMMIS
+
 #ifndef __WJR_ALGO_ALOG_H
 #error "This file should not be included directly. Include <wjr/algo.h> instead."
 #endif 
