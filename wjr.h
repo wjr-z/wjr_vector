@@ -1,3 +1,12 @@
+﻿#include <wjr/network/thread_pool.h>
+
+#pragma once
+#ifndef __WJR_STRING_H
+#define __WJR_STRING_H
+
+#include <string_view>
+#include <iostream>
+
 #pragma once
 #ifndef __WJR_VECTOR_H
 #define __WJR_VECTOR_H
@@ -28,6 +37,7 @@
 #define __WJR_MMACRO_H
 
 #include <cstdint>
+//#define WJR_ENABLE_TESTING
 
 #if defined(_MSC_VER)
 /* Microsoft C/C++-compatible compiler */
@@ -232,6 +242,27 @@
 #define WJR_CPP_20
 #endif
 
+#if defined(__cpp_char8_t)
+#define WJR_CHAR8_T
+#endif // __cpp_char8_t
+
+#if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN || \
+    defined(__BIG_ENDIAN__) || \
+    defined(__ARMEB__) || \
+    defined(__THUMBEB__) || \
+    defined(__AARCH64EB__) || \
+    defined(_MIBSEB) || defined(__MIBSEB) || defined(__MIBSEB__)
+#define WJR_BIG_ENDIAN
+// It's a big-endian target architecture
+#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN || \
+    defined(__LITTLE_ENDIAN__) || \
+    defined(__ARMEL__) || \
+    defined(__THUMBEL__) || \
+    defined(__AARCH64EL__) || \
+    defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__)
+#define WJR_LITTLE_ENDIAN
+#endif
+
 #if WJR_SSE2
 #define _WJR_FAST_MEMCHR
 #define _WJR_FAST_MEMCMP
@@ -299,6 +330,32 @@
 
 #if defined(NWJR_NON_TEMPORARY)
 #undef _WJR_NON_TEMPORARY
+#endif
+
+#if defined(_DEBUG) || defined(WJR_ENABLE_TESTING)
+#define _WJR_EXCEPTION
+#endif 
+
+#if defined(NWJR_EXCEPTION)
+#undef _WJR_EXCEPTION
+#endif // NWJR_EXCEPTION
+
+#ifdef _WJR_EXCEPTION
+#define _WJR_TRY try{
+#define _WJR_CATCH(x) }catch(x){
+#define _WJR_CATCH_ALL }catch(...){
+#define _WJR_END_CATCH }
+#define _WJR_THROW(x) throw x
+#define _WJR_RELEASE throw
+#define WJR_NOEXCEPT
+#else
+#define _WJR_TRY { if constexpr(true){
+#define _WJR_CATCH(x) } if constexpr(false){
+#define _WJR_CATCH_ALL } if constexpr(false){
+#define _WJR_END_CATCH }}
+#define _WJR_THROW(x) 
+#define _WJR_RELEASE
+#define WJR_NOEXCEPT noexcept
 #endif
 
 #if (defined(WJR_COMPILER_GCC) && WJR_HAS_GCC(10, 1, 0)) ||	\
@@ -389,7 +446,7 @@
 #define WJR_FORCEINLINE
 #endif
 
-#if defined(_cpp_lib_unreachable)
+#if defined(__cpp_lib_unreachable)
 #define WJR_UNREACHABLE std::unreachable()
 #elif WJR_HAS_BUILTIN(__builtin_unreachable) || WJR_HAS_GCC(7,1,0) || WJR_HAS_CLANG(5,0,0)
 #define WJR_UNREACHABLE __builtin_unreachable()
@@ -432,10 +489,14 @@ do{                         \
 #define WJR_CONSTEXPR20
 #endif
 
+#define WJR_FORCEINLINE_CONSTEXPR WJR_FORCEINLINE constexpr
 #define WJR_FORCEINLINE_CONSTEXPR20 WJR_FORCEINLINE WJR_CONSTEXPR20
-#define WJR_INTRINSIC_CONSTEXPR20 WJR_INTRINSIC_INLINE WJR_CONSTEXPR20
-#define WJR_INLINE_CONSTEXPR20 inline WJR_CONSTEXPR20
+
 #define WJR_INTRINSIC_CONSTEXPR WJR_INTRINSIC_INLINE constexpr
+#define WJR_INTRINSIC_CONSTEXPR20 WJR_INTRINSIC_INLINE WJR_CONSTEXPR20
+
+#define WJR_INLINE_CONSTEXPR inline constexpr
+#define WJR_INLINE_CONSTEXPR20 inline WJR_CONSTEXPR20
 
 #define _WJR_BEGIN namespace wjr{
 #define _WJR_END }
@@ -447,24 +508,9 @@ do{                         \
 #define _WJR_ALGO_END } _WJR_END
 #define _WJR_MP_BEGIN _WJR_BEGIN namespace mp{
 #define _WJR_MP_END } _WJR_END
+
 #define _WJR_LITERALS_BEGIN _WJR_BEGIN namespace literals{
 #define _WJR_LITERALS_END } _WJR_END
-
-#ifndef _WJR_NOEXCEPTION
-#define _WJR_TRY try{
-#define _WJR_CATCH(x) }catch(x){
-#define _WJR_CATCH_ALL }catch(...){
-#define _WJR_END_CATCH }
-#define _WJR_THROW(x) throw x
-#define _WJR_RELEASE throw
-#else
-#define _WJR_TRY { if constexpr(true){
-#define _WJR_CATCH(x) } if constexpr(false){
-#define _WJR_CATCH_ALL } if constexpr(false){
-#define _WJR_END_CATCH }}
-#define _WJR_THROW(x) 
-#define _WJR_RELEASE
-#endif
 
 #define WJR_MACRO_NULL(...)
 
@@ -702,9 +748,72 @@ inline bool is_enhanced_rep() {
 #endif
 }
 
+extern const bool __is_little_endian;
+
+inline bool is_little_endian() {
+#if defined(WJR_LITTLE_ENDIAN)
+	return true;
+#elif defined(WJR_BIG_ENDIAN)
+	return false;
+#else
+	return __is_little_endian;
+#endif
+}
+
+inline bool is_big_endian() {
+	return !is_little_endian();
+}
+
 _WJR_END
 
 #endif // __WJR_CPUINFO_H
+#include <stdio.h>
+
+_WJR_BEGIN
+
+#if defined(_WJR_CPUINFO)
+const cpu_features::X86Info cpuinfo = cpu_features::GetX86Info();
+const cpu_features::CacheInfo cacheinfo = cpu_features::GetX86CacheInfo();
+const cpu_features::X86Microarchitecture microarchitecture = cpu_features::GetX86Microarchitecture(&cpuinfo);
+const size_t __max_cache_size = []() {
+	size_t max_size = 0;
+	for (int i = 0; i < cacheinfo.size; ++i) {
+		if (cacheinfo.levels[i].cache_type != cpu_features::CacheType::CPU_FEATURE_CACHE_NULL) {
+			max_size = max_size < cacheinfo.levels[i].cache_size ?
+				cacheinfo.levels[i].cache_size : max_size;
+		}
+	}
+	return max_size;
+}();
+const bool __is_intel = []() {
+	return microarchitecture >= cpu_features::INTEL_80486 && microarchitecture <= cpu_features::INTEL_NETBURST;
+}();
+const bool __is_amd = []() {
+	return microarchitecture >= cpu_features::AMD_HAMMER && microarchitecture <= cpu_features::AMD_ZEN3;
+}();
+#endif // _WJR_CPUINFO
+
+const bool __is_little_endian = []() {
+	union C{
+		uint32_t a;
+		uint8_t b;
+	};
+	C x;
+	x.a = 0x01020304;
+	bool f = x.b == 0x04;
+#if defined(WJR_BIG_ENDIAN)
+	if (!f) {
+		fprintf(stderr, "WJR_BIG_ENDIAN is defined, but the current platform is little endian.");
+	}
+#elif defined(WJR_LITTLE_ENDIAN)
+	if (!f) {
+		fprintf(stderr, "WJR_LITTLE_ENDIAN is defined, but the current platform is big endian.");
+	}
+#endif
+	return f;
+}();
+
+_WJR_END
 
 _WJR_BEGIN
 
@@ -747,19 +856,6 @@ WJR_INTRINSIC_CONSTEXPR bool is_constant_p(T x) noexcept {
 #endif
 }
 
-#if defined(__cpp_lib_is_constant_evaluated) || WJR_HAS_BUILTIN(__builtin_is_constant_evaluated) ||		\
-	WJR_HAS_GCC(9,1,0) || WJR_HAS_CLANG(9,0,0)
-#define WJR_HAS_CONSTANT_EVALUATED
-#endif 
-
-#if WJR_HAS_BUILTIN(__builtin_constant_p) || WJR_HAS_GCC(7,1,0) || WJR_HAS_CLANG(5,0,0)
-#define WJR_HAS_CONSTANT_P
-#define WJR_HAS_STRONG_CONSTANT_P
-#define WJR_HAS_WEAK_CONSTANT_P
-#elif defined(WJR_HAS_CONSTANT_EVALUATED)
-#define WJR_HAS_WEAK_CONSTANT_P
-#endif
-
 struct disable_tag {};
 
 struct default_construct_tag {};
@@ -767,8 +863,6 @@ struct value_construct_tag {};
 
 struct extend_tag {};
 struct reserve_tag {};
-
-constexpr size_t byte_width = WJR_BYTE_WIDTH;
 
 template<typename T, typename U, typename _Pred>
 struct has_global_binary_operator : std::false_type {};
@@ -793,6 +887,9 @@ WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(< , less);
 WJR_REGISTER_HAS_GLOBAL_BINARY_OPERATOR(<= , less_equal);
 WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(min, min);
 WJR_REGISTER_HAS_STATIC_MEMBER_FUNCTION(max, max);
+
+template<typename T>
+using aligned_storage_for_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
 
 template<typename T, typename...Args>
 struct is_any_of : std::disjunction<std::is_same<T, Args>...> {};
@@ -892,29 +989,6 @@ struct is_iterator<T, std::void_t<iter_cat_t<T>>> : std::true_type {};
 template<typename T>
 constexpr bool is_iterator_v = is_iterator<T>::value;
 
-template<typename _Iter, typename = void>
-struct _Is_contiguous_iterator_helper : std::false_type {};
-
-template<typename _Iter>
-struct _Is_contiguous_iterator_helper<_Iter, typename _Iter::is_contiguous_iterator> : std::true_type {};
-
-template<typename T>
-struct _Is_contiguous_iterator_helper<T*, void> : std::true_type {};
-
-#if defined(WJR_CPP_20)
-template<typename T>
-struct is_contiguous_iterator : std::bool_constant<std::contiguous_iterator<T> || _Is_contiguous_iterator_helper<T>::value> {};
-#else
-template<typename T>
-struct is_contiguous_iterator : _Is_contiguous_iterator_helper<T> {};
-#endif
-
-template<typename _Iter>
-struct is_contiguous_iterator<std::reverse_iterator<_Iter>> : is_contiguous_iterator<_Iter> {};
-
-template<typename T>
-constexpr bool is_contiguous_iterator_v = is_contiguous_iterator<T>::value;
-
 template<typename T>
 struct is_input_iter : std::is_convertible<iter_cat_t<T>, std::input_iterator_tag> {};
 
@@ -944,6 +1018,29 @@ struct is_random_iter : std::is_convertible<iter_cat_t<T>, std::random_access_it
 
 template<typename T>
 constexpr bool is_random_iter_v = is_random_iter<T>::value;
+
+template<typename _Iter, typename = void>
+struct _is_contiguous_iter_helper : std::false_type {};
+
+template<typename _Iter>
+struct _is_contiguous_iter_helper<_Iter, typename _Iter::is_contiguous_iter> : std::true_type {};
+
+template<typename T>
+struct _is_contiguous_iter_helper<T*, void> : std::true_type {};
+
+#if defined(WJR_CPP_20)
+template<typename T>
+struct is_contiguous_iter : std::bool_constant<std::contiguous_iterator<T> || _is_contiguous_iter_helper<T>::value> {};
+#else
+template<typename T>
+struct is_contiguous_iter : _is_contiguous_iter_helper<T> {};
+#endif
+
+template<typename _Iter>
+struct is_contiguous_iter<std::reverse_iterator<_Iter>> : is_contiguous_iter<_Iter> {};
+
+template<typename T>
+constexpr bool is_contiguous_iter_v = is_contiguous_iter<T>::value;
 
 template<size_t n>
 struct __uint_helper{};
@@ -1032,7 +1129,7 @@ constexpr bool is_comparable_v = is_comparable<T, U, _Pred>::value;
 
 // note that (int8_t)(-1) != (uint8_t)(-1)
 // but in memory they are the same
-template<typename T, typename U, bool = sizeof(T) == sizeof(U) && std::is_integral_v<T>&& std::is_integral_v<U>>
+template<typename T, typename U, bool = sizeof(T) == sizeof(U) && std::is_integral_v<T> && std::is_integral_v<U>>
 constexpr bool __is_memory_comparable_helper_v =
 std::is_same_v<T, bool> || std::is_same_v<U, bool> || static_cast<T>(-1) == static_cast<U>(-1);
 
@@ -1057,30 +1154,38 @@ enum class ipmc_result {
 
 template<typename T, typename U, typename _Pred, 
 	std::enable_if_t<is_any_of_v<_Pred, std::equal_to<>, std::not_equal_to<>>, int> = 0>
-constexpr ipmc_result is_possible_memory_comparable(const U& v, _Pred pred) {
+constexpr ipmc_result is_possible_memory_comparable(const U& v, _Pred) {
 	static_assert(std::is_integral_v<T> && std::is_integral_v<U>, "T and U must be integral types");
 	using nt = T;
 	using nu = U;
 	using cat = std::common_type_t<nt, nu>;
 	auto _Val = static_cast<cat>(v);
+	
+	constexpr auto __nt_min = static_cast<cat>(std::numeric_limits<nt>::min());
+	constexpr auto __nt_max = static_cast<cat>(std::numeric_limits<nt>::max());
+	constexpr auto __nt_negone = static_cast<cat>(static_cast<nt>(-1));
+
 	if constexpr (std::is_signed_v<nt> && std::is_unsigned_v<cat>) {
-		static_assert(static_cast<nt>(-1) == std::numeric_limits<cat>::max(), "error");
+		static_assert(__nt_negone == std::numeric_limits<cat>::max(), "error");
+		static_assert(__nt_min <= __nt_negone, "error");
+		static_assert(__nt_max < __nt_min, "error");
 		if constexpr (std::is_same_v<_Pred, std::equal_to<>>) {
-			return ((std::numeric_limits<nt>::min() <= _Val && _Val <= static_cast<nt>(-1))
-				|| _Val <= std::numeric_limits<nt>::max()) ? ipmc_result::exit : ipmc_result::none;
+			return ((__nt_min <= _Val && _Val <= __nt_negone)
+				|| _Val <= __nt_max) ? ipmc_result::exit : ipmc_result::none;
 		}
 		else {
-			return (std::numeric_limits<nt>::max() < _Val && _Val < std::numeric_limits<nt>::min()) ? 
+			return (__nt_max < _Val && _Val < __nt_min) ? 
 				ipmc_result::all : ipmc_result::exit;
 		}
 	}
 	else {
+		static_assert(__nt_min <= __nt_max, "error");
 		if constexpr (std::is_same_v<_Pred, std::equal_to<>>) {
-			return (std::numeric_limits<nt>::min() <= _Val && _Val <= std::numeric_limits<nt>::max()) ? 
+			return (__nt_min <= _Val && _Val <= __nt_max) ? 
 				ipmc_result::exit : ipmc_result::none;
 		}
 		else {
-			return (std::numeric_limits<nt>::max() < _Val || _Val < std::numeric_limits<nt>::min()) ?
+			return (__nt_max < _Val || _Val < __nt_min) ?
 				ipmc_result::all : ipmc_result::exit;
 		}
 	}
@@ -1147,6 +1252,13 @@ struct is_signed_integral : std::conjunction<std::is_integral<T>, std::is_signed
 
 template<typename T>
 constexpr bool is_signed_integral_v = is_signed_integral<T>::value;
+
+template<typename T>
+struct is_standard_numer : std::conjunction<std::is_arithmetic<T>, 
+	std::negation<std::is_same<std::remove_cv_t<T>, bool>>> {};
+
+template<typename T>
+constexpr bool is_standard_numer_v = is_standard_numer<T>::value;
 
 template<typename T>
 struct is_reverse_iterator : std::false_type {};
@@ -1804,7 +1916,6 @@ namespace std {
 // 4. reloacte , copy src to dst, and then run a function on dst (memcpy and run func(User defined))
 
 
-
 _WJR_BEGIN
 
 template<size_t N>
@@ -1896,8 +2007,7 @@ size_t _Get_bytes_num(const _Ty& val) {
 template<typename T, typename U,
 	bool =
 	std::is_same_v<bool, std::remove_reference_t<U>> >= std::is_same_v<bool, T> &&
-	((std::is_integral_v<T> && std::is_integral_v<std::remove_reference_t<U>>) ||
-		(std::is_floating_point_v<T> && std::is_floating_point_v<std::remove_reference_t<U>>)) &&
+	is_arithmetics_v<T, std::remove_reference_t<U>> &&
 	!std::is_volatile_v<T> && 
 	!std::is_volatile_v<std::remove_reference_t<U>>
 >
@@ -1977,7 +2087,6 @@ _WJR_END
 #pragma once
 
 
-
 _WJR_LITERALS_BEGIN
 
 constexpr unsigned long long operator"" _KiB(unsigned long long n) {
@@ -2012,7 +2121,6 @@ _WJR_LITERALS_END
 #pragma once
 #ifndef __WJR_SIMD_SIMD_CAST_H__
 #define __WJR_SIMD_SIMD_CAST_H__
-
 
 
 _WJR_SIMD_BEGIN
@@ -3451,7 +3559,6 @@ _WJR_SIMD_END
 #define __WJR_ASM_ASM_H
 
 
-
 #ifndef __WJR_ASM_ASM_H
 #error "This file should not be included directly. Include <wjr/asm.h> instead."
 #endif
@@ -3712,7 +3819,6 @@ WJR_INTRINSIC_CONSTEXPR20 T sbb(T a, T b, T carry_in, T* carry_out) {
 }
 
 _WJR_ASM_END
-
 #ifndef __WJR_ASM_ASM_H
 #error "This file should not be included directly. Include <wjr/asm.h> instead."
 #endif
@@ -3741,63 +3847,66 @@ const static int _WJR_LOG_TABLE[256] = {
 template<typename T, std::enable_if_t<wjr::is_unsigned_integral_v<T>, int> = 0>
 WJR_INTRINSIC_CONSTEXPR static int __wjr_fallback_clz(T x) noexcept {
 	constexpr auto _Nd = std::numeric_limits<T>::digits;
-	if (x == 0) {
-		return _Nd;
+
+	if (is_likely(x != 0)) {
+		int n = 0;
+		// use _Table
+
+		if constexpr (_Nd > 32) {
+			if (x >> 32) {
+				n += 32;
+				x >>= 32;
+			}
+		}
+		if constexpr (_Nd > 16) {
+			if (x >> 16) {
+				n += 16;
+				x >>= 16;
+			}
+		}
+		if constexpr (_Nd > 8) {
+			if (x >> 8) {
+				n += 8;
+				x >>= 8;
+			}
+		}
+		return  _Nd - (n + _WJR_LOG_TABLE[x]);
 	}
 
-	int n = 0;
-	// use _Table
-
-	if constexpr (_Nd > 32) {
-		if (x >> 32) {
-			n += 32;
-			x >>= 32;
-		}
-	}
-	if constexpr (_Nd > 16) {
-		if (x >> 16) {
-			n += 16;
-			x >>= 16;
-		}
-	}
-	if constexpr (_Nd > 8) {
-		if (x >> 8) {
-			n += 8;
-			x >>= 8;
-		}
-	}
-	return  _Nd - (n + _WJR_LOG_TABLE[x]);
+	return _Nd;
 }
 
 #if WJR_HAS_BUILTIN(__builtin_clz) || WJR_HAS_GCC(7,1,0) || WJR_HAS_CLANG(5,0,0)
 template<typename T>
 WJR_INTRINSIC_INLINE static int __wjr_builtin_clz(T x) noexcept {
 	constexpr auto _Nd = std::numeric_limits<T>::digits;
-	if (x == 0) {
-		return _Nd;
-	}
 
-	constexpr auto _Nd_ull = std::numeric_limits<unsigned long long>::digits;
-	constexpr auto _Nd_ul = std::numeric_limits<unsigned long>::digits;
-	constexpr auto _Nd_ui = std::numeric_limits<unsigned int>::digits;
+	if (is_likely(x != 0)) {
 
-	if constexpr (_Nd <= _Nd_ui) {
-		constexpr auto __diff = _Nd_ui - _Nd;
-		return __builtin_clz(x) - __diff;
-	}
-	else if constexpr (_Nd <= _Nd_ul) {
-		constexpr auto __diff = _Nd_ul - _Nd;
-		return __builtin_clzl(x) - __diff;
-	}
+		constexpr auto _Nd_ull = std::numeric_limits<unsigned long long>::digits;
+		constexpr auto _Nd_ul = std::numeric_limits<unsigned long>::digits;
+		constexpr auto _Nd_ui = std::numeric_limits<unsigned int>::digits;
+
+		if constexpr (_Nd <= _Nd_ui) {
+			constexpr auto __diff = _Nd_ui - _Nd;
+			return __builtin_clz(x) - __diff;
+		}
+		else if constexpr (_Nd <= _Nd_ul) {
+			constexpr auto __diff = _Nd_ul - _Nd;
+			return __builtin_clzl(x) - __diff;
+		}
 #if defined(WJR_X86_64)
-	else if constexpr (_Nd <= _Nd_ull) {
-		constexpr auto __diff = _Nd_ull - _Nd;
-		return __builtin_clzll(x) - __diff;
-	}
+		else if constexpr (_Nd <= _Nd_ull) {
+			constexpr auto __diff = _Nd_ull - _Nd;
+			return __builtin_clzll(x) - __diff;
+		}
 #endif // WJR_X86_64
-	else {
-		static_assert(_Nd <= _Nd_ull, "countl_zero is not implemented for this type");
+		else {
+			static_assert(_Nd <= _Nd_ull, "countl_zero is not implemented for this type");
+		}
 	}
+
+	return _Nd;
 }
 #elif defined(WJR_COMPILER_MSVC)
 #if defined(WJR_X86)
@@ -3904,7 +4013,6 @@ WJR_INTRINSIC_CONSTEXPR20 int clz(T x) noexcept {
 }
 
 _WJR_ASM_END
-
 #ifndef __WJR_ASM_ASM_H
 #error "This file should not be included directly. Include <wjr/asm.h> instead."
 #endif
@@ -3915,26 +4023,28 @@ _WJR_ASM_BEGIN
 template<typename T>
 WJR_INTRINSIC_INLINE static int __wjr_builtin_ctz(T x) noexcept {
 	constexpr auto _Nd = std::numeric_limits<T>::digits;
-	if (x == 0) {
-		return _Nd;
+
+	if (is_likely(x != 0)) {
+
+		constexpr auto _Nd_ull = std::numeric_limits<unsigned long long>::digits;
+		constexpr auto _Nd_ul = std::numeric_limits<unsigned long>::digits;
+		constexpr auto _Nd_ui = std::numeric_limits<unsigned int>::digits;
+
+		if constexpr (_Nd <= _Nd_ui) {
+			return __builtin_ctz(x);
+		}
+		else if constexpr (_Nd <= _Nd_ul) {
+			return __builtin_ctzl(x);
+		}
+		else if constexpr (_Nd <= _Nd_ull) {
+			return __builtin_ctzll(x);
+		}
+		else {
+			static_assert(_Nd <= _Nd_ull, "countr_zero is not implemented for this type");
+		}
 	}
 
-	constexpr auto _Nd_ull = std::numeric_limits<unsigned long long>::digits;
-	constexpr auto _Nd_ul = std::numeric_limits<unsigned long>::digits;
-	constexpr auto _Nd_ui = std::numeric_limits<unsigned int>::digits;
-
-	if constexpr (_Nd <= _Nd_ui) {
-		return __builtin_ctz(x);
-	}
-	else if constexpr (_Nd <= _Nd_ul) {
-		return __builtin_ctzl(x);
-	}
-	else if constexpr (_Nd <= _Nd_ull) {
-		return __builtin_ctzll(x);
-	}
-	else {
-		static_assert(_Nd <= _Nd_ull, "countr_zero is not implemented for this type");
-	}
+	return _Nd;
 }
 #elif defined(WJR_COMPILER_MSVC) && defined(WJR_X86) && !defined(_M_CEE_PURE) && !defined(__CUDACC__) \
     && !defined(__INTEL_COMPILER)
@@ -4118,6 +4228,124 @@ _WJR_ASM_END
 
 _WJR_ASM_BEGIN
 
+WJR_INTRINSIC_CONSTEXPR static uint8_t __wjr_fallback_bswap8(uint8_t x) {
+	return x;
+}
+
+WJR_INTRINSIC_CONSTEXPR static uint16_t __wjr_fallback_bswap16(uint16_t x) {
+	return (x >> 8) | (x << 8);
+}
+
+WJR_INTRINSIC_CONSTEXPR static uint32_t __wjr_fallback_bswap32(uint32_t x) {
+	return (x >> 24) | ((x >> 8) & 0xff00) | ((x << 8) & 0xff0000) | (x << 24);
+}
+
+WJR_INTRINSIC_CONSTEXPR static uint64_t __wjr_fallback_bswap64(uint64_t x) {
+	return (x >> 56) | ((x >> 40) & 0xff00) | ((x >> 24) & 0xff0000) | ((x >> 8) & 0xff000000)
+		| ((x << 8) & 0xff00000000) | ((x << 24) & 0xff0000000000) | ((x << 40) & 0xff000000000000) | (x << 56);
+}
+
+template<typename T>
+WJR_INTRINSIC_CONSTEXPR static T __wjr_fallback_bswap(T x) {
+	constexpr auto _Nd = std::numeric_limits<T>::digits;
+	if constexpr (_Nd <= 8) {
+		return __wjr_fallback_bswap8(x);
+	}
+	else if constexpr (_Nd <= 16) {
+		return __wjr_fallback_bswap16(x);
+	}
+	else if constexpr (_Nd <= 32) {
+		return __wjr_fallback_bswap32(x);
+	}
+	else if constexpr (_Nd <= 64) {
+		return __wjr_fallback_bswap64(x);
+	}
+	else {
+		static_assert(_Nd <= 64, "Unsupported type.");
+	}
+}
+
+// byte swap
+#if WJR_HAS_BUILTIN(__builtin_bswap16) || WJR_HAS_GCC(10, 1, 0) || WJR_HAS_CLANG(15, 0, 0)
+template<typename T>
+WJR_INTRINSIC_INLINE static T __wjr_builtin_bswap(T x) {
+	constexpr auto _Nd = std::numeric_limits<T>::digits;
+
+	constexpr auto _Nd_ull = std::numeric_limits<unsigned long long>::digits;
+	constexpr auto _Nd_ul = std::numeric_limits<unsigned long>::digits;
+	constexpr auto _Nd_ui = std::numeric_limits<unsigned int>::digits;
+	constexpr auto _Nd_us = std::numeric_limits<unsigned short>::digits;
+	constexpr auto _Nd_ub = std::numeric_limits<unsigned char>::digits;
+
+	if constexpr (_Nd <= _Nd_ub) {
+		return x;
+	}
+	else if constexpr (_Nd <= _Nd_us) {
+		return __builtin_bswap16(x);
+	}
+	else if constexpr (_Nd <= _Nd_ui) {
+		return __builtin_bswap32(x);
+	}
+	else if constexpr (_Nd <= _Nd_ul) {
+		return __builtin_bswap64(x);
+	}
+#if defined(WJR_X86_64)
+	else if constexpr (_Nd <= _Nd_ull) {
+		return __builtin_bswap64(x);
+	}
+#endif // WJR_X86_64
+	else {
+		static_assert(_Nd <= _Nd_ull, "unsupported integer type");
+	}
+}
+#elif defined(WJR_COMPILER_MSVC)
+template<typename T>
+WJR_INTRINSIC_INLINE static T __wjr_msvc_bswap(T x) {
+	constexpr auto _Nd = std::numeric_limits<T>::digits;
+
+	constexpr auto _Nd_ull = std::numeric_limits<unsigned long long>::digits;
+	//constexpr auto _Nd_ul = std::numeric_limits<unsigned long>::digits;
+	//constexpr auto _Nd_ui = std::numeric_limits<unsigned int>::digits;
+	//constexpr auto _Nd_us = std::numeric_limits<unsigned short>::digits;
+	//constexpr auto _Nd_ub = std::numeric_limits<unsigned char>::digits;
+
+	if constexpr (_Nd <= 8) {
+		return x;
+	}
+	else if constexpr (_Nd <= 16) {
+		return _byteswap_ushort(x);
+	}
+	else if constexpr (_Nd <= 32) {
+		return _byteswap_ulong(x);
+	}
+	else if constexpr (_Nd <= 64) {
+		return _byteswap_uint64(x);
+	}
+	else {
+		static_assert(_Nd <= _Nd, "unsupported integer type");
+	}
+}
+#endif // WJR_HAS_BUILTIN(__builtin_bswap16) || WJR_HAS_CLANG(3, 2, 0)
+
+template<typename T, std::enable_if_t<wjr::is_unsigned_integral_v<T>, int> = 0>
+WJR_INTRINSIC_INLINE static T bswap(T x) {
+	if (!wjr::is_constant_evaluated()) {
+#if WJR_HAS_BUILTIN(__builtin_bswap16) || WJR_HAS_GCC(10, 1, 0) || WJR_HAS_CLANG(15, 0, 0)
+		return __wjr_builtin_bswap(x);
+#elif defined(WJR_COMPILER_MSVC)
+		return __wjr_msvc_bswap(x);
+#endif
+	}
+	return __wjr_fallback_bswap(x);
+}
+
+_WJR_ASM_END
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
+
+_WJR_ASM_BEGIN
+
 #if defined(_WJR_FAST_REP)
 
 WJR_INTRINSIC_INLINE void rep_stosb(uint8_t* s, uint8_t val, size_t n) {
@@ -4159,6 +4387,32 @@ _WJR_ASM_END
 #endif // __WJR_ASM_ASM_H
 
 _WJR_BEGIN
+
+#ifdef __cpp_lib_bit_cast
+using std::bit_cast;
+#else
+template <
+	typename To,
+	typename From,
+	std::enable_if_t<
+	sizeof(From) == sizeof(To) && std::is_trivially_copyable<To>::value&&
+	std::is_trivially_copyable<From>::value,
+	int> = 0>
+WJR_INTRINSIC_CONSTEXPR20 To bit_cast(const From & src) noexcept {
+	static_assert(std::is_trivially_constructible_v<To>,
+		"This implementation additionally requires destination type to be trivially constructible");
+	To storage;
+	if constexpr (is_any_index_of_v<sizeof(From), 1, 2, 4, 8>) {
+		using value_type = uint_t<8 * sizeof(From)>;
+		*reinterpret_cast<value_type*>(&storage) = *reinterpret_cast<const value_type*>(&src);
+	}
+	else {
+		std::memcpy(&storage, &src, sizeof(From));
+	}
+	return storage;
+}
+
+#endif
 
 template<typename T, std::enable_if_t<wjr::is_unsigned_integral_v<T>, int> = 0>
 constexpr bool has_single_bit(T x) noexcept {
@@ -4209,6 +4463,38 @@ WJR_INTRINSIC_CONSTEXPR20 T bit_ceil(T x) noexcept {
 template<typename T, std::enable_if_t<wjr::is_unsigned_integral_v<T>, int> = 0>
 WJR_INTRINSIC_CONSTEXPR20 int popcount(T x) noexcept {
 	return wjr::masm::popcnt(x);
+}
+
+template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
+WJR_INTRINSIC_CONSTEXPR20 T byte_swap(T x) noexcept {
+	using value_type = uint_t<8 * sizeof(T)>;
+	return bit_cast<T>(wjr::masm::bswap(bit_cast<value_type>(x)));
+}
+
+template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
+WJR_INTRINSIC_CONSTEXPR20 T from_big_endian(T x) noexcept {
+	if (is_little_endian()) {
+		return byte_swap(x);
+	}
+	return x;
+}
+
+template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
+WJR_INTRINSIC_CONSTEXPR20 T to_big_endian(T x) noexcept {
+	return from_big_endian(x);
+}
+
+template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
+WJR_INTRINSIC_CONSTEXPR20 T from_little_endian(T x) noexcept {
+	if (is_little_endian()) {
+		return x;
+	}
+	return byte_swap(x);
+}
+
+template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
+WJR_INTRINSIC_CONSTEXPR20 T to_little_endian(T x) noexcept {
+	return to_little_endian(x);
 }
 
 template< typename T, typename U >
@@ -6600,6 +6886,8 @@ const T* __memchr(const T* s, T val, size_t n, _Pred pred) {
 					auto x = simd_t::loadu(reinterpret_cast<const sint*>(_lst - width));
 
 					__WJR_MEMCHR_ONE(simd_t, _lst - width);
+
+					break;
 				}
 				}
 			}
@@ -6755,12 +7043,12 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 	constexpr size_t __constant_threshold = 8 / _Mysize;
 
 	if (is_constant_p(n) && n <= __constant_threshold) {
-		for (size_t i = 0; i < n; ++i) {
-			if (pred(s[i], val)) {
+		for (size_t i = n; i > 0; --i) {
+			if (pred(s[i - 1], val)) {
 				return s + i;
 			}
 		}
-		return s + n;
+		return s;
 	}
 
 	if (is_unlikely(n == 0)) return s;
@@ -6838,6 +7126,8 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 						auto x = simd_t::loadu(reinterpret_cast<const sint*>(_lst));
 
 						__WJR_MEMRCHR_ONE(simd_t, _lst + width);
+
+						break;
 					}
 					}
 				}
@@ -6866,23 +7156,31 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
 
 					__WJR_MEMRCHR_ONE(simd_t, s + width);
+
+					WJR_FALLTHROUGH;
 				}
 				case 3: {
 					s -= width;
 					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
 
 					__WJR_MEMRCHR_ONE(simd_t, s + width);
+					
+					WJR_FALLTHROUGH;
 				}
 				case 2: {
 					s -= width;
 					auto x = simd_t::load(reinterpret_cast<const sint*>(s));
 
 					__WJR_MEMRCHR_ONE(simd_t, s + width);
+					
+					WJR_FALLTHROUGH;
 				}
 				case 1: {
 					auto x = simd_t::loadu(reinterpret_cast<const sint*>(_lst));
 
 					__WJR_MEMRCHR_ONE(simd_t, _lst + width);
+
+					break;
 				}
 				}
 			}
@@ -6937,7 +7235,7 @@ const T* __memrchr(const T* s, T val, size_t n, _Pred pred) {
 
 			if (z == 0)return s - n;
 			auto i = wjr::countl_zero(z) / _Mysize;
-			auto q = i >= 4 ? i + n - 4 : i;
+			auto q = i >= 4 ? i + n - 8 : i;
 			return s - q;
 		}
 	}
@@ -6988,22 +7286,26 @@ _WJR_ALGO_END
 #if defined(_WJR_FAST_MEMCMP)
 
 #define __WJR_MEMCMP_ONE_NORMAL(st)														\
-	auto r = st::cmp(x, y, pred, T());	                                                \
-	st::mask_type z = st::movemask_epi8(r);		                                        \
-	if(z != st::mask()){	                                                            \
-		return false;	                                                                \
+	{	\
+		auto r = st::cmp(x, y, pred, T());	                                                \
+		st::mask_type z = st::movemask_epi8(r);		                                        \
+		if(z != st::mask()){	                                                            \
+			return false;	                                                                \
+		}	\
 	}
 
 #define __WJR_MEMCMP_FOUR_NORMAL(st)													\
-	auto r0 = st::cmp(x0, y0, pred, T());	                                            \
-	auto r1 = st::cmp(x1, y1, pred, T());	                                            \
-	auto r2 = st::cmp(x2, y2, pred, T());	                                            \
-	auto r3 = st::cmp(x3, y3, pred, T());	                                            \
-		                                                                                \
-	r3 = st::And(st::And(r0, r1), st::And(r2, r3));	                                    \
-	st::mask_type z = st::movemask_epi8(r3);		                                    \
-	if(z != st::mask()){	                                                            \
-		return false;	                                                                \
+	{	\
+		auto r0 = st::cmp(x0, y0, pred, T());	                                            \
+		auto r1 = st::cmp(x1, y1, pred, T());	                                            \
+		auto r2 = st::cmp(x2, y2, pred, T());	                                            \
+		auto r3 = st::cmp(x3, y3, pred, T());	                                            \
+																							\
+		r3 = st::And(st::And(r0, r1), st::And(r2, r3));	                                    \
+		st::mask_type z = st::movemask_epi8(r3);		                                    \
+		if(z != st::mask()){	                                                            \
+			return false;	                                                                \
+		}	\
 	}
 
 #define __WJR_MEMCMP_ONE(st) __WJR_MEMCMP_ONE_NORMAL(st)
@@ -7047,7 +7349,6 @@ _WJR_ALGO_BEGIN
 
 template<typename T, typename _Pred>
 bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
-	using namespace wjr::literals;
 	constexpr size_t _Mysize = sizeof(T);
 
 #if WJR_AVX2
@@ -7062,17 +7363,121 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 	if (is_unlikely(n == 0)) return true;
 
 	if (n >= 16 / _Mysize) {
-		if (n >= width * 4) {
-			const T* _lst0;
-			const T* _lst1;
-			
-			auto _off0 = reinterpret_cast<uintptr_t>(s0) % bound;
-			auto _off1 = reinterpret_cast<uintptr_t>(s1) % bound;
 
-			// align 2 pointer
-			if (_off0 == _off1 && 
-				(_Mysize == 1 || _off0 % _Mysize == 0)) {
-				if (is_constant_p(_off0) && _off0 == 0) {
+		if (n <= 32 / _Mysize) {
+			// solve first 16 bytes
+			auto x = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0));
+			auto y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
+
+			__WJR_MEMCMP_ONE(simd::sse);
+
+			// solve last 16 bytes
+
+			s0 += n - 16 / _Mysize;
+			s1 += n - 16 / _Mysize;
+
+			x = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0));
+			y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
+
+			__WJR_MEMCMP_ONE(simd::sse);
+
+			return true;
+		}
+
+		// solve first min(n, 128 / _Mysize) bytes
+		// no branch algorithm
+
+		{
+			const auto m = n <= 128 / _Mysize ? n : 128 / _Mysize;
+			const auto delta = ((m - 1) & (64 / _Mysize)) >> 1;
+			const auto negdelta = m - 32 / _Mysize;
+
+#if WJR_AVX2
+			auto x0 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0));
+			auto x1 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0 + delta));
+			auto x2 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0 + negdelta - delta));
+			auto x3 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0 + negdelta));
+
+			auto y0 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1));
+			auto y1 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1 + delta));
+			auto y2 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1 + negdelta - delta));
+			auto y3 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1 + negdelta));
+
+			__WJR_MEMCMP_FOUR(simd::avx);
+#else
+			{
+				auto x0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0));
+				auto x1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + 16 / _Mysize));
+				auto x2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + delta));
+				auto x3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + delta + 16 / _Mysize));
+
+				auto y0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
+				auto y1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + 16 / _Mysize));
+				auto y2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + delta));
+				auto y3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + delta + 16 / _Mysize));
+
+				__WJR_MEMCMP_FOUR(simd::sse);
+			}
+
+			{
+				auto x0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + negdelta - delta));
+				auto x1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + negdelta - delta + 16 / _Mysize));
+				auto x2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + negdelta));
+				auto x3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + negdelta + 16 / _Mysize));
+
+				auto y0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + negdelta - delta));
+				auto y1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + negdelta - delta + 16 / _Mysize));
+				auto y2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + negdelta));
+				auto y3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + negdelta + 16 / _Mysize));
+
+				__WJR_MEMCMP_FOUR(simd::sse);
+			}
+#endif // WJR_AVX2
+
+			// m = std::min(n, 128 / _Mysize) 
+			// m == n -> n <= 128 / _Mysize
+			if (m == n) {
+				return true;
+			}
+		}
+
+		if (n <= 128 / _Mysize + width * 4) {
+
+			WJR_MACRO_LABEL(unaligned_last_4vec) :
+
+			s0 += n;
+			s1 += n;
+
+			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
+			auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 3));
+			auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 2));
+			auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
+
+			auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 4));
+			auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 3));
+			auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 2));
+			auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
+
+			__WJR_MEMCMP_FOUR(simd_t);
+
+			return true;
+		}
+
+		s0 += 128 / _Mysize;
+		s1 += 128 / _Mysize;
+		n -= 128 / _Mysize;
+
+		// align
+
+		if (is_likely(reinterpret_cast<uintptr_t>(s0) % _Mysize == 0)) {
+
+			const auto off0 = reinterpret_cast<uintptr_t>(s0) % bound;
+			const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
+
+			if (off0 != off1) {
+				// only align first pointer
+
+				if (is_constant_p(off0) && off0 == 0) {
 					// do nothing
 				}
 				else {
@@ -7081,24 +7486,21 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 					__WJR_MEMCMP_ONE(simd_t);
 
-					auto __align_s = bound - _off0;
+					const auto __align_s = bound - off0;
 					s0 += __align_s / _Mysize;
 					s1 += __align_s / _Mysize;
 					n -= __align_s / _Mysize;
+
 					if (is_unlikely(n < width * 4)) {
-						_lst0 = s0 + n;
-						_lst1 = s1 + n;
-						goto WJR_MACRO_LABEL(aft_align);
+						goto WJR_MACRO_LABEL(last_solve_align_0);
 					}
 				}
-			}
-			// unalign algorithm
-			else {
+
 				do {
-					auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
-					auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width));
-					auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 2));
-					auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 3));
+					auto x0 = simd_t::load(reinterpret_cast<const sint*>(s0));
+					auto x1 = simd_t::load(reinterpret_cast<const sint*>(s0 + width));
+					auto x2 = simd_t::load(reinterpret_cast<const sint*>(s0 + width * 2));
+					auto x3 = simd_t::load(reinterpret_cast<const sint*>(s0 + width * 3));
 
 					auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1));
 					auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(s1 + width));
@@ -7112,51 +7514,52 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 					n -= width * 4;
 				} while (n >= width * 4);
 
-				_lst0 = s0 + n;
-				_lst1 = s1 + n;
-
 				if (n != 0) {
-					switch ((n + width - 1) / width) {
-					default: unreachable(); break;
-					case 4: {
-						auto x = simd_t::loadu(reinterpret_cast<const sint*>(s0));
-						auto y = simd_t::loadu(reinterpret_cast<const sint*>(s1));
 
-						__WJR_MEMCMP_ONE(simd_t);
-						s0 += width;
-						s1 += width;
+					WJR_MACRO_LABEL(last_solve_align_0) :
 
-						WJR_FALLTHROUGH;
-					}
-					case 3: {
-						auto x = simd_t::loadu(reinterpret_cast<const sint*>(s0));
-						auto y = simd_t::loadu(reinterpret_cast<const sint*>(s1));
+					s0 += n;
+					s1 += n;
 
-						__WJR_MEMCMP_ONE(simd_t);
-						s0 += width;
-						s1 += width;
+					const auto ptr0 = reinterpret_cast<T*>(
+						(reinterpret_cast<uintptr_t>(s0 - width * 3)) & (~(bound - 1)));
+					const auto dif = s0 - ptr0;
+					const auto ptr1 = s1 - dif;
 
-						WJR_FALLTHROUGH;
-					}
-					case 2: {
-						auto x = simd_t::loadu(reinterpret_cast<const sint*>(s0));
-						auto y = simd_t::loadu(reinterpret_cast<const sint*>(s1));
+					auto x0 = simd_t::load(reinterpret_cast<const sint*>(ptr0));
+					auto x1 = simd_t::load(reinterpret_cast<const sint*>(ptr0 + width));
+					auto x2 = simd_t::load(reinterpret_cast<const sint*>(ptr0 + width * 2));
+					auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
 
-						__WJR_MEMCMP_ONE(simd_t);
-						s0 += width;
-						s1 += width;
+					auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(ptr1));
+					auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(ptr1 + width));
+					auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(ptr1 + width * 2));
+					auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
 
-						WJR_FALLTHROUGH;
-					}
-					case 1: {
-						auto x = simd_t::loadu(reinterpret_cast<const sint*>(_lst0 - width));
-						auto y = simd_t::loadu(reinterpret_cast<const sint*>(_lst1 - width));
-
-						__WJR_MEMCMP_ONE(simd_t);
-					}
-					}
+					__WJR_MEMCMP_FOUR(simd_t);
 				}
+
 				return true;
+			}
+
+			// align two pointers
+			if (is_constant_p(off0) && off0 == 0) {
+				// do nothing
+			}
+			else {
+				auto x = simd_t::loadu(reinterpret_cast<const sint*>(s0));
+				auto y = simd_t::loadu(reinterpret_cast<const sint*>(s1));
+
+				__WJR_MEMCMP_ONE(simd_t);
+
+				const auto __align_s = bound - off0;
+				s0 += __align_s / _Mysize;
+				s1 += __align_s / _Mysize;
+				n -= __align_s / _Mysize;
+
+				if (is_unlikely(n < width * 4)) {
+					goto WJR_MACRO_LABEL(last_solve_align_0_1);
+				}
 			}
 
 			do {
@@ -7177,89 +7580,127 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 				n -= width * 4;
 			} while (n >= width * 4);
 
-			_lst0 = s0 + n;
-			_lst1 = s1 + n;
-
 			if (n != 0) {
-				switch ((n + width - 1) / width) {
-				default: unreachable(); break;
-				case 4: {
-					WJR_MACRO_LABEL(aft_align) :
-					auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
-					auto y = simd_t::load(reinterpret_cast<const sint*>(s1));
 
-					__WJR_MEMCMP_ONE(simd_t);
-					s0 += width;
-					s1 += width;
+				WJR_MACRO_LABEL(last_solve_align_0_1) :
 
-					WJR_FALLTHROUGH;
-				}
-				case 3: {
-					auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
-					auto y = simd_t::load(reinterpret_cast<const sint*>(s1));
+				s0 += n;
+				s1 += n;
 
-					__WJR_MEMCMP_ONE(simd_t);
-					s0 += width;
-					s1 += width;
+				auto ptr0 = reinterpret_cast<T*>(
+					(reinterpret_cast<uintptr_t>(s0 - width * 3)) & (~(bound - 1)));
+				const auto dif = s0 - ptr0;
+				const auto ptr1 = s1 - dif;
 
-					WJR_FALLTHROUGH;
-				}
-				case 2: {
-					auto x = simd_t::load(reinterpret_cast<const sint*>(s0));
-					auto y = simd_t::load(reinterpret_cast<const sint*>(s1));
+				auto x0 = simd_t::load(reinterpret_cast<const sint*>(ptr0));
+				auto x1 = simd_t::load(reinterpret_cast<const sint*>(ptr0 + width));
+				auto x2 = simd_t::load(reinterpret_cast<const sint*>(ptr0 + width * 2));
+				auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
 
-					__WJR_MEMCMP_ONE(simd_t);
-					s0 += width;
-					s1 += width;
+				auto y0 = simd_t::load(reinterpret_cast<const sint*>(ptr1));
+				auto y1 = simd_t::load(reinterpret_cast<const sint*>(ptr1 + width));
+				auto y2 = simd_t::load(reinterpret_cast<const sint*>(ptr1 + width * 2));
+				auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
 
-					WJR_FALLTHROUGH;
-				}
-				case 1: {
-					auto x = simd_t::loadu(reinterpret_cast<const sint*>(_lst0 - width));
-					auto y = simd_t::loadu(reinterpret_cast<const sint*>(_lst1 - width));
-
-					__WJR_MEMCMP_ONE(simd_t);
-				}
-				}
+				__WJR_MEMCMP_FOUR(simd_t);
 			}
 
 			return true;
 		}
 
-#if WJR_AVX2
-		static_assert(width * 4 == 128 / _Mysize, "width * 4 == 128 / _Mysize");
-		if (n >= 64 / _Mysize) {
-			auto x0 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0));
-			auto x1 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0 + 32 / _Mysize));
-			auto x2 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0 + n - 64 / _Mysize));
-			auto x3 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0 + n - 32 / _Mysize));
+		if (is_likely(reinterpret_cast<uintptr_t>(s1) % _Mysize == 0)) {
 
-			auto y0 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1));
-			auto y1 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1 + 32 / _Mysize));
-			auto y2 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1 + n - 64 / _Mysize));
-			auto y3 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s1 + n - 32 / _Mysize));
+			const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
+			// only align second pointer
+			if (is_constant_p(off1) && off1 == 0) {
+				// do nothing
+			}
+			else {
+				auto x = simd_t::loadu(reinterpret_cast<const sint*>(s0));
+				auto y = simd_t::loadu(reinterpret_cast<const sint*>(s1));
 
-			__WJR_MEMCMP_FOUR(simd::avx);
+				__WJR_MEMCMP_ONE(simd_t);
+
+				const auto __align_s = bound - off1;
+				s0 += __align_s / _Mysize;
+				s1 += __align_s / _Mysize;
+				n -= __align_s / _Mysize;
+
+				if (is_unlikely(n < width * 4)) {
+					goto WJR_MACRO_LABEL(last_solve_align_1);
+				}
+			}
+
+			do {
+				auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
+				auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width));
+				auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 2));
+				auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 3));
+
+				auto y0 = simd_t::load(reinterpret_cast<const sint*>(s1));
+				auto y1 = simd_t::load(reinterpret_cast<const sint*>(s1 + width));
+				auto y2 = simd_t::load(reinterpret_cast<const sint*>(s1 + width * 2));
+				auto y3 = simd_t::load(reinterpret_cast<const sint*>(s1 + width * 3));
+
+				__WJR_MEMCMP_FOUR(simd_t);
+
+				s0 += width * 4;
+				s1 += width * 4;
+				n -= width * 4;
+			} while (n >= width * 4);
+
+			if (n != 0) {
+
+				WJR_MACRO_LABEL(last_solve_align_1) :
+
+				s0 += n;
+				s1 += n;
+
+				const auto ptr1 = reinterpret_cast<T*>(
+					(reinterpret_cast<uintptr_t>(s1 - width * 3)) & (~(bound - 1)));
+				const auto dif = s1 - ptr1;
+				const auto ptr0 = s0 - dif;
+
+				auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(ptr0));
+				auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(ptr0 + width));
+				auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(ptr0 + width * 2));
+				auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
+
+				auto y0 = simd_t::load(reinterpret_cast<const sint*>(ptr1));
+				auto y1 = simd_t::load(reinterpret_cast<const sint*>(ptr1 + width));
+				auto y2 = simd_t::load(reinterpret_cast<const sint*>(ptr1 + width * 2));
+				auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
+
+				__WJR_MEMCMP_FOUR(simd_t);
+			}
 
 			return true;
 		}
-#endif // WJR_AVX2
 
-		auto delta = (n & (32 / _Mysize)) >> 1;
+		// unaligned algorithm
+		do {
+			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
+			auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width));
+			auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 2));
+			auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 3));
 
-		auto x0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0));
-		auto x1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + delta));
-		auto x2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + n - 16 / _Mysize - delta));
-		auto x3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s0 + n - 16 / _Mysize));
+			auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1));
+			auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(s1 + width));
+			auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(s1 + width * 2));
+			auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 + width * 3));
 
-		auto y0 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
-		auto y1 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + delta));
-		auto y2 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + n - 16 / _Mysize - delta));
-		auto y3 = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1 + n - 16 / _Mysize));
+			__WJR_MEMCMP_FOUR(simd_t);
 
-		__WJR_MEMCMP_FOUR(simd::sse);
+			s0 += width * 4;
+			s1 += width * 4;
+			n -= width * 4;
+		} while (n >= width * 4);
 
-		return true;
+		if (n == 0) {
+			return true;
+		}
+
+		goto WJR_MACRO_LABEL(unaligned_last_4vec);
 	}
 
 	if constexpr (_Mysize == 8) {
@@ -7304,9 +7745,9 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			auto x = simd::sse::set_epi32(D0, C0, B0, A0);
 			auto y = simd::sse::set_epi32(D1, C1, B1, A1);
-			
+
 			__WJR_MEMCMP_ONE(simd::sse);
-			
+
 			return true;
 		}
 	}
@@ -7315,10 +7756,11 @@ bool __memcmp(const T* s0, const T* s1, size_t n, _Pred pred) {
 		// n = [1, 4)
 		if (!pred(s0[0], s1[0])) return false;
 		if (n == 1) return true;
-		if (!pred(s0[1], s1[1])) return false;
-		if (n == 2) return true;
-		return pred(s0[2], s1[2]);
+		const bool f = pred(s0[n - 2], s1[n - 2]);
+		const bool g = pred(s0[n - 1], s1[n - 1]);
+		return f && g;
 	}
+
 }
 
 _WJR_ALGO_END
@@ -7383,7 +7825,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 	using simd_t = simd::sse;
 #endif // WJR_AVX2
 	using sint = typename simd_t::int_type;
-
+	
 	constexpr uintptr_t width = simd_t::width() / (8 * _Mysize);
 	constexpr uintptr_t bound = width * _Mysize;
 
@@ -7397,7 +7839,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			auto y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
 
 			__WJR_MEMMIS_ONE(simd::sse, s0);
-
+			
 			// solve last 16 bytes
 
 			s0 += n - 16 / _Mysize;
@@ -7407,13 +7849,13 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			y = simd::sse::loadu(reinterpret_cast<const __m128i*>(s1));
 
 			__WJR_MEMMIS_ONE(simd::sse, s0);
-
+			
 			return s0 + 16 / _Mysize;
 		}
 
 		// solve first min(n, 128 / _Mysize) bytes
 		// no branch algorithm
-
+		
 		{
 			const auto m = n <= 128 / _Mysize ? n : 128 / _Mysize;
 			const auto delta = ((m - 1) & (64 / _Mysize)) >> 1;
@@ -7475,8 +7917,8 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		if (n <= 128 / _Mysize + width * 4) {
 
 			WJR_MACRO_LABEL(unaligned_last_4vec) :
-
-				s0 += n;
+			
+			s0 += n;
 			s1 += n;
 
 			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
@@ -7507,7 +7949,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			if (off0 != off1) {
 				// only align first pointer
-
+				
 				if (is_constant_p(off0) && off0 == 0) {
 					// do nothing
 				}
@@ -7521,7 +7963,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 					s0 += __align_s / _Mysize;
 					s1 += __align_s / _Mysize;
 					n -= __align_s / _Mysize;
-
+					
 					if (is_unlikely(n < width * 4)) {
 						goto WJR_MACRO_LABEL(last_solve_align_0);
 					}
@@ -7549,7 +7991,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 					WJR_MACRO_LABEL(last_solve_align_0) :
 
-						s0 += n;
+					s0 += n;
 					s1 += n;
 
 					const auto ptr0 = reinterpret_cast<T*>(
@@ -7587,7 +8029,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				s0 += __align_s / _Mysize;
 				s1 += __align_s / _Mysize;
 				n -= __align_s / _Mysize;
-
+				
 				if (is_unlikely(n < width * 4)) {
 					goto WJR_MACRO_LABEL(last_solve_align_0_1);
 				}
@@ -7615,7 +8057,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 				WJR_MACRO_LABEL(last_solve_align_0_1) :
 
-					s0 += n;
+				s0 += n;
 				s1 += n;
 
 				auto ptr0 = reinterpret_cast<T*>(
@@ -7684,7 +8126,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 				WJR_MACRO_LABEL(last_solve_align_1) :
 
-					s0 += n;
+				s0 += n;
 				s1 += n;
 
 				const auto ptr1 = reinterpret_cast<T*>(
@@ -7707,7 +8149,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			return s0;
 		}
-
+		
 		// unaligned algorithm
 		do {
 			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
@@ -7727,11 +8169,11 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			n -= width * 4;
 		} while (n >= width * 4);
 
-		if (is_likely(n != 0)) {
-			goto WJR_MACRO_LABEL(unaligned_last_4vec);
+		if (n == 0) {
+			return s0;
 		}
 
-		return s0;
+		goto WJR_MACRO_LABEL(unaligned_last_4vec);
 	}
 
 	if constexpr (_Mysize == 8) {
@@ -7800,7 +8242,7 @@ const T* __memmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 		const size_t i2 = f ? i1 : n - 2;
 		return s0 + i2;
 	}
-
+	
 }
 
 _WJR_ALGO_END
@@ -7809,7 +8251,6 @@ _WJR_ALGO_END
 #undef __WJR_MEMMIS_ONE
 
 #endif // _WJR_FAST_MEMMIS
-
 #ifndef __WJR_ALGO_ALOG_H
 #error "This file should not be included directly. Include <wjr/algo.h> instead."
 #endif 
@@ -7900,7 +8341,7 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 		{
 			const auto m = n <= 128 / _Mysize ? n : 128 / _Mysize;
-			const auto delta = n < (64 / _Mysize) ? 0 : (32 / _Mysize);
+			const auto delta = ((m - 1) & (64 / _Mysize)) >> 1;
 
 #if WJR_AVX2
 			auto x0 = simd::avx::loadu(reinterpret_cast<const __m256i*>(s0 - m));
@@ -7955,17 +8396,15 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 					s0 - m + delta + 32 / _Mysize);
 			}
 #endif // WJR_AVX2
+
+			// m = std::min(n, 128 / _Mysize) 
+			// m == n -> n <= 128 / _Mysize
+			if (m == n) {
+				return s0 - n;
+			}
 		}
 
-		if (n <= 128 / _Mysize) {
-			return s0 - n;
-		}
-
-		s0 -= 128 / _Mysize;
-		s1 -= 128 / _Mysize;
-		n -= 128 / _Mysize;
-
-		if (n <= width * 4) {
+		if (n <= 128 / _Mysize + width * 4) {
 
 			WJR_MACRO_LABEL(unaligned_last_4vec) :
 
@@ -7987,12 +8426,88 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			return s0;
 		}
 
-		auto _off0 = reinterpret_cast<uintptr_t>(s0) % bound;
-		auto _off1 = reinterpret_cast<uintptr_t>(s1) % bound;
+		s0 -= 128 / _Mysize;
+		s1 -= 128 / _Mysize;
+		n -= 128 / _Mysize;
 
-		// align 2 pointer
-		if (_off0 == _off1 && is_likely(_off0 % _Mysize == 0)) {
-			if (is_constant_p(_off0) && _off0 == 0) {
+		// align
+
+		if (is_likely(reinterpret_cast<uintptr_t>(s0) % _Mysize == 0)) {
+
+			const auto off0 = reinterpret_cast<uintptr_t>(s0) % bound;
+			const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
+
+			if (off0 != off1) {
+				// only align first pointer
+
+				if (is_constant_p(off0) && off0 == 0) {
+					// do nothing
+				}
+				else {
+					auto x = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
+					auto y = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
+
+					__WJR_MEMRMIS_ONE(simd_t, s0);
+
+					const auto __align_s = off0;
+					s0 -= __align_s / _Mysize;
+					s1 -= __align_s / _Mysize;
+					n -= __align_s / _Mysize;
+					
+					if (is_unlikely(n < width * 4)) {
+						goto WJR_MACRO_LABEL(last_solve_align_0);
+					}
+				}
+
+				do {
+					auto x0 = simd_t::load(reinterpret_cast<const sint*>(s0 - width * 4));
+					auto x1 = simd_t::load(reinterpret_cast<const sint*>(s0 - width * 3));
+					auto x2 = simd_t::load(reinterpret_cast<const sint*>(s0 - width * 2));
+					auto x3 = simd_t::load(reinterpret_cast<const sint*>(s0 - width));
+
+					auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 4));
+					auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 3));
+					auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width * 2));
+					auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
+
+					__WJR_MEMRMIS_FOUR(simd_t, s0 - width * 3, s0 - width * 2, s0 - width, s0);
+
+					s0 -= width * 4;
+					s1 -= width * 4;
+					n -= width * 4;
+				} while (n >= width * 4);
+
+				if (n != 0) {
+
+					WJR_MACRO_LABEL(last_solve_align_0) :
+
+					s0 -= n;
+					s1 -= n;
+
+					const auto ptr0 = reinterpret_cast<T*>(
+						(reinterpret_cast<uintptr_t>(s0 + width * 4)) & (~(bound - 1)));
+					const auto dif = ptr0 - s0;
+					const auto ptr1 = s1 + dif;
+
+					auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
+					auto x1 = simd_t::load(reinterpret_cast<const sint*>(ptr0 - width * 3));
+					auto x2 = simd_t::load(reinterpret_cast<const sint*>(ptr0 - width * 2));
+					auto x3 = simd_t::load(reinterpret_cast<const sint*>(ptr0 - width));
+
+					auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1));
+					auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(ptr1 - width * 3));
+					auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(ptr1 - width * 2));
+					auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(ptr1 - width));
+
+					__WJR_MEMRMIS_FOUR(simd_t, s0 + width, ptr0 - width * 2, ptr0 - width, ptr0);
+
+				}
+
+				return s0;
+			}
+
+			// align two pointers
+			if (is_constant_p(off0) && off0 == 0) {
 				// do nothing
 			}
 			else {
@@ -8001,12 +8516,13 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 				__WJR_MEMRMIS_ONE(simd_t, s0);
 
-				auto __align_s = _off0;
+				const auto __align_s = off0;
 				s0 -= __align_s / _Mysize;
 				s1 -= __align_s / _Mysize;
 				n -= __align_s / _Mysize;
+				
 				if (is_unlikely(n < width * 4)) {
-					goto WJR_MACRO_LABEL(last_solve);
+					goto WJR_MACRO_LABEL(last_solve_align_0_1);
 				}
 			}
 
@@ -8030,15 +8546,15 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 
 			if (n != 0) {
 
-				WJR_MACRO_LABEL(last_solve):
+				WJR_MACRO_LABEL(last_solve_align_0_1) :
 
 				s0 -= n;
 				s1 -= n;
 
-				auto ptr0 = reinterpret_cast<T*>(
+				const auto ptr0 = reinterpret_cast<T*>(
 					(reinterpret_cast<uintptr_t>(s0 + width * 4)) & (~(bound - 1)));
-				auto ptr1 = reinterpret_cast<T*>(
-					(reinterpret_cast<uintptr_t>(s1 + width * 4)) & (~(bound - 1)));
+				const auto dif = ptr0 - s0;
+				const auto ptr1 = s1 + dif;
 
 				auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
 				auto x1 = simd_t::load(reinterpret_cast<const sint*>(ptr0 - width * 3));
@@ -8051,13 +8567,82 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 				auto y3 = simd_t::load(reinterpret_cast<const sint*>(ptr1 - width));
 
 				__WJR_MEMRMIS_FOUR(simd_t, s0 + width, ptr0 - width * 2, ptr0 - width, ptr0);
+
+			}
+
+			return s0;
+		}
+
+		if (is_likely(reinterpret_cast<uintptr_t>(s1) % _Mysize == 0)) {
+			const auto off1 = reinterpret_cast<uintptr_t>(s1) % bound;
+			// only align second pointer
+			if (is_constant_p(off1) && off1 == 0) {
+				// do nothing
+			}
+			else {
+				auto x = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
+				auto y = simd_t::loadu(reinterpret_cast<const sint*>(s1 - width));
+
+				__WJR_MEMRMIS_ONE(simd_t, s0);
+
+				const auto __align_s = off1;
+				s0 -= __align_s / _Mysize;
+				s1 -= __align_s / _Mysize;
+				n -= __align_s / _Mysize;
 				
+				if (is_unlikely(n < width * 4)) {
+					goto WJR_MACRO_LABEL(last_solve_align_1);
+				}
+			}
+
+			do {
+				auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
+				auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 3));
+				auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 2));
+				auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width));
+
+				auto y0 = simd_t::load(reinterpret_cast<const sint*>(s1 - width * 4));
+				auto y1 = simd_t::load(reinterpret_cast<const sint*>(s1 - width * 3));
+				auto y2 = simd_t::load(reinterpret_cast<const sint*>(s1 - width * 2));
+				auto y3 = simd_t::load(reinterpret_cast<const sint*>(s1 - width));
+
+				__WJR_MEMRMIS_FOUR(simd_t, s0 - width * 3, s0 - width * 2, s0 - width, s0);
+
+				s0 -= width * 4;
+				s1 -= width * 4;
+				n -= width * 4;
+			} while (n >= width * 4);
+
+			if (n != 0) {
+
+				WJR_MACRO_LABEL(last_solve_align_1) :
+
+				s0 -= n;
+				s1 -= n;
+
+				const auto ptr1 = reinterpret_cast<T*>(
+					(reinterpret_cast<uintptr_t>(s1 + width * 4)) & (~(bound - 1)));
+				const auto dif = ptr1 - s1;
+				const auto ptr0 = s0 + dif;
+
+				auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
+				auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(ptr0 - width * 3));
+				auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(ptr0 - width * 2));
+				auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(ptr0 - width));
+
+				auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1));
+				auto y1 = simd_t::load(reinterpret_cast<const sint*>(ptr1 - width * 3));
+				auto y2 = simd_t::load(reinterpret_cast<const sint*>(ptr1 - width * 2));
+				auto y3 = simd_t::load(reinterpret_cast<const sint*>(ptr1 - width));
+
+				__WJR_MEMRMIS_FOUR(simd_t, s0 + width, ptr0 - width * 2, ptr0 - width, ptr0);
+
 			}
 
 			return s0;
 		}
 		
-		// unalign algorithm
+		// unaligned algorithm
 		do {
 			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 4));
 			auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 - width * 3));
@@ -8076,26 +8661,11 @@ const T* __memrmis(const T* s0, const T* s1, size_t n, _Pred pred) {
 			n -= width * 4;
 		} while (n >= width * 4);
 
-		if (n != 0) {
-
-			s0 -= n;
-			s1 -= n;
-
-			auto x0 = simd_t::loadu(reinterpret_cast<const sint*>(s0));
-			auto x1 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width));
-			auto x2 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 2));
-			auto x3 = simd_t::loadu(reinterpret_cast<const sint*>(s0 + width * 3));
-
-			auto y0 = simd_t::loadu(reinterpret_cast<const sint*>(s1));
-			auto y1 = simd_t::loadu(reinterpret_cast<const sint*>(s1 + width));
-			auto y2 = simd_t::loadu(reinterpret_cast<const sint*>(s1 + width * 2));
-			auto y3 = simd_t::loadu(reinterpret_cast<const sint*>(s1 + width * 3));
-
-			__WJR_MEMRMIS_FOUR(simd_t, s0 + width, s0 + width * 2, s0 + width * 3, s0 + width * 4);
-
+		if (n == 0) {
+			return s0;
 		}
-		return s0;
-
+		
+		goto WJR_MACRO_LABEL(unaligned_last_4vec);
 	}
 
 	if constexpr (_Mysize == 8) {
@@ -8821,17 +9391,12 @@ struct __has_fast_memcmp<T, U, std::equal_to<>> : std::conjunction<
 	is_memory_comparable<T, U, std::equal_to<>>
 > {};
 
-template<typename T, typename U>
-struct __has_fast_memcmp<T, U, std::not_equal_to<>> : std::conjunction<
-	is_memory_comparable<T, U, std::not_equal_to<>>
-> {};
-
 template<typename T, typename U, typename _Pred>
 constexpr bool __has_fast_memcmp_v = __has_fast_memcmp<T, U, _Pred>::value;
 
 template<typename T, typename U, typename _Pred, std::enable_if_t<__has_fast_memcmp_v<T, U, _Pred>, int> = 0>
 bool memcmp(const T* s0, const U* s1, size_t n, _Pred pred) {
-	if constexpr (is_any_of_v<_Pred, std::equal_to<>, std::not_equal_to<>>) {
+	if constexpr (is_any_of_v<_Pred, std::equal_to<>>) {
 		using value_type = uint8_t;
 		auto __s0 = reinterpret_cast<const value_type*>(s0);
 		auto __s1 = reinterpret_cast<const value_type*>(s1);
@@ -8877,11 +9442,6 @@ struct __has_fast_memmis<T, U, std::equal_to<>> : std::conjunction<
 	is_memory_comparable<T, U, std::equal_to<>>
 > {};
 
-template<typename T, typename U>
-struct __has_fast_memmis<T, U, std::not_equal_to<>> : std::conjunction<
-	is_memory_comparable<T, U, std::not_equal_to<>>
-> {};
-
 template<typename T, typename U, typename _Pred>
 constexpr bool __has_fast_memmis_v = __has_fast_memmis<T, U, _Pred>::value;
 
@@ -8894,7 +9454,7 @@ constexpr bool __has_fast_memrmis_v = __has_fast_memrmis<T, U, _Pred>::value;
 template<typename T, typename U, typename _Pred, std::enable_if_t<
 	__has_fast_memmis_v<T, U, _Pred>, int> = 0>
 const T* memmis(const T* s0, const U* s1, size_t n, _Pred pred) {
-	if constexpr (is_any_of_v<_Pred, std::equal_to<>, std::not_equal_to<>>) {
+	if constexpr (is_any_of_v<_Pred, std::equal_to<>>) {
 		using value_type = uint8_t;
 		auto __s0 = reinterpret_cast<const value_type*>(s0);
 		auto __s1 = reinterpret_cast<const value_type*>(s1);
@@ -8914,7 +9474,7 @@ const T* memmis(const T* s0, const U* s1, size_t n, _Pred pred) {
 template<typename T, typename U, typename _Pred, std::enable_if_t<
 	__has_fast_memmis_v<T, U, _Pred>, int> = 0>
 const T* memrmis(const T* s0, const U* s1, size_t n, _Pred pred) {
-	if constexpr (is_any_of_v<_Pred, std::equal_to<>, std::not_equal_to<>>) {
+	if constexpr (is_any_of_v<_Pred, std::equal_to<>>) {
 		using value_type = uint8_t;
 		auto __s0 = reinterpret_cast<const value_type*>(s0);
 		auto __s1 = reinterpret_cast<const value_type*>(s1);
@@ -9114,7 +9674,7 @@ _WJR_BEGIN
 template<typename _Iter, typename _Val, typename _Pred,
 	typename _Iter_value = iter_val_t<_Iter>>
 struct __has_fast_find : std::conjunction<
-	is_contiguous_iterator<_Iter>,
+	is_contiguous_iter<_Iter>,
 	std::conditional_t<
 	wjr::is_reverse_iterator_v<_Iter>,
 	algo::__has_fast_memrchr<_Iter_value, _Val, _Pred>,
@@ -9127,9 +9687,14 @@ constexpr bool __has_fast_find_v = __has_fast_find<_Iter, _Val, _Pred>::value;
 
 struct find_fn {
 
-	template<typename _Iter, typename _Ty, typename _Pred = std::equal_to<>>
+	template<typename _Iter, typename _Ty>
+	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, const _Ty& _Val) const {
+		return this->operator()(_First, _Last, _Val, std::equal_to<>{});
+	}
+
+	template<typename _Iter, typename _Ty, typename _Pred>
 	WJR_CONSTEXPR20 _Iter operator()(
-		_Iter _First, _Iter _Last, const _Ty& _Val, _Pred pred = _Pred()) const {
+		_Iter _First, _Iter _Last, const _Ty& _Val, _Pred pred) const {
 		if (!wjr::is_constant_evaluated()) {
 			if constexpr (__has_fast_find_v<_Iter, _Ty, _Pred>) {
 				const auto n = std::distance(_First, _Last);
@@ -9183,7 +9748,7 @@ constexpr find_if_not_fn find_if_not{};
 template<typename _Iter, typename _Val,
 	typename _Iter_value = iter_val_t<_Iter>>
 struct __has_fast_count : std::conjunction<
-	wjr::is_contiguous_iterator<_Iter>,
+	wjr::is_contiguous_iter<_Iter>,
 	algo::__has_fast_memcnt<_Iter_value, _Val>
 >{};
 
@@ -9233,8 +9798,8 @@ template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
 struct __has_fast_equal_helper : std::conjunction<
-	wjr::is_contiguous_iterator<_Iter1>,
-	wjr::is_contiguous_iterator<_Iter2>,
+	wjr::is_contiguous_iter<_Iter1>,
+	wjr::is_contiguous_iter<_Iter2>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
 	algo::__has_fast_memcmp<_Iter_value1, _Iter_value2, _Pred>
 >{};
@@ -9249,8 +9814,8 @@ template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
 struct __has_fast_mismatch : std::conjunction <
-	wjr::is_contiguous_iterator<_Iter1>,
-	wjr::is_contiguous_iterator<_Iter2>,
+	wjr::is_contiguous_iter<_Iter1>,
+	wjr::is_contiguous_iter<_Iter2>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
 	std::conditional_t<
 	wjr::is_reverse_iterator_v<_Iter1>,
@@ -9374,23 +9939,28 @@ template<typename _Iter1, typename _Iter2, typename _Pred,
 	typename _Iter_value1 = iter_val_t<_Iter1>,
 	typename _Iter_value2 = iter_val_t<_Iter2>>
 struct __has_fast_lexicographical_compare : std::conjunction<
-	wjr::is_any_of<_Pred, std::less<>, std::not_equal_to<>>,
+	wjr::is_any_of<_Pred, std::less<>>,
+#if defined(_WJR_FAST_MEMMIS)
 	__has_fast_mismatch<_Iter1, _Iter2, _Pred>
+#else
+	wjr::is_contiguous_iter<_Iter1>,
+	wjr::is_contiguous_iter<_Iter2>,
+	std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
+	std::conditional_t<
+	wjr::is_reverse_iterator_v<_Iter1>,
+	std::false_type,
+	is_memory_comparable<_Iter_value1, _Iter_value2, _Pred>
+	>,
+	std::is_unsigned<_Iter_value1>,
+	std::is_unsigned<_Iter_value2>,
+	wjr::is_any_index_of<sizeof(_Iter_value1), 1>
+#endif // _WJR_FAST_MEMMIS
 >{};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_lexicographical_compare_v = __has_fast_lexicographical_compare<_Iter1, _Iter2, _Pred>::value;
 
 struct lexicographical_compare_fn {
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2>
-	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
-		return this->operator()(_Policy, _First1, _Last1, _First2, _Last2, std::less<>{});
-	}
-
-	template<typename _ExPolicy, typename _Iter1, typename _Iter2, typename _Pred>
-	bool operator()(_ExPolicy&& _Policy, _Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-		return std::lexicographical_compare(_Policy, _First1, _Last1, _First2, _Last2, pred);
-	}
 
 	template<typename _Iter1, typename _Iter2>
 	WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
@@ -9404,14 +9974,20 @@ struct lexicographical_compare_fn {
 				const auto n = std::distance(_First1, _Last1);
 				const auto m = std::distance(_First2, _Last2);
 				auto cl = std::min(n, m);
+#if defined(_WJR_FAST_MEMMIS)
 				auto e = _First1 + cl;
 				auto pos = wjr::mismatch(_First1, e, _First2, std::equal_to<>{}).first - _First1;
 				if (pos != cl) {
-					if (pred(_First1 + pos, _First2 + pos)) {
-						return true;
-					}
-					return false;
+					return pred(_First1[pos], _First2[pos]);
 				}
+#else
+				auto first1 = get_address(_First1);
+				auto first2 = get_address(_First2);
+				auto f = ::memcmp(first1, first2, cl * sizeof(iter_val_t<_Iter1>));
+				if (f != 0) {
+					return f < 0;
+				}
+#endif // _WJR_FAST_MEMMIS
 				return n < m;
 			}
 		}
@@ -9421,10 +9997,55 @@ struct lexicographical_compare_fn {
 
 constexpr lexicographical_compare_fn lexicographical_compare{};
 
+struct compare_fn {
+
+	template<typename _Iter1, typename _Iter2>
+	WJR_CONSTEXPR20 int operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
+		return this->operator()(_First1, _Last1, _First2, _Last2, std::less<>{});
+	}
+
+	template<typename _Iter1, typename _Iter2, typename _Pred>
+	WJR_CONSTEXPR20 int operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
+		if (!wjr::is_constant_evaluated()) {
+			if constexpr (__has_fast_lexicographical_compare_v<_Iter1, _Iter2, _Pred>) {
+				const auto n = std::distance(_First1, _Last1);
+				const auto m = std::distance(_First2, _Last2);
+				auto cl = std::min(n, m);
+#if defined(_WJR_FAST_MEMMIS)
+				auto e = _First1 + cl;
+				auto pos = wjr::mismatch(_First1, e, _First2, std::equal_to<>{}).first - _First1;
+				if (pos != cl) {
+					return pred(_First1[pos], _First2[pos]) ? -1 : 1;
+				}
+#else
+				auto first1 = get_address(_First1);
+				auto first2 = get_address(_First2);
+				auto f = ::memcmp(first1, first2, cl * sizeof(iter_val_t<_Iter1>));
+				if (f != 0) {
+					return f;
+				}
+#endif // _WJR_FAST_MEMMIS
+				return n < m ? -1 : (n > m ? 1 : 0);
+			}
+		}
+		for (; _First1 != _Last1 && _First2 != _Last2; ++_First1, ++_First2) {
+			if (pred(*_First1, *_First2)) {
+				return -1;
+			}
+			if (pred(*_First2, *_First1)) {
+				return 1;
+			}
+		}
+		return _First1 == _Last1 ? (_First2 == _Last2 ? 0 : -1) : 1;
+	}
+};
+
+constexpr compare_fn compare{};
+
 template<typename _Iter, typename _Val,
 	typename _Iter_ref = iter_ref_t<_Iter>>
 struct __has_fast_fill : std::conjunction<
-	is_contiguous_iterator<_Iter>, 
+	is_contiguous_iter<_Iter>, 
 	algo::__has_fast_assign_memset<remove_cref_t<_Iter_ref>, add_cref_t<_Val>>
 >{};
 
@@ -9477,8 +10098,8 @@ template<typename _Input, typename _Output,
 	typename _Input_ref = iter_ref_t<_Input>,
 	typename _Output_ref = iter_ref_t<_Output>>
 struct __has_fast_copy : std::conjunction<
-	is_contiguous_iterator<_Input>,
-	is_contiguous_iterator<_Output>,
+	is_contiguous_iter<_Input>,
+	is_contiguous_iter<_Output>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Input> == wjr::is_reverse_iterator_v<_Output>>,
 	algo::__has_fast_assign_memcpy<remove_ref_t<_Output_ref>, _Input_ref>
 	> {};
@@ -9559,6 +10180,85 @@ struct move_backward_fn {
 };
 
 constexpr move_backward_fn move_backward{};
+
+template<typename _Iter, typename _Pred = std::equal_to<>>
+class default_searcher {
+public:
+	WJR_CONSTEXPR20 default_searcher(_Iter _First, _Iter _Last, _Pred _Eq = _Pred())
+		: m_pair(std::move(_Eq), std::move(std::make_pair(_First, _Last))) {
+	}
+
+	template <typename _Iter2>
+	WJR_NODISCARD WJR_CONSTEXPR20 std::pair<_Iter2, _Iter2> operator()(
+		_Iter2 _First, _Iter2 _Last) const {
+		auto& pred = m_pair.first();
+		auto _Myfirst = m_pair.second().first;
+		auto _Mylast = m_pair.second().second;
+		if constexpr (is_random_iter_v<_Iter> && is_random_iter_v<_Iter2>) {
+			const auto n = std::distance(_First, _Last);
+			const auto m = std::distance(_Myfirst, _Mylast);
+			if (m == 0){
+				return std::make_pair(_First, _First);
+			}
+			if (n < m) {
+				return std::make_pair(_Last, _Last);
+			}
+			const auto& _Val = *_Myfirst;
+			auto _Mid = _Last - (m - 1);
+			for (;; ++_First) {
+				_First = wjr::find(_First, _Mid, _Val, pred);
+				if (_First == _Mid) {
+					return std::make_pair(_Last, _Last);
+				}
+				if (wjr::equal(_Myfirst, _Mylast, _First, pred)) {
+					return std::make_pair(_First, _First + m);
+				}
+			}
+		}
+		else {
+			for (;; ++_First) { // loop until match or end of a sequence
+				auto _Mid = _First;
+				for (auto _Mid2 = _Myfirst;; ++_Mid, (void) ++_Mid2) {
+					if (_Mid2 == _Mylast) {
+						return std::make_pair(_First, _Mid);
+					}
+
+					if (_Mid == _Last) {
+						return std::make_pair(_Last, _Last);
+					}
+
+					if (!pred(*_Mid, *_Mid2)) {
+						break;
+					}
+				}
+			}
+		}
+	}
+private:
+	compressed_pair<_Pred, std::pair<_Iter, _Iter>> m_pair;
+};
+
+struct search_fn {
+	template<typename _Iter1, typename _Iter2>
+	WJR_CONSTEXPR20 _Iter1 operator()(_Iter1 _First1, _Iter1 _Last1,
+		_Iter2 _First2, _Iter2 _Last2) const {
+		return this->operator()(_First1, _Last1, _First2, _Last2, std::equal_to<>{});
+	}
+
+	template<typename _Iter1, typename _Iter2, typename _Pred>
+	WJR_CONSTEXPR20 _Iter1 operator()(_Iter1 _First1, _Iter1 _Last1,
+		_Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
+		return this->operator()(_First1, _Last1, wjr::default_searcher(_First2, _Last2, pred));
+	}
+
+	template<typename _Iter, typename _Searcher>
+	WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, const _Searcher& _Srch) const {
+		return _Srch(_First, _Last).first;
+	}
+
+};
+
+constexpr search_fn search;
 
 struct construct_at_fn {
 	template<typename _Iter, typename...Args, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
@@ -9760,8 +10460,8 @@ template<typename _Input, typename _Output,
 	typename _Input_ref = iter_ref_t<_Input>,
 	typename _Output_ref = iter_ref_t<_Output>>
 struct __has_fast_uninitialized_copy : std::conjunction<
-	is_contiguous_iterator<_Input>,
-	is_contiguous_iterator<_Output>,
+	is_contiguous_iter<_Input>,
+	is_contiguous_iter<_Output>,
 	std::bool_constant<wjr::is_reverse_iterator_v<_Input> == wjr::is_reverse_iterator_v<_Output>>,
 	algo::__has_fast_construct_memcpy<remove_ref_t<_Output_ref>, _Input_ref>
 	> {};
@@ -9842,7 +10542,7 @@ constexpr uninitialized_copy_n_fn uninitialized_copy_n;
 template<typename _Iter, typename _Val,
 	typename _Iter_ref = iter_ref_t<_Iter>>
 	struct __has_fast_uninitialized_fill : std::conjunction<
-	is_contiguous_iterator<_Iter>,
+	is_contiguous_iter<_Iter>,
 	algo::__has_fast_construct_memset<remove_cref_t<_Iter_ref>, add_cref_t<_Val>>
 	> {};
 
@@ -10050,7 +10750,6 @@ _WJR_END
 
 #endif
 
-
 _WJR_BEGIN
 
 /*
@@ -10120,7 +10819,7 @@ struct vector_data {
 		wjr::uninitialized_copy(al, _Src._Myfirst, _Src._Mylast, _Dest._Myfirst);
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty& al, vector_data&& _Src, vector_data& _Dest) noexcept {
+	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty&, vector_data&& _Src, vector_data& _Dest) noexcept {
 		_Dest._Myfirst = _Src._Myfirst;
 		_Dest._Mylast = _Src._Mylast;
 		_Dest._Myend = _Src._Myend;
@@ -10221,8 +10920,8 @@ struct vector_static_data {
 
 	constexpr static size_t _MaxAlignment = std::max(alignof(T), alignof(size_type));
 	constexpr static size_t _MaxMemroy = (sizeof(T) * N + _MaxAlignment - 1) & (~(_MaxAlignment - 1));
-	constexpr static size_t _MaxCapacity = _MaxMemroy / sizeof(T);
-	static_assert(_MaxCapacity >= N, "");
+	constexpr static size_t max_capacity = _MaxMemroy / sizeof(T);
+	static_assert(max_capacity >= N, "");
 
 	vector_static_data() {}
 	vector_static_data(const vector_static_data&) = delete;
@@ -10230,10 +10929,12 @@ struct vector_static_data {
 	~vector_static_data() = default;
 
 	WJR_CONSTEXPR20 static void _lengthError(const size_type _Newcapacity){
+#if defined(_WJR_EXCEPTION)
 		std::string str = "vector_static_data is too small to hold the requested data";
-		str += "\n old capacity = " + std::to_string(_MaxCapacity);
+		str += "\n old capacity = " + std::to_string(max_capacity);
 		str += "\n allocate new capacity = " + std::to_string(_Newcapacity);
 		throw std::length_error(str);
+#endif // _WJR_EXCEPTION
 		unreachable();
 	}
 
@@ -10249,7 +10950,7 @@ struct vector_static_data {
 		_Alty& al,
 		const size_type _Newsize,
 		const size_type _Newcapacity) : _M_size(_Newsize) {
-		if (_Newcapacity > _MaxCapacity) {
+		if (_Newcapacity > max_capacity) {
 			_lengthError(_Newcapacity);
 		}
 	}
@@ -10291,7 +10992,7 @@ struct vector_static_data {
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept {
-		return _MaxCapacity;
+		return max_capacity;
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 pointer data() noexcept {
@@ -10348,8 +11049,8 @@ struct vector_sso_data {
 	constexpr static size_t _MaxMemroy = std::max(
 		(sizeof(T) * N + _MaxAlignment - 1) & (~(_MaxAlignment - 1)),
 		sizeof(size_type));
-	constexpr static size_t _MaxCapacity = _MaxMemroy / sizeof(T);
-	static_assert(_MaxCapacity >= N, "");
+	constexpr static size_t max_capacity = _MaxMemroy / sizeof(T);
+	static_assert(max_capacity >= N, "");
 
 	WJR_INTRINSIC_CONSTEXPR20 vector_sso_data() {}
 	vector_sso_data(const vector_sso_data&) = delete;
@@ -10364,7 +11065,7 @@ struct vector_sso_data {
 		: _M_ptr(_Alty_traits::allocate(al, _Newcapacity)),
 		_M_size(_Newsize), 
 		_M_capacity(_Newcapacity) {
-		WJR_ASSUME(_Newcapacity > _MaxCapacity);
+		WJR_ASSUME(_Newcapacity > max_capacity);
 	}
 
 	WJR_CONSTEXPR20 vector_sso_data(
@@ -10372,7 +11073,7 @@ struct vector_sso_data {
 		const size_type _Newsize,
 		const size_type _Newcapacity)
 		: _M_size(_Newsize){
-		if (_Newcapacity > _MaxCapacity) {
+		if (_Newcapacity > max_capacity) {
 			_M_ptr = _Alty_traits::allocate(al, _Newcapacity);
 			_M_capacity = _Newcapacity;
 		}
@@ -10390,14 +11091,13 @@ struct vector_sso_data {
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty& al, vector_sso_data&& _Src, vector_sso_data& _Dest) {
-		WJR_ASSUME(_Dest.is_small());
 		const auto _Size = _Src._M_size;
 		if(!_Src.is_small()){
 			_Dest._M_ptr = _Src._M_ptr;
 			_Dest._M_capacity = _Src._M_capacity;
 		}
 		else {
-			WJR_ASSUME(_Size <= _MaxCapacity);
+			WJR_ASSUME(_Size <= max_capacity);
 			wjr::uninitialized_move_n(al, _Src.data(), _Size, _Dest.data());
 			wjr::destroy_n(al, _Src.data(), _Size);
 		}
@@ -10430,7 +11130,7 @@ struct vector_sso_data {
 			const auto _Oldsize = _Data.size();
 			const auto _Oldcapacity = _Data.capacity();
 			if (_Oldsize != _Oldcapacity) {
-				if (_Oldsize <= _MaxCapacity) {
+				if (_Oldsize <= max_capacity) {
 					wjr::uninitialized_move_n(al, _Data.data(), _Oldsize, reinterpret_cast<pointer>(_Data._M_storage));
 					wjr::destroy_n(al, _Data.data(), _Oldsize);
 					_Alty_traits::deallocate(al, _Data.data(), _Oldcapacity);
@@ -10454,7 +11154,7 @@ struct vector_sso_data {
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept {
-		return is_small() ? _MaxCapacity : _M_capacity;
+		return is_small() ? max_capacity : _M_capacity;
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 pointer data() noexcept {
@@ -10507,7 +11207,80 @@ struct vector_sso_data {
 };
 
 template<typename Char, size_t N, typename Alloc>
-struct vector_string_data : public vector_sso_data<Char, N, Alloc> {
+struct string_static_data : public vector_static_data<Char, N, Alloc> {
+	using _Mybase = vector_static_data<Char, N, Alloc>;
+
+	using _Alty = typename _Mybase::_Alty;
+	using _Alty_traits = typename _Mybase::_Alty_traits;
+	using value_type = typename _Mybase::value_type;
+	using pointer = typename _Mybase::pointer;
+	using const_pointer = typename _Mybase::const_pointer;
+	using size_type = typename _Mybase::size_type;
+	using difference_type = typename _Mybase::difference_type;
+
+	// virtual max capacity = max capacity - 1
+	constexpr static size_t max_capacity = _Mybase::max_capacity - 1;
+
+	WJR_INTRINSIC_CONSTEXPR20 string_static_data() : _Mybase() {}
+	string_static_data(const string_static_data&) = delete;
+	string_static_data& operator=(const string_static_data&) = delete;
+	~string_static_data() = default;
+
+	WJR_CONSTEXPR20 string_static_data(
+		_Alty& al,
+		const size_type _Newsize,
+		const size_type _Newcapacity,
+		extend_tag)
+		: _Mybase(al, _Newsize, _Newcapacity + 1, extend_tag{}) {
+	}
+
+	WJR_CONSTEXPR20 string_static_data(
+		_Alty& al,
+		const size_type _Newsize,
+		const size_type _Newcapacity)
+		: _Mybase(al, _Newsize, _Newcapacity + 1) {
+	}
+
+	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const string_static_data& _Src, string_static_data& _Dest) {
+		return _Mybase::copyConstruct(al, std::move(_Src), _Dest);
+	}
+
+	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty& al, 
+		string_static_data&& _Src, string_static_data& _Dest) {
+		return _Mybase::moveConstruct(al, std::move(_Src), _Dest);
+	}
+
+	WJR_CONSTEXPR20 static void Destroy(_Alty& al, string_static_data& _Data) {
+		return _Mybase::Destroy(al, _Data);
+	}
+
+	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, string_static_data& _Data) {
+		return _Mybase::Deallocate(al, _Data);
+	}
+
+	WJR_CONSTEXPR20 static void Tidy(_Alty& al, string_static_data& _Data) {
+		return _Mybase::Tidy(al, _Data);
+	}
+
+	WJR_INTRINSIC_CONSTEXPR20 static void shrinkToFit(_Alty& al, string_static_data& _Data) {
+		return _Mybase::shrinkToFit(al, _Data);
+	}
+
+	WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept {
+		return _Mybase::capacity() - 1;
+	}
+
+	WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
+		return _Mybase::data() + capacity();
+	}
+
+	WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
+		return _Mybase::data() + capacity();
+	}
+};
+
+template<typename Char, size_t N, typename Alloc>
+struct string_sso_data : public vector_sso_data<Char, N, Alloc> {
 	using _Mybase = vector_sso_data<Char, N, Alloc>;
 
 	using _Alty = typename _Mybase::_Alty;
@@ -10519,14 +11292,14 @@ struct vector_string_data : public vector_sso_data<Char, N, Alloc> {
 	using difference_type = typename _Mybase::difference_type;
 
 	// virtual max capacity = max capacity - 1
-	constexpr static size_t max_capacity = _Mybase::_MaxCapacity - 1;
+	constexpr static size_t max_capacity = _Mybase::max_capacity - 1;
 
-	WJR_INTRINSIC_CONSTEXPR20 vector_string_data() : _Mybase() {}
-	vector_string_data(const vector_string_data&) = delete;
-	vector_string_data& operator=(const vector_string_data&) = delete;
-	~vector_string_data() = default;
+	WJR_INTRINSIC_CONSTEXPR20 string_sso_data() : _Mybase() {}
+	string_sso_data(const string_sso_data&) = delete;
+	string_sso_data& operator=(const string_sso_data&) = delete;
+	~string_sso_data() = default;
 
-	WJR_CONSTEXPR20 vector_string_data(
+	WJR_CONSTEXPR20 string_sso_data(
 		_Alty& al,
 		const size_type _Newsize,
 		const size_type _Newcapacity,
@@ -10534,17 +11307,17 @@ struct vector_string_data : public vector_sso_data<Char, N, Alloc> {
 		: _Mybase(al, _Newsize, _Newcapacity + 1, extend_tag{}) {
 	}
 
-	WJR_CONSTEXPR20 vector_string_data(
+	WJR_CONSTEXPR20 string_sso_data(
 		_Alty& al,
 		const size_type _Newsize,
 		const size_type _Newcapacity)
 		: _Mybase(al, _Newsize, _Newcapacity + 1) {
 	}
 
-	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const vector_string_data& _Src, vector_string_data& _Dest) {
+	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const string_sso_data& _Src, string_sso_data& _Dest) {
 		const auto _Size = _Src._M_size;
 		if (!_Src.is_small()) {
-			vector_string_data data(al, _Size, _Size, extend_tag{});
+			string_sso_data data(al, _Size, _Size, extend_tag{});
 			_Dest._M_ptr = data._M_ptr;
 			_Dest._M_capacity = data._M_capacity;
 		}
@@ -10552,23 +11325,23 @@ struct vector_string_data : public vector_sso_data<Char, N, Alloc> {
 		wjr::uninitialized_copy_n(al, _Src.data(), _Src.size(), _Dest.data());
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty& al, vector_string_data&& _Src, vector_string_data& _Dest) {
+	WJR_INTRINSIC_CONSTEXPR20 static void moveConstruct(_Alty& al, string_sso_data&& _Src, string_sso_data& _Dest) {
 		return _Mybase::moveConstruct(al, std::move(_Src), _Dest);
 	}
 
-	WJR_CONSTEXPR20 static void Destroy(_Alty& al, vector_string_data& _Data) {
+	WJR_CONSTEXPR20 static void Destroy(_Alty& al, string_sso_data& _Data) {
 		return _Mybase::Destroy(al, _Data);
 	}
 
-	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, vector_string_data& _Data) {
+	WJR_CONSTEXPR20 static void Deallocate(_Alty& al, string_sso_data& _Data) {
 		return _Mybase::Deallocate(al, _Data);
 	}
 
-	WJR_CONSTEXPR20 static void Tidy(_Alty& al, vector_string_data& _Data) {
+	WJR_CONSTEXPR20 static void Tidy(_Alty& al, string_sso_data& _Data) {
 		return _Mybase::Tidy(al, _Data);
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 static void shrinkToFit(_Alty& al, vector_string_data& _Data) {
+	WJR_INTRINSIC_CONSTEXPR20 static void shrinkToFit(_Alty& al, string_sso_data& _Data) {
 		if (!_Data.is_small()) {
 			const auto _Oldsize = _Data.size();
 			const auto _Oldcapacity = _Data.capacity();
@@ -10636,6 +11409,9 @@ public:
 
 	using data_type = Data;
 
+	static_assert(std::is_pointer_v<pointer>, "");
+	static_assert(std::is_pointer_v<const_pointer>, "");
+
 	WJR_CONSTEXPR20 vector()
 		noexcept(std::is_nothrow_default_constructible_v<_Alty>
 			&& std::is_nothrow_default_constructible_v<data_type>) : _Myval() {}
@@ -10649,7 +11425,7 @@ public:
 
 	WJR_CONSTEXPR20 explicit vector(const size_type _Count, const allocator_type& al = allocator_type())
 		: vector(al) {
-		_M_construct_n(_Count, value_construct_tag{});
+		_M_construct_n(_Count, value_construct_tag());
 	}
 
 	WJR_CONSTEXPR20 vector(size_type _Count, const value_type& _Val, const allocator_type& al = allocator_type())
@@ -10733,10 +11509,8 @@ public:
 		_M_range_init(_First, _Last, typename std::iterator_traits<_Iter>::iterator_category());
 	}
 
-	WJR_CONSTEXPR20 vector(std::initializer_list<value_type> _Ilist, const allocator_type& al = allocator_type())
-		: vector(al) {
-		_M_range_init(_Ilist.begin(), _Ilist.end(), std::random_access_iterator_tag());
-	}
+	WJR_CONSTEXPR20 vector(std::initializer_list<value_type> il, const allocator_type& al = allocator_type())
+		: vector(il.begin(), il.end(), al) { }
 
 	WJR_CONSTEXPR20 ~vector() noexcept {
 		tidy();
@@ -10773,15 +11547,14 @@ public:
 			typename _Alty_traits::is_always_equal>;
 
 		if (is_likely(this != std::addressof(other))) {
-			_M_move_assign(std::move(other), type{});
+			_M_move_assign(std::move(other), type());
 		}
 
 		return *this;
 	}
 
-	WJR_CONSTEXPR20 vector& operator=(std::initializer_list<value_type> _Ilist) {
-		_M_assign_aux(_Ilist.begin(), _Ilist.end(), std::random_access_iterator_tag());
-		return *this;
+	WJR_CONSTEXPR20 vector& operator=(std::initializer_list<value_type> il) {
+		return assign(il);
 	}
 
 	WJR_CONSTEXPR20 vector& assign(size_type _Count, const value_type& _Val) {
@@ -10791,13 +11564,12 @@ public:
 
 	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
 	WJR_CONSTEXPR20 vector& assign(iter _First, iter _Last) {
-		_M_assign_aux(_First, _Last, typename std::iterator_traits<iter>::iterator_category());
+		_M_range_assign(_First, _Last, typename std::iterator_traits<iter>::iterator_category());
 		return *this;
 	}
 
-	WJR_CONSTEXPR20 vector& assign(std::initializer_list<value_type> _Ilist) {
-		_M_assign_aux(_Ilist.begin(), _Ilist.end(), std::random_access_iterator_tag());
-		return *this;
+	WJR_CONSTEXPR20 vector& assign(std::initializer_list<value_type> il) {
+		return assign(il.begin(), il.end());
 	}
 
 	WJR_INTRINSIC_CONSTEXPR20 iterator begin() noexcept {
@@ -10853,7 +11625,7 @@ public:
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type _Newsize) {
-		_M_resize(_Newsize, value_construct_tag{});
+		_M_resize(_Newsize, value_construct_tag());
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type _Newsize, const value_type& _Val) {
@@ -10980,10 +11752,8 @@ public:
 		return emplace(_Where, std::move(_Val));
 	}
 
-	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, std::initializer_list<value_type> _Ilist) {
-		const auto __old_pos = _Where - cbegin();
-		_M_range_insert(begin() + __old_pos, _Ilist.begin(), _Ilist.end(), std::random_access_iterator_tag());
-		return begin() + __old_pos;
+	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, std::initializer_list<value_type> il) {
+		return insert(_Where, il.begin(), il.end());
 	}
 
 	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, size_type _Count, const value_type& _Val) {
@@ -10999,17 +11769,17 @@ public:
 		return begin() + __old_pos;
 	}
 
-	WJR_CONSTEXPR20 iterator erase(const_iterator _Where) {
+	WJR_INLINE_CONSTEXPR20 iterator erase(const_iterator _Where) {
 		return _M_erase(begin() + (_Where - cbegin()));
 	}
 
-	WJR_CONSTEXPR20 iterator erase(const_iterator _First, const_iterator _Last) {
+	WJR_INLINE_CONSTEXPR20 iterator erase(const_iterator _First, const_iterator _Last) {
 		const auto __beg = begin();
 		const auto __cbeg = cbegin();
 		return _M_erase(__beg + (_First - __cbeg), __beg + (_Last - __cbeg));
 	}
 
-	WJR_CONSTEXPR20 void swap(vector& _Right) noexcept {
+	WJR_INLINE_CONSTEXPR20 void swap(vector& _Right) noexcept {
 		Swap(getAllocator(), getData(), _Right.getData());
 		if constexpr (_Alty_traits::propagate_on_container_swap::value) {
 			std::swap(getAllocator(), _Right.getAllocator());
@@ -11033,26 +11803,28 @@ public:
 
 	// non-standard extension functions
 
+	/*------Internal management function------*/
+
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const data_type& _Src, data_type& _Dest) 
 		noexcept(_IsNoThrowCopyConstruct) {
 		data_type::copyConstruct(al, _Src, _Dest);
 	}
 
-	WJR_CONSTEXPR20 static void moveConstruct(_Alty& al, data_type&& _Src, data_type& _Dest) 
+	WJR_INLINE_CONSTEXPR20 static void moveConstruct(_Alty& al, data_type&& _Src, data_type& _Dest)
 		noexcept(_IsNoThrowMoveConstruct) {
 		data_type::moveConstruct(al, std::move(_Src), _Dest);
 	}
 
 	template<typename _D = data_type, std::enable_if_t<
 		_Vector_helper::has_static_member_function_Swap_v<_D, _Alty&, _D&, _D&>, int> = 0>
-	WJR_CONSTEXPR20 static void Swap(_Alty& al, _D& _Left, _D& _Right)
+	WJR_INLINE_CONSTEXPR20 static void Swap(_Alty& al, _D& _Left, _D& _Right)
 		noexcept(noexcept(_D::Swap(al, _Left, _Right))) {
 		return _D::Swap(al, _Left, _Right);
 	}
 
 	template<typename _D = Data, std::enable_if_t<
 		!_Vector_helper::has_static_member_function_Swap_v<_D, _Alty&, _D&, _D&>, int> = 0>
-	WJR_CONSTEXPR20 static void Swap(_Alty& al, _D& _Left, _D& _Right)
+	WJR_INLINE_CONSTEXPR20 static void Swap(_Alty& al, _D& _Left, _D& _Right)
 		noexcept(
 			noexcept(moveConstruct(std::declval<_Alty&>(), std::declval<_D&&>(), std::declval<_D&>()))
 			&& std::is_nothrow_default_constructible_v<_D>) {
@@ -11062,7 +11834,7 @@ public:
 		moveConstruct(al, std::move(_Tmp), _Right);
 	}
 
-	WJR_CONSTEXPR20 static void Destroy(_Alty& al, data_type& _Data) {
+	WJR_INLINE_CONSTEXPR20 static void Destroy(_Alty& al, data_type& _Data) {
 		data_type::Destroy(al, _Data);
 	}
 
@@ -11073,7 +11845,6 @@ public:
 	}
 
 	WJR_CONSTEXPR20 static void Tidy(_Alty& al, data_type& _Data) {
-		WJR_ASSUME(_Data.size() <= _Data.capacity());
 		data_type::Tidy(al, _Data);
 		WJR_ASSUME(_Data.size() == 0);
 	}
@@ -11132,7 +11903,6 @@ public:
 		return getData().endPtr();
 	}
 
-
 	WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 		getData().set_size(_Size);
 	}
@@ -11141,22 +11911,67 @@ public:
 		getData().inc_size(_Size);
 	}
 
+	/*------External extension function------*/
+
+	// n must less or equal 
+	WJR_INLINE_CONSTEXPR20 vector& chop(size_t n) {
+		_M_erase_at_end(end() - n);
+		return *this;
+	}
+
+	// n <= size()
+	WJR_INLINE_CONSTEXPR20 vector& truncate(size_t n) {
+		return chop(size() - n);
+	}
+	
+	/*------default construct/value_construct------*/
+	
 	WJR_CONSTEXPR20 vector(const size_type _Count, default_construct_tag, const allocator_type& al = allocator_type())
 		: vector(al) {
-		_M_construct_n(_Count, default_construct_tag{});
+		_M_construct_n(_Count, default_construct_tag());
 	}
 
 	WJR_CONSTEXPR20 vector(const size_type _Count, value_construct_tag, const allocator_type& al = allocator_type())
 		: vector(al) {
-		_M_construct_n(_Count, value_construct_tag{});
+		_M_construct_n(_Count, value_construct_tag());
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type _Newsize, default_construct_tag) {
-		_M_resize(_Newsize, default_construct_tag{});
+		_M_resize(_Newsize, default_construct_tag());
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type _Newsize, value_construct_tag) {
-		_M_resize(_Newsize, value_construct_tag{});
+		_M_resize(_Newsize, value_construct_tag());
+	}
+
+	WJR_CONSTEXPR20 void push_back(default_construct_tag) {
+		emplace_back(default_construct_tag());
+	}
+
+	WJR_CONSTEXPR20 void push_back(value_construct_tag) {
+		emplace_back(value_construct_tag());
+	}
+
+	WJR_CONSTEXPR20 vector& append(size_t n, default_construct_tag) {
+		_M_append(n, default_construct_tag());
+		return *this;
+	}
+
+	WJR_CONSTEXPR20 vector& append(size_t n, value_construct_tag) {
+		_M_append(n, value_construct_tag());
+		return *this;
+	}
+
+	/*------------------------------------------------------------*/
+
+	WJR_INLINE_CONSTEXPR20 vector& append(const T& val) {
+		emplace_back(val);
+		return *this;
+	}
+
+	WJR_INLINE_CONSTEXPR20 vector& append(T&& val) {
+		emplace_back(std::move(val));
+		return *this;
 	}
 
 	template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
@@ -11170,109 +11985,30 @@ public:
 		return *this;
 	}
 
-	WJR_CONSTEXPR20 vector& append(size_t n, default_construct_tag) {
-		_M_append(n, default_construct_tag{});
-		return *this;
-	}
-
-	WJR_CONSTEXPR20 vector& append(size_t n, value_construct_tag) {
-		_M_append(n, value_construct_tag{});
-		return *this;
-	}
-
-	WJR_CONSTEXPR20 vector& chop(size_t n) {
-		_M_erase_at_end(end() - n);
-		return *this;
-	}
-
-	WJR_CONSTEXPR20 vector& assign(size_type _Count, const value_type& _Val, reserve_tag) {
-		_M_reserve_fill_assign(_Count, _Val);
-		return *this;
+	WJR_CONSTEXPR20 vector& append(std::initializer_list<value_type> il) {
+		return append(il.begin(), il.end());
 	}
 
 	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-	WJR_CONSTEXPR20 vector& assign(iter _First, iter _Last, reserve_tag) {
-		_M_reserve_assign_aux(_First, _Last, typename std::iterator_traits<iter>::iterator_category());
+	WJR_CONSTEXPR20 vector& replace(
+		const_iterator _Oldfirst, const_iterator _Oldlast,
+		iter _Newfirst, iter _Newlast) {
+		const auto __offset1 = static_cast<size_type>(_Oldfirst - cbegin());
+		const auto __offset2 = static_cast<size_type>(_Oldlast - cbegin());
+		_M_range_replace(begin() + __offset1, begin() + __offset2, 
+			_Newfirst, _Newlast, typename std::iterator_traits<iter>::iterator_category());
 		return *this;
 	}
 
-	WJR_CONSTEXPR20 vector& assign(std::initializer_list<value_type> _Ilist, reserve_tag) {
-		_M_reserve_assign_aux(_Ilist.begin(), _Ilist.end(), std::random_access_iterator_tag());
+	WJR_CONSTEXPR20 vector& replace(
+		const_iterator _Oldfirst, const_iterator _Oldlast,
+		const size_type _Count, const value_type& _Val
+	) {
+		const auto __offset1 = static_cast<size_type>(_Oldfirst - cbegin());
+		const auto __offset2 = static_cast<size_type>(_Oldlast - cbegin());
+		_M_fill_replace(begin() + __offset1, begin() + __offset2,
+			_Count, _Val);
 		return *this;
-	}
-
-	WJR_CONSTEXPR20 void resize(const size_type _Newsize, reserve_tag) {
-		_M_reserve_resize(_Newsize, value_construct_tag{});
-	}
-
-	WJR_CONSTEXPR20 void resize(const size_type _Newsize, const value_type& _Val, reserve_tag) {
-		_M_reserve_resize(_Newsize, _Val);
-	}
-
-	template<typename...Args>
-	WJR_INLINE_CONSTEXPR20 reference emplace_back(reserve_tag, Args&&... args) {
-		auto& al = getAllocator();
-		const auto _Mylast = lastPtr();
-		wjr::construct_at(al, _Mylast, std::forward<Args>(args)...);
-		inc_size(1);
-		return back();
-	}
-
-	WJR_INLINE_CONSTEXPR20 void push_back(const value_type& _Val, reserve_tag) {
-		emplace_back(reserve_tag{}, _Val);
-	}
-
-	WJR_INLINE_CONSTEXPR20 void push_back(value_type&& _Val, reserve_tag) {
-		emplace_back(reserve_tag{}, std::move(_Val));
-	}
-
-	template<typename...Args>
-	WJR_INLINE_CONSTEXPR20 iterator emplace(reserve_tag, const_iterator _Where, Args&&... args) {
-		return _M_reserve_emplace_aux(_Where, std::forward<Args>(args)...);
-	}
-
-	WJR_INLINE_CONSTEXPR20 iterator insert(const_iterator _Where, const value_type& _Val, reserve_tag) {
-		return emplace(reserve_tag{}, _Where, _Val);
-	}
-
-	WJR_INLINE_CONSTEXPR20 iterator insert(const_iterator _Where, value_type&& _Val, reserve_tag) {
-		return emplace(reserve_tag{}, _Where, std::move(_Val));
-	}
-
-	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, std::initializer_list<value_type> _Ilist, reserve_tag) {
-		const auto __old_pos = _Where - cbegin();
-		_M_reserve_range_insert(begin() + __old_pos, _Ilist.begin(), _Ilist.end(), std::random_access_iterator_tag());
-		return begin() + __old_pos;
-	}
-
-	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, size_type _Count, const value_type& _Val, reserve_tag) {
-		const auto __old_pos = _Where - cbegin();
-		_M_reserve_fill_insert(begin() + __old_pos, _Count, _Val);
-		return begin() + __old_pos;
-	}
-
-	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
-	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, iter _First, iter _Last, reserve_tag) {
-		const auto __old_pos = _Where - cbegin();
-		_M_reserve_range_insert(begin() + __old_pos, _First, _Last, typename std::iterator_traits<iter>::iterator_category());
-		return begin() + __old_pos;
-	}
-
-	WJR_CONSTEXPR20 void append(size_t n, const T& val, reserve_tag) {
-		_M_reserve_append(n, val);
-	}
-
-	WJR_CONSTEXPR20 void append(size_t n, default_construct_tag, reserve_tag) {
-		_M_reserve_append(n, default_construct_tag{});
-	}
-
-	WJR_CONSTEXPR20 void append(size_t n, value_construct_tag, reserve_tag) {
-		_M_reserve_append(n, value_construct_tag{});
-	}
-
-	template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
-	WJR_CONSTEXPR20 void append(_Iter _First, _Iter _Last, reserve_tag) {
-		_M_reserve_range_append(_First, _Last, typename std::iterator_traits<_Iter>::iterator_category());
 	}
 
 private:
@@ -11340,18 +12076,6 @@ private:
 	}
 
 	template<typename iter>
-	WJR_CONSTEXPR20 void _M_reserve_range_insert(iterator _Where, 
-		iter _First, iter _Last, std::input_iterator_tag) {
-		if (_Where == end()) {
-			_M_reserve_range_append(_First, _Last, std::input_iterator_tag{});
-		}
-		else if (_First != _Last) {
-			vector _Tmp(_First, _Last, getAllocator());
-			insert(_Where, _Tmp.begin(), _Tmp.end(), reserve_tag{});
-		}
-	}
-
-	template<typename iter>
 	WJR_CONSTEXPR20 void _M_range_insert(iterator _Where, iter _First, iter _Last, std::input_iterator_tag) {
 		if (_Where == end()) {
 			_M_range_append(_First, _Last, std::input_iterator_tag{});
@@ -11359,32 +12083,6 @@ private:
 		else if (_First != _Last) {
 			vector _Tmp(_First, _Last, getAllocator());
 			insert(_Where, _Tmp.begin(), _Tmp.end());
-		}
-	}
-
-	template<typename iter>
-	WJR_CONSTEXPR20 void _M_reserve_range_insert(iterator _Where, iter _First, iter _Last, std::forward_iterator_tag) {
-		if (_First != _Last) {
-			auto& al = getAllocator();
-			const pointer _Mylast = lastPtr();
-
-			const auto n = static_cast<size_type>(std::distance(_First, _Last));
-
-			const auto __elements_after = static_cast<size_type>(_Mylast - _Where);
-			auto __old_last = _Mylast;
-			if (__elements_after > n) {
-				wjr::uninitialized_move(al, _Mylast - n, _Mylast, _Mylast);
-				wjr::move_backward(_Where, __old_last - n, __old_last);
-				wjr::copy(_First, _Last, _Where);
-			}
-			else {
-				auto _Mid = _First;
-				std::advance(_Mid, __elements_after);
-				wjr::uninitialized_copy(al, _Mid, _Last, _Mylast);
-				wjr::uninitialized_move(al, _Where, __old_last, _Mylast + n - __elements_after);
-				wjr::copy(_First, _Mid, _Where);
-			}
-			inc_size(n);
 		}
 	}
 
@@ -11434,32 +12132,9 @@ private:
 	}
 
 	template<typename iter>
-	WJR_CONSTEXPR20 void _M_reserve_range_append(iter _First, iter _Last, std::input_iterator_tag) {
-		for (; _First != _Last; ++_First) {
-			emplace_back(reserve_tag{}, *_First);
-		}
-	}
-
-	template<typename iter>
 	WJR_CONSTEXPR20 void _M_range_append(iter _First, iter _Last, std::input_iterator_tag) {
 		for (; _First != _Last; ++_First) {
 			emplace_back(*_First);
-		}
-	}
-
-	template<typename iter>
-	WJR_CONSTEXPR20 void _M_reserve_range_append(iter _First, iter _Last, std::forward_iterator_tag) {
-		if (_First != _Last) {
-			auto& al = getAllocator();
-			const pointer _Myfirst = data();
-			const pointer _Mylast = lastPtr();
-			const pointer _Myend = endPtr();
-
-			const auto n = static_cast<size_type>(std::distance(_First, _Last));
-			const auto __rest = static_cast<size_type>(_Myend - _Mylast);
-
-			wjr::uninitialized_copy(al, _First, _Last, _Mylast);
-			inc_size(n);
 		}
 	}
 
@@ -11495,21 +12170,7 @@ private:
 	}
 
 	template<typename iter>
-	WJR_CONSTEXPR20 void _M_reserve_assign_aux(iter _First, iter _Last, std::input_iterator_tag) {
-		const pointer _Myfirst = data();
-		const pointer _Mylast = lastPtr();
-
-		pointer cur = _Myfirst;
-
-		for (; _First != _Last && cur != _Mylast; ++_First, ++cur) {
-			*cur = *_First;
-		}
-
-		_M_erase_at_end(cur);
-	}
-
-	template<typename iter>
-	WJR_CONSTEXPR20 void _M_assign_aux(iter _First, iter _Last, std::input_iterator_tag) {
+	WJR_CONSTEXPR20 void _M_range_assign(iter _First, iter _Last, std::input_iterator_tag) {
 		const pointer _Myfirst = data();
 		const pointer _Mylast = lastPtr();
 
@@ -11527,59 +12188,8 @@ private:
 		}
 	}
 
-	WJR_CONSTEXPR20 void _M_reserve_fill_assign(size_type _Count, const value_type& _Val) {
-		auto& al = getAllocator();
-		if (_Count > size()) {
-			wjr::fill(begin(), end(), _Val);
-			wjr::uninitialized_fill_n(al, end(), _Count - size(), _Val);
-			set_size(_Count);
-		}
-		else {
-			_M_erase_at_end(wjr::fill_n(begin(), _Count, _Val));
-		}
-	}
-
-	WJR_CONSTEXPR20 void _M_fill_assign(size_type _Count, const value_type& _Val) {
-		auto& al = getAllocator();
-		if (_Count > capacity()) {
-			tidy();
-			data_type _Newdata(al, _Count, _Count, extend_tag{});
-			moveConstruct(al, std::move(_Newdata), getData());
-			wjr::uninitialized_fill_n(al, data(), _Count, _Val);
-			return;
-		}
-		if (_Count > size()) {
-			wjr::fill(begin(), end(), _Val);
-			wjr::uninitialized_fill_n(al, end(), _Count - size(), _Val);
-			set_size(_Count);
-		}
-		else {
-			_M_erase_at_end(wjr::fill_n(begin(), _Count, _Val));
-		}
-	}
-
 	template<typename iter>
-	WJR_CONSTEXPR20 void _M_reserve_assign_aux(iter _First, iter _Last, std::forward_iterator_tag) {
-		auto _Count = static_cast<size_type>(std::distance(_First, _Last));
-		auto& al = getAllocator();
-		const pointer _Myfirst = data();
-		const pointer _Mylast = lastPtr();
-
-		if (_Count <= size()) {
-			wjr::copy(_First, _Last, _Myfirst);
-			_M_erase_at_end(_Myfirst + _Count);
-		}
-		else {
-			auto _Mid = _First;
-			std::advance(_Mid, size());
-			wjr::copy(_First, _Mid, begin());
-			wjr::uninitialized_copy(al, _Mid, _Last, _Mylast);
-			set_size(_Count);
-		}
-	}
-
-	template<typename iter>
-	WJR_CONSTEXPR20 void _M_assign_aux(iter _First, iter _Last, std::forward_iterator_tag) {
+	WJR_CONSTEXPR20 void _M_range_assign(iter _First, iter _Last, std::forward_iterator_tag) {
 		auto _Count = static_cast<size_type>(std::distance(_First, _Last));
 		auto& al = getAllocator();
 		const pointer _Myfirst = data();
@@ -11607,6 +12217,25 @@ private:
 		}
 	}
 
+	WJR_CONSTEXPR20 void _M_fill_assign(size_type _Count, const value_type& _Val) {
+		auto& al = getAllocator();
+		if (_Count > capacity()) {
+			tidy();
+			data_type _Newdata(al, _Count, _Count, extend_tag{});
+			moveConstruct(al, std::move(_Newdata), getData());
+			wjr::uninitialized_fill_n(al, data(), _Count, _Val);
+			return;
+		}
+		if (_Count > size()) {
+			wjr::fill(begin(), end(), _Val);
+			wjr::uninitialized_fill_n(al, end(), _Count - size(), _Val);
+			set_size(_Count);
+		}
+		else {
+			_M_erase_at_end(wjr::fill_n(begin(), _Count, _Val));
+		}
+	}
+
 	WJR_CONSTEXPR20 void _M_move_assign(vector&& other, std::true_type) {
 		auto& al = getAllocator();
 		tidy();
@@ -11621,7 +12250,7 @@ private:
 			_M_move_assign(std::move(other), std::true_type{});
 		}
 		else {
-			_M_assign_aux(
+			_M_range_assign(
 				std::make_move_iterator(other.begin()),
 				std::make_move_iterator(other.end()),
 				std::random_access_iterator_tag{});
@@ -11676,30 +12305,6 @@ private:
 		moveConstruct(al, std::move(_Newdata), getData());
 	}
 
-	WJR_CONSTEXPR20 void _M_reserve_fill_insert(iterator _Where, size_type n, const value_type& _Val) {
-		if (n == 0) {
-			return;
-		}
-
-		auto& al = getAllocator();
-		const pointer _Mylast = lastPtr();
-
-		temporary_allocator_value<Alloc> _Tmp(al, _Val);
-		auto& _Copy = _Tmp.value();
-		const auto __elements_after = static_cast<size_type>(_Mylast - _Where);
-		if (__elements_after > n) {
-			wjr::uninitialized_move(al, _Mylast - n, _Mylast, _Mylast);
-			wjr::move_backward(_Where, _Mylast - n, _Mylast);
-			wjr::fill_n(_Where, n, _Copy);
-		}
-		else {
-			wjr::uninitialized_fill_n(al, _Mylast, n - __elements_after, _Copy);
-			wjr::uninitialized_move(al, _Where, _Mylast, _Where + n);
-			wjr::fill(_Where, _Mylast, _Copy);
-		}
-		inc_size(n);
-	}
-
 	WJR_CONSTEXPR20 void _M_fill_insert(iterator _Where, size_type n, const value_type& _Val) {
 		if (n == 0) {
 			return;
@@ -11713,8 +12318,8 @@ private:
 		const auto __rest = static_cast<size_type>(_Myend - _Mylast);
 
 		if (__rest >= n) {
-			temporary_allocator_value<Alloc> _Tmp(al, _Val);
-			auto& _Copy = _Tmp.value();
+			const temporary_allocator_value<Alloc> _Tmp(al, _Val);
+			const auto& _Copy = _Tmp.value();
 			const auto __elements_after = static_cast<size_type>(_Mylast - _Where);
 			if (__elements_after > n) {
 				wjr::uninitialized_move(al, _Mylast - n, _Mylast, _Mylast);
@@ -11745,17 +12350,6 @@ private:
 	}
 
 	template<typename _Ty>
-	WJR_CONSTEXPR20 void _M_reserve_resize(const size_type _Newsize, const _Ty& _Val) {
-		const auto _Oldsize = size();
-		if (_Newsize > _Oldsize) {
-			_M_reserve_append(_Newsize - _Oldsize, _Val);
-		}
-		else if (_Newsize < _Oldsize) {
-			_M_erase_at_end(data() + _Newsize);
-		}
-	}
-
-	template<typename _Ty>
 	WJR_CONSTEXPR20 void _M_resize(const size_type _Newsize, const _Ty& _Val) {
 		const auto _Oldsize = size();
 		if (_Newsize > _Oldsize) {
@@ -11764,20 +12358,6 @@ private:
 		else if (_Newsize < _Oldsize) {
 			_M_erase_at_end(data() + _Newsize);
 		}
-	}
-
-	template<typename _Ty>
-	WJR_CONSTEXPR20 void _M_reserve_append(size_type n, const _Ty& _Val) {
-		auto& al = getAllocator();
-
-		const auto _Oldsize = size();
-
-		const pointer _Myfirst = data();
-		const pointer _Mylast = _Myfirst + _Oldsize;
-		const auto _Newsize = _Oldsize + n;
-
-		wjr::uninitialized_fill_n(al, _Mylast, n, _Val);
-		set_size(_Newsize);
 	}
 
 	template<typename _Ty>
@@ -11824,25 +12404,6 @@ private:
 	}
 
 	template<typename...Args>
-	WJR_CONSTEXPR20 iterator _M_reserve_emplace_aux(const_iterator _Where, Args&&...args) {
-		const auto __offset = _Where - cbegin();
-
-		auto& al = getAllocator();
-		const pointer _Mylast = lastPtr();
-
-		if (_Where == _Mylast) {
-			wjr::construct_at(al, _Mylast, std::forward<Args>(args)...);
-			inc_size(1);
-		}
-		else {
-			temporary_allocator_value<Alloc> _Tmp(al, std::forward<Args>(args)...);
-			_M_insert_aux(begin() + __offset, std::move(_Tmp.value()));
-		}
-
-		return begin() + __offset;
-	}
-
-	template<typename...Args>
 	WJR_CONSTEXPR20 iterator _M_emplace_aux(const_iterator _Where, Args&&...args) {
 		const auto __offset = _Where - cbegin();
 
@@ -11867,6 +12428,129 @@ private:
 		return begin() + __offset;
 	}
 
+	template<typename iter>
+	WJR_CONSTEXPR20 void _M_range_replace(
+		iterator _Oldfirst, iterator _Oldlast,
+		iter _Newfirst, iter _Newlast, std::input_iterator_tag
+	) {
+		for (; _Oldfirst != _Oldlast && _Newfirst != _Newlast; ++_Oldfirst, ++_Newfirst) {
+			*_Oldfirst = *_Newfirst;
+		}
+
+		if (_Newfirst == _Newlast) {
+			_M_erase_at_end(_Oldfirst, _Oldlast);
+		}
+		else {
+			_M_range_insert(_Oldlast, _Newfirst, _Newlast, std::input_iterator_tag());
+		}
+	}
+
+	template<typename iter>
+	WJR_CONSTEXPR20 void _M_range_replace(
+		iterator _Oldfirst, iterator _Oldlast,
+		iter _Newfirst, iter _Newlast, std::forward_iterator_tag
+	) {
+		const auto __n = static_cast<size_type>(_Oldlast - _Oldfirst);
+		const auto __m = static_cast<size_type>(std::distance(_Newfirst, _Newlast));
+
+		if (__m <= __n) {
+			erase(wjr::copy_n(_Newfirst, __m, _Oldfirst), _Oldlast);
+		}
+		else {
+			const auto __delta = __m - __n;
+
+			auto& al = getAllocator();
+			const auto _Myfirst = data();
+			const auto _Mylast = lastPtr();
+			const auto _Myend = endPtr();
+			
+			const auto __rest = static_cast<size_type>(_Myend - _Mylast);
+
+			if (__rest >= __delta) {
+				const auto __elements_after = static_cast<size_type>(_Mylast - _Oldfirst);
+				if (__elements_after > __m) {
+					wjr::uninitialized_move(al, _Mylast - __delta, _Mylast, _Mylast);
+					wjr::move_backward(_Oldlast, _Mylast - __delta, _Mylast);
+					wjr::copy(_Newfirst, _Newlast, _Oldfirst);
+				}
+				else {
+					auto _Mid = _Newfirst;
+					std::advance(_Mid, __elements_after);
+					wjr::uninitialized_copy(al, _Mid, _Newlast, _Mylast);
+					wjr::uninitialized_move(al, _Oldlast, _Mylast, _Oldfirst + __m);
+					wjr::copy(_Newfirst, _Mid, _Oldfirst);
+				}
+				inc_size(__delta);
+			}
+			else {
+				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
+				const auto __old_pos = static_cast<size_type>(_Oldfirst - _Myfirst);
+				const auto _Newcapacity = getGrowthCapacity(capacity(), __old_size + __delta);
+				data_type _Newdata(al, __old_size + __delta, _Newcapacity, extend_tag{});
+				const pointer _Ptr = _Newdata.data();
+
+				wjr::uninitialized_copy(al, _Newfirst, _Newlast, _Ptr + __old_pos);
+				wjr::uninitialized_move(al, _Myfirst, _Oldfirst, _Ptr);
+				wjr::uninitialized_move(al, _Oldlast, _Mylast, _Ptr + __old_pos + __m);
+
+				tidy();
+				moveConstruct(al, std::move(_Newdata), getData());
+			}
+		}
+	}
+
+	WJR_CONSTEXPR20 void _M_fill_replace(
+		iterator _Oldfirst, iterator _Oldlast, 
+		size_type __m, const value_type& _Val) {
+
+		const auto __n = static_cast<size_type>(_Oldlast - _Oldfirst);
+
+		if (__m <= __n) {
+			erase(wjr::fill_n(_Oldfirst, __m, _Val), _Oldlast);
+		}
+		else {
+			const auto __delta = __m - __n;
+
+			auto& al = getAllocator();
+			const auto _Myfirst = data();
+			const auto _Mylast = lastPtr();
+			const auto _Myend = endPtr();
+
+			const auto __rest = static_cast<size_type>(_Myend - _Mylast);
+
+			if (__rest >= __delta) {
+				const temporary_allocator_value<Alloc> _Tmp(al, _Val);
+				const auto& _Copy = _Tmp.value();
+				const auto __elements_after = static_cast<size_type>(_Mylast - _Oldfirst);
+				if (__elements_after > __m) {
+					wjr::uninitialized_move(al, _Mylast - __delta, _Mylast, _Mylast);
+					wjr::move_backward(_Oldlast, _Mylast - __delta, _Mylast);
+					wjr::fill_n(_Oldfirst, __m, _Copy);
+				}
+				else {
+					wjr::uninitialized_fill_n(al, _Mylast, __m - __elements_after, _Copy);
+					wjr::uninitialized_move(al, _Oldlast, _Mylast, _Oldfirst + __m);
+					wjr::fill(_Oldfirst, _Mylast, _Copy);
+				}
+				inc_size(__delta);
+			}
+			else {
+				const auto __old_size = static_cast<size_type>(_Mylast - _Myfirst);
+				const auto __old_pos = static_cast<size_type>(_Oldfirst - _Myfirst);
+				const auto _Newcapacity = getGrowthCapacity(capacity(), __old_size + __delta);
+				data_type _Newdata(al, __old_size + __delta, _Newcapacity, extend_tag{});
+				const pointer _Ptr = _Newdata.data();
+
+				wjr::uninitialized_fill_n(al, _Ptr + __old_pos, __m, _Val);
+				wjr::uninitialized_move(al, _Myfirst, _Oldfirst, _Ptr);
+				wjr::uninitialized_move(al, _Oldlast, _Mylast, _Ptr + __old_pos + __m);
+
+				tidy();
+				moveConstruct(al, std::move(_Newdata), getData());
+			}
+		}
+	}
+
 private:
 	wjr::compressed_pair<_Alty, data_type> _Myval;
 };
@@ -11883,9 +12567,6 @@ using static_vector = vector<T, Alloc, vector_static_data<T, N, Alloc>>;
 
 template<typename T, size_t N, typename Alloc = std::allocator<T>>
 using sso_vector = vector<T, Alloc, vector_sso_data<T, N, Alloc>>;
-
-template<typename T, size_t N, typename Alloc = std::allocator<T>>
-using string_vector = vector<T, Alloc, vector_string_data<T, N, Alloc>>;
 
 template<typename T, typename Alloc, typename Data>
 bool operator==(const vector<T, Alloc, Data>& lhs, const vector<T, Alloc, Data>& rhs) {
@@ -11947,27 +12628,17 @@ namespace std {
 #pragma pop_macro("new")
 
 #endif // !__WJR_VECTOR_H
+#pragma once
+#ifndef __WJR_FUNCTIONAL_H
+#define __WJR_FUNCTIONAL_H
 
-#include <stdio.h>
+#include <functional>
 
 _WJR_BEGIN
-#if defined(WJR_TEST_ALLOCATOR)
-__test_allocator::~__test_allocator() {
-	if (_Count != 0) {
-		printf("memory leak: %lld bytes", _Count);
-	}
-}
-__test_allocator __test_allocator_instance;
-#endif
+
 _WJR_END
 
-
-#pragma once
-#ifndef __WJR_STRING_H
-#define __WJR_STRING_H
-
-#include <string_view>
-#include <iostream>
+#endif // __WJR_FUNCTIONAL_H
 
 _WJR_BEGIN
 
@@ -11984,10 +12655,675 @@ enum CaseSensitivity {
 	CaseInsensitive = 1
 };
 
-template<typename Char, typename Alloc = std::allocator<int>>
+template<typename Char>
+class basic_string_view {
+
+	using _Std_view_type = std::basic_string_view<Char, std::char_traits<Char>>;
+
+	template<typename T>
+	struct _Is_string_view_like : std::conjunction<
+		std::is_convertible<const T&, basic_string_view>
+	> {};
+
+	template<typename T>
+	constexpr static bool _Is_string_view_like_v = _Is_string_view_like<T>::value;
+
+	template<typename T>
+	struct _Is_noptr_std_string_view_like : std::conjunction<
+		std::is_convertible<const T&, _Std_view_type>,
+		std::negation<std::is_convertible<const T&, const Char*>>
+	> {};
+
+	template<typename T>
+	constexpr static bool _Is_noptr_std_string_view_like_v = _Is_noptr_std_string_view_like<T>::value;
+
+	template<typename T>
+	struct _Is_noptr_string_view_like : std::conjunction<
+		_Is_string_view_like<T>,
+		std::negation<std::is_convertible<const T&, const Char*>>
+	> {};
+
+	template<typename T>
+	constexpr static bool _Is_noptr_string_view_like_v = _Is_noptr_string_view_like<T>::value;
+public:
+	static_assert(!std::is_array_v<Char>&& std::is_trivial_v<Char>&& std::is_standard_layout_v<Char>,
+		"The character type of basic_string_view must be a non-array trivial standard-layout type. See N4910 "
+		"23.1 [strings.general]/1.");
+
+	using traits_type = std::char_traits<Char>;
+	using value_type = Char;
+	using pointer = Char*;
+	using const_pointer = const Char*;
+	using reference = Char&;
+	using const_reference = const Char&;
+	using const_iterator = const Char*;
+	using iterator = const_iterator;
+	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+	using reverse_iterator = const_reverse_iterator;
+	using size_type = size_t;
+	using difference_type = ptrdiff_t;
+
+	static constexpr auto npos = static_cast<size_type>(-1);
+private:
+
+	constexpr static size_type traits_length(const value_type* s) {
+		return std::char_traits<value_type>::length(s);
+	}
+public:
+
+	WJR_INTRINSIC_CONSTEXPR basic_string_view() noexcept : _Mydata(), _Mysize(0) {}
+
+	WJR_INTRINSIC_CONSTEXPR basic_string_view(const basic_string_view&) noexcept = default;
+	WJR_INTRINSIC_CONSTEXPR basic_string_view& operator=(const basic_string_view&) noexcept = default;
+
+	WJR_INLINE_CONSTEXPR basic_string_view(const const_pointer ptr)
+		: _Mydata(ptr), _Mysize(traits_length(ptr)) {}
+
+	WJR_INTRINSIC_CONSTEXPR basic_string_view(
+		const const_pointer ptr, const size_type n)
+		: _Mydata(ptr), _Mysize(n) {}
+
+private:
+	WJR_INTRINSIC_CONSTEXPR basic_string_view(_Std_view_type s, disable_tag) noexcept
+		: _Mydata(s.data()), _Mysize(s.size()) {}
+public:
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_std_string_view_like_v<StringView>, int> = 0>
+	WJR_INTRINSIC_CONSTEXPR basic_string_view(const StringView& t) noexcept
+		: basic_string_view(_Std_view_type(t), disable_tag{}) {}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR operator _Std_view_type() const noexcept {
+		return { data(), size() };
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_iterator begin() const noexcept {
+		return const_iterator(_Mydata);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_iterator end() const noexcept {
+		return const_iterator(_Mydata + _Mysize);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_iterator cbegin() const noexcept {
+		return begin();
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_iterator cend() const noexcept {
+		return end();
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reverse_iterator rbegin() const noexcept {
+		return const_reverse_iterator{ end() };
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reverse_iterator rend() const noexcept {
+		return const_reverse_iterator{ begin() };
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reverse_iterator crbegin() const noexcept {
+		return rbegin();
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reverse_iterator crend() const noexcept {
+		return rend();
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR size_type size() const noexcept {
+		return _Mysize;
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR size_type length() const noexcept {
+		return _Mysize;
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR bool empty() const noexcept {
+		return _Mysize == 0;
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_pointer data() const noexcept {
+		return _Mydata;
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR size_type max_size() const noexcept {
+		return std::min(static_cast<size_t>(PTRDIFF_MAX), static_cast<size_t>(-1) / sizeof(Char));
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reference operator[](const size_type off) const noexcept  {
+		return _Mydata[off];
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reference at(const size_type off) const {
+		if(off >= size()){
+			throw std::out_of_range("error at basic_string_view::at");
+		}
+		return _Mydata[off];
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reference front() const noexcept {
+		return _Mydata[0];
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR const_reference back() const noexcept {
+		return _Mydata[_Mysize - 1];
+	}
+
+	WJR_INTRINSIC_CONSTEXPR void remove_prefix(const size_type n) noexcept  {
+		_Mydata += n;
+		_Mysize -= n;
+	}
+
+	WJR_INTRINSIC_CONSTEXPR void remove_suffix(const size_type n) noexcept {
+		_Mysize -= n;
+	}
+
+	WJR_INTRINSIC_CONSTEXPR void swap(basic_string_view& other) noexcept {
+		const basic_string_view tmp{ other }; 
+		other = *this;
+		*this = tmp;
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR basic_string_view substr(
+		const size_type off = 0, size_type n = npos) const WJR_NOEXCEPT	{
+#if defined(_WJR_EXCEPTION)
+		if (is_likely(off <= size())) {
+#endif // _WJR_EXCEPTION
+			return noexcept_substr(off, n);
+#if defined(_WJR_EXCEPTION)
+		}
+		throw std::out_of_range("out of range at basic_string_view::substr");
+#endif // _WJR_EXCEPTION
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const StringView& t) const noexcept {
+		const auto sv = view(t);
+		if constexpr (std::is_same_v<Char, char>) {
+			return wjr::compare(
+				reinterpret_cast<const uint8_t*>(begin()),
+				reinterpret_cast<const uint8_t*>(end()),
+				reinterpret_cast<const uint8_t*>(sv.begin()),
+				reinterpret_cast<const uint8_t*>(sv.end())
+			);
+		}
+		else {
+			return wjr::compare(begin(), end(), sv.begin(), sv.end());
+		}
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off, const size_type n, const StringView& t) 
+		const WJR_NOEXCEPT {
+		return except_view(*this, off, n).compare(t);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1, const StringView& t,
+		const size_type off2, const size_type n2) 
+		const WJR_NOEXCEPT {
+		return except_view(*this, off1, n1).compare(except_view(t, off2, n2));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const Char* const ptr) const {
+		return compare(view(ptr));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off, const size_type n, const Char* const ptr) const {
+		return except_view(*this, off, n).compare(view(ptr));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1,
+		const Char* const ptr, const size_type n2) const {
+		return except_view(*this, off1, n1).compare(except_view(ptr, n2));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool starts_with(const StringView& t) const noexcept {
+		const auto sv = view(t);
+		return prefix(sv.size()).equal(sv);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool starts_with(const Char ch) const noexcept {
+		return !empty() && traits_type::eq(front(), ch);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool starts_with(const Char* const other) const {
+		return starts_with(view(other));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool ends_with(const StringView& t) const noexcept {
+		const auto sv = view(t);
+		return suffix(sv.size()).equal(sv);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool ends_with(const Char ch) const noexcept {
+		return !empty() && traits_type::eq(back(), ch);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool ends_with(const Char* const other) const {
+		return ends_with(view(other));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool contains(const StringView& t) const noexcept {
+		return find(t) != npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool contains(const Char other) const noexcept {
+		return find(other) != npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool contains(const Char* const other) const {
+		return find(other) != npos;
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const StringView& t, const size_type off = 0) const noexcept {
+		if (is_likely(off <= size())) {
+			const auto sv1 = view(*this, off);
+			const auto sv2 = view(t);
+			auto iter = wjr::search(sv1.begin(), sv1.end(), sv2.begin(), sv2.end());
+			return iter == end() ? npos : static_cast<size_type>(iter - begin());
+		}
+		return npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const Char ch, const size_type off = 0) const noexcept {
+		if (is_likely(off <= size())) {
+			const auto sv = view(*this, off);
+			auto iter = wjr::find(sv.begin(), sv.end(), ch);
+			return iter == end() ? npos : static_cast<size_type>(iter - begin());
+		}
+		return npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const Char* const ptr, const size_type off,
+		const size_type n) const {
+		return find(view(ptr, n), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const Char* const ptr, const size_type off = 0)
+		const {
+		return find(view(ptr), off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const StringView& t, const size_type off = npos) const noexcept {
+		if (is_likely(size() != 0)) {
+			const auto sv1 = view(*this, 0, std::min(off, size() - 1) + 1);
+			const auto sv2 = view(t);
+			auto iter = wjr::search(sv1.rbegin(), sv1.rend(),
+				sv2.rbegin(), sv2.rend());
+			return iter == rend() ? npos : static_cast<size_type>(rend() - iter) - sv2.size();
+		}
+		return npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const Char ch, const size_type off = npos) const noexcept {
+		if (is_likely(size() != 0)) {
+			const auto sv = view(*this, 0, std::min(off, size() - 1) + 1);
+			auto iter = wjr::find(sv.rbegin(), sv.rend(), ch);
+			return iter == rend() ? npos : static_cast<size_type>(rend() - iter) - 1;
+		}
+		return npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const Char* const ptr, const size_type off,
+		const size_type n) const {
+		return rfind(view(ptr, n), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const Char* const ptr, const size_type off = npos)
+		const {
+		return rfind(view(ptr), off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(const StringView& t,
+		const size_type off = 0) const noexcept { 
+		auto sv = _Std_view_type(view(t));
+		return _Std_view_type(*this).find_first_of(sv, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(const Char ch, const size_type off = 0) const noexcept {
+		return find(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(const Char* const ptr, const size_type off,
+		const size_type n) const {
+		return find_first_of(view(ptr, n), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(
+		const Char* const ptr, const size_type off = 0) const  {
+		return find_first_of(view(ptr), off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(const StringView& t,
+		const size_type off = npos) const noexcept { 
+		const auto sv = _Std_view_type(view(t));
+		return _Std_view_type(*this).find_last_of(sv, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(const Char ch, const size_type off = npos) const noexcept {
+		return rfind(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(const Char* const ptr, const size_type off,
+		const size_type n) const {
+		return find_last_of(view(ptr, n), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(
+		const Char* const ptr, const size_type off = npos) const {
+		return find_last_of(view(ptr), off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(const StringView& t,
+		const size_type off = 0) const noexcept { 
+		const auto sv = _Std_view_type(view(t));
+		return _Std_view_type(*this).find_first_not_of(sv, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(const Char ch, const size_type off = 0) const noexcept {
+		if (is_likely(off <= size())) {
+			const auto sv = view(*this, off);
+			auto iter = wjr::find(sv.begin(), sv.end(), ch, std::not_equal_to<>{});
+			return iter == end() ? npos : static_cast<size_type>(iter - begin());
+		}
+		return npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(const Char* const ptr, const size_type off,
+		const size_type n) const  {
+		return find_first_not_of(view(ptr, n), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(
+		const Char* const ptr, const size_type off = 0) const  {
+		return find_first_not_of(view(ptr), off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(const StringView& t,
+		const size_type off = npos) const noexcept { 
+		const auto sv = _Std_view_type(view(t));
+		return _Std_view_type(*this).find_last_not_of(sv, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(const Char ch, const size_type off = npos) const noexcept {
+		if (is_likely(size() != 0)) {
+			const auto sv = view(*this, 0, std::min(off, size() - 1) + 1);
+			auto iter = wjr::find(sv.rbegin(), sv.rend(), ch, std::not_equal_to<>{});
+			return iter == rend() ? npos : static_cast<size_type>(rend() - iter) - 1;
+		}
+		return npos;
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(const Char* const ptr, const size_type off,
+		const size_type count) const  {
+		return find_last_not_of(view(ptr, count), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(
+		const Char* const ptr, const size_type off = npos) const  {
+		return find_last_not_of(view(ptr), off);
+	}
+
+	// non-standard extension functions
+	
+	/*------External extension function------*/
+
+	// no exception
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR basic_string_view 
+		noexcept_substr(const size_type off = 0, size_type n = npos) const noexcept {
+		n = std::min(n, _Mysize - off);
+		return basic_string_view(_Mydata + off, n);
+	}
+
+	// no exception view
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR static basic_string_view view(
+		const value_type* s, const size_type n) noexcept {
+		return basic_string_view(s, n);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR static basic_string_view view(
+		const value_type* s) noexcept {
+		return basic_string_view(s);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR static basic_string_view view(
+		std::initializer_list<value_type> il) noexcept {
+		return view(il.begin(), il.size());
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR static basic_string_view view(const StringView& t) noexcept {
+		return basic_string_view(t);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR static basic_string_view view(const StringView& t,
+		const size_type off, const size_type n = npos) noexcept {
+		return view(t).noexcept_substr(off, n);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR basic_string_view view() const noexcept {
+		return *this;
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR static basic_string_view except_view(const StringView& t,
+		const size_type off, const size_type n = npos) WJR_NOEXCEPT {
+		return view(t).substr(off, n);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR basic_string_view prefix(size_type n) const noexcept {
+		n = std::min(n, size());
+		return basic_string_view(begin(), n);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR basic_string_view suffix(size_type n) const noexcept {
+		n = std::min(n, size());
+		return basic_string_view(end() - n, n);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const StringView& t) const noexcept {
+		const auto sv = view(t);
+		return wjr::equal(begin(), end(), sv.begin(), sv.end());
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off, const size_type n, const StringView& t) 
+		const WJR_NOEXCEPT {
+		return except_view(*this, off, n).equal(view(t));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off1, const size_type n1, const StringView& t,
+		const size_type off2, const size_type n2) const WJR_NOEXCEPT {
+		return except_view(*this, off1, n1).equal(except_view(t, off2, n2));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const Char* const ptr) const {
+		return equal(view(ptr));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off, const size_type n, const Char* const ptr) const {
+		return equal(off, n, view(ptr));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off1, const size_type n1,
+		const Char* const ptr, const size_type n2) const {
+		return equal(off1, n1, view(ptr, n2));
+	}
+
+	// user-defined eq/lt
+
+private:
+
+	const_pointer _Mydata;
+	size_type _Mysize;
+};
+
+template<typename Char>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(const basic_string_view<Char> lhs, const basic_string_view<Char> rhs) noexcept {
+	return lhs.equal(rhs);
+}
+
+template<typename Char, int = 1>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(
+	const type_identity_t<basic_string_view<Char>> lhs, 
+	const basic_string_view<Char> rhs) noexcept {
+	return lhs.equal(rhs);
+}
+
+template<typename Char, int = 2>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(
+	const basic_string_view<Char> lhs, 
+	const type_identity_t<basic_string_view<Char>> rhs) noexcept {
+	return lhs.equal(rhs);
+}
+
+template<typename Char>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator!=(const basic_string_view<Char> lhs, const basic_string_view<Char> rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+template<typename Char, int = 1>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator!=(
+	const type_identity_t<basic_string_view<Char>> lhs,
+	const basic_string_view<Char> rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+template<typename Char, int = 2>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator!=(
+	const basic_string_view<Char> lhs,
+	const type_identity_t<basic_string_view<Char>> rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+template<typename Char>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<(const basic_string_view<Char> lhs, const basic_string_view<Char> rhs) noexcept {
+	return lhs.compare(rhs) < 0;
+}
+
+template<typename Char, int = 1>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<(
+	const type_identity_t<basic_string_view<Char>> lhs,
+	const basic_string_view<Char> rhs) noexcept {
+	return lhs.compare(rhs) < 0;
+}
+
+template<typename Char, int = 2>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<(
+	const basic_string_view<Char> lhs,
+	const type_identity_t<basic_string_view<Char>> rhs) noexcept {
+	return lhs.compare(rhs) < 0;
+}
+
+
+template<typename Char>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>(const basic_string_view<Char> lhs, const basic_string_view<Char> rhs) noexcept {
+	return rhs < lhs;
+}
+
+template<typename Char, int = 1>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>(
+	const type_identity_t<basic_string_view<Char>> lhs,
+	const basic_string_view<Char> rhs) noexcept {
+	return rhs < lhs;
+}
+
+template<typename Char, int = 2>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>(
+	const basic_string_view<Char> lhs,
+	const type_identity_t<basic_string_view<Char>> rhs) noexcept {
+	return rhs < lhs;
+}
+
+template<typename Char>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<=(const basic_string_view<Char> lhs, const basic_string_view<Char> rhs) noexcept {
+	return !(rhs < lhs);
+}
+
+template<typename Char, int = 1>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<=(
+	const type_identity_t<basic_string_view<Char>> lhs,
+	const basic_string_view<Char> rhs) noexcept {
+	return !(rhs < lhs);
+}
+
+template<typename Char, int = 2>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<=(
+	const basic_string_view<Char> lhs,
+	const type_identity_t<basic_string_view<Char>> rhs) noexcept {
+	return !(rhs < lhs);
+}
+
+template<typename Char>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>=(const basic_string_view<Char> lhs, const basic_string_view<Char> rhs) noexcept {
+	return !(lhs < rhs);
+}
+
+template<typename Char, int = 1>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>=(
+	const type_identity_t<basic_string_view<Char>> lhs,
+	const basic_string_view<Char> rhs) noexcept {
+	return !(lhs < rhs);
+}
+
+template<typename Char, int = 2>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>=(
+	const basic_string_view<Char> lhs,
+	const type_identity_t<basic_string_view<Char>> rhs) noexcept {
+	return !(lhs < rhs);
+}
+
+using string_view = basic_string_view<char>;
+#if defined(WJR_CHAR8_T)
+using u8string_view = basic_string_view<char8_t>;
+#endif // WJR_CHAR8_T
+using u16string_view = basic_string_view<char16_t>;
+using u32string_view = basic_string_view<char32_t>;
+using wstring_view = basic_string_view<wchar_t>;
+
+namespace literals {
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR string_view operator""_sv(const char* str, size_t len) noexcept {
+		return string_view(str, len);
+	}
+#if defined(WJR_CHAR8_T)
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR u8string_view operator""_sv(const char8_t* str, size_t len) noexcept {
+		return u8string_view(str, len);
+	}
+#endif // WJR_CHAR8_T
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR u16string_view operator""_sv(const char16_t* str, size_t len) noexcept {
+		return u16string_view(str, len);
+	}
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR u32string_view operator""_sv(const char32_t* str, size_t len) noexcept {
+		return u32string_view(str, len);
+	}
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR wstring_view operator""_sv(const wchar_t* str, size_t len) noexcept {
+		return wstring_view(str, len);
+	}
+}
+
+template<typename Char>
+std::basic_ostream<Char, std::char_traits<Char>>& operator<<(
+	std::basic_ostream<Char, std::char_traits<Char>>& os, wjr::basic_string_view<Char> sv) {
+	return (os << (std::basic_string_view<Char, std::char_traits<Char>>)(sv));
+}
+
+template<typename Char, typename Alloc = std::allocator<Char>, 
+	typename Data = string_sso_data<Char, std::max(size_t(1), size_t(16 / sizeof(Char))), Alloc>>
 class basic_string {
 public:
-	using traits_type = std::char_traits<char>;
+	using traits_type = std::char_traits<Char>;
 	using allocator_type = Alloc;
 
 	using value_type = Char;
@@ -12005,15 +13341,22 @@ public:
 	using reverse_iterator = std::reverse_iterator<iterator>;
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-	constexpr static size_type npos = std::numeric_limits<size_type>::max();
+	constexpr static size_type npos = static_cast<size_type>(-1);
 
-	using vector_type = wjr::string_vector<Char, 16 / sizeof(Char), Alloc>;
+	using vector_type = wjr::vector<Char, Alloc, Data>;
 	using data_type = typename vector_type::data_type;
-	using view_type = std::basic_string_view<Char, traits_type>;
+	using view_type = wjr::basic_string_view<Char>;
 
 	using _Alty = typename vector_type::_Alty;
 	using _Alty_traits = typename vector_type::_Alty_traits;
 
+	static_assert(std::is_same_v<iterator, typename vector_type::iterator>, "");
+	static_assert(std::is_same_v<const_iterator, typename vector_type::const_iterator>, "");
+	static_assert(std::is_same_v<const_iterator, typename view_type::const_iterator>, "");
+	//static_assert(!std::is_array_v<Char>&& std::is_trivial_v<Char> && std::is_standard_layout_v<Char>, "");
+	static_assert(std::is_trivially_destructible_v<Char>, "");
+
+private:
 	template<typename T>
 	struct _Is_string_view_like : std::conjunction<
 		std::is_convertible<const T&, view_type>
@@ -12031,15 +13374,9 @@ public:
 	template<typename T>
 	constexpr static bool _Is_noptr_string_view_like_v = _Is_noptr_string_view_like<T>::value;
 
-private:
-
-	constexpr static size_type traits_length(const value_type* s) {
-		return std::char_traits<char>::length(s);
-	}
-
 public:
 
-	WJR_CONSTEXPR20 basic_string()
+	WJR_CONSTEXPR20 basic_string() 
 		noexcept(std::is_nothrow_default_constructible_v<vector_type>)
 		: m_core() {
 		set_end();
@@ -12063,11 +13400,13 @@ public:
 	WJR_CONSTEXPR20 basic_string(basic_string&& other)
 		: m_core(std::move(other.m_core)) {
 		set_end();
+		other.set_end();
 	}
 
 	WJR_CONSTEXPR20 basic_string(basic_string&& other, const allocator_type& al)
 		: m_core(std::move(other.m_core), al) {
 		set_end();
+		other.set_end();
 	}
 
 	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
@@ -12076,31 +13415,32 @@ public:
 		set_end();
 	}
 
-	WJR_CONSTEXPR20 basic_string(const basic_string& other, const size_type pos, const allocator_type& al = allocator_type())
-		: basic_string(other.begin() + pos, other.end(), al) {}
+	WJR_CONSTEXPR20 basic_string(const basic_string& other, 
+		const size_type off, const allocator_type& al = allocator_type())
+		: basic_string(except_view(other, off), al) {}
 
-	WJR_CONSTEXPR20 basic_string(const basic_string& other,
-		const size_type pos, const size_type n, const allocator_type& al = allocator_type())
-		: basic_string(other.begin() + pos, other.begin() + std::min(n, other.size() - pos), al) {}
+	WJR_CONSTEXPR20 basic_string(const basic_string& other, 
+		const size_type off, const size_type n, const allocator_type& al = allocator_type())
+		: basic_string(except_view(other, off, n), al) {}
 
 	WJR_CONSTEXPR20 basic_string(const value_type* s, const size_type n, const allocator_type& al = allocator_type())
-		: basic_string(s, s + n, al) {}
+		: basic_string(view(s, n), al) {}
 
 	WJR_CONSTEXPR20 basic_string(const value_type* s, const allocator_type& al = allocator_type())
-		: basic_string(s, traits_length(s), al) {}
+		: basic_string(view(s), al) {}
 
 	WJR_CONSTEXPR20 basic_string(std::initializer_list<value_type> il, const allocator_type& al = allocator_type())
-		: basic_string(il.begin(), il.end(), al) {}
+		: basic_string(view(il), al) {}
 
 private:
 	WJR_CONSTEXPR20 basic_string(view_type sv, const allocator_type& al, disable_tag)
-		: basic_string(sv.data(), sv.size(), al) {}
+		: basic_string(sv.data(), sv.data() + sv.size(), al) {}
 
 	WJR_CONSTEXPR20 basic_string(
 		view_type sv,
-		const size_type pos, const size_type n,
+		const size_type off, const size_type n,
 		const allocator_type& al, disable_tag)
-		: basic_string(sv.data(), std::min(n, sv.size() - pos), al) {}
+		: basic_string(except_view(sv, off, n), al) {}
 public:
 
 	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
@@ -12108,10 +13448,10 @@ public:
 		:basic_string(view_type(t), al, disable_tag{}) {}
 
 	template<typename StringView, std::enable_if_t<_Is_string_view_like_v<StringView>, int> = 0>
-	explicit basic_string(const StringView& t,
-		const size_type pos, const size_type n,
+	explicit basic_string(const StringView& t, 
+		const size_type off, const size_type n, 
 		const allocator_type& al = allocator_type())
-		: basic_string(view_type(t), pos, n, al, disable_tag{}) {}
+		: basic_string(view_type(t), off, n, al, disable_tag{}) {}
 
 	WJR_CONSTEXPR20 explicit basic_string(const size_type n,
 		const value_type c = value_type(), const allocator_type& al = allocator_type())
@@ -12120,6 +13460,10 @@ public:
 	}
 
 	WJR_CONSTEXPR20 operator view_type() const noexcept {
+		return { data(), size()};
+	}
+
+	WJR_CONSTEXPR20 operator std::basic_string_view<Char, traits_type>() const noexcept {
 		return { data(), size() };
 	}
 
@@ -12128,7 +13472,6 @@ public:
 	WJR_CONSTEXPR20 basic_string& operator=(const basic_string& other) {
 
 		if (is_likely(this != std::addressof(other))) {
-			remove_end();
 			m_core = other.m_core;
 			set_end();
 		}
@@ -12139,11 +13482,11 @@ public:
 	WJR_CONSTEXPR20 basic_string& operator=(basic_string&& other) noexcept {
 
 		if (is_likely(this != std::addressof(other))) {
-			remove_end();
-			m_core = std::move(m_core);
+			m_core = std::move(other.m_core);
 			set_end();
+			other.set_end();
 		}
-
+		
 		return *this;
 	}
 
@@ -12152,13 +13495,12 @@ public:
 	}
 
 	WJR_CONSTEXPR20 basic_string& operator=(std::initializer_list<value_type> il) {
-		return assign(il.begin(), il.end());
+		return assign(il);
 	}
 
 	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& operator=(const StringView& t) {
-		auto sv = view_type(t);
-		return assign(sv.data(), sv.size());
+		return assign(t);
 	}
 
 	WJR_CONSTEXPR20 basic_string& operator=(const value_type c) {
@@ -12195,25 +13537,21 @@ public:
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type n) {
-		remove_end();
 		m_core.resize(n);
 		set_end();
 	}
 
 	WJR_CONSTEXPR20 void resize(const size_type n, const value_type c) {
-		remove_end();
 		m_core.resize(n, c);
 		set_end();
 	}
 
 	WJR_CONSTEXPR20 void reserve(const size_type c) {
-		remove_end();
 		m_core.reserve(c);
 		set_end();
 	}
 
 	WJR_CONSTEXPR20 void shrink_to_fit() {
-		remove_end();
 		m_core.shrink_to_fit();
 		set_end();
 	}
@@ -12261,56 +13599,52 @@ public:
 
 	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& operator+=(const StringView& t) {
-		auto sv = view_type(t);
-		return append(sv.data(), sv.size());
+		return append(t);
 	}
-
-	WJR_CONSTEXPR20 basic_string& operator+=(const value_type c) { push_back(c); return *this; }
+	
+	WJR_CONSTEXPR20 basic_string& operator+=(const value_type c) { return append(c); }
 
 	WJR_CONSTEXPR20 basic_string& append(const basic_string& other) {
-		return append(other.data(), other.size());
+		return append(view(other));
 	}
 
 	WJR_CONSTEXPR20 basic_string& append(
-		const basic_string& other, const size_type pos, const size_type n = npos) {
-		return append(other.data() + pos, std::min(n, other.size() - pos));
+		const basic_string& other, const size_type off, const size_type n = npos) {
+		return append(except_view(other, off, n));
 	}
 
 	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& append(iter first, iter last) {
-		remove_end();
 		m_core.append(first, last);
 		set_end();
 		return *this;
 	}
 
 	WJR_CONSTEXPR20 basic_string& append(const value_type* s, size_type n) {
-		return append(s, s + n);
+		return append(view(s, n));
 	}
 
 	WJR_CONSTEXPR20 basic_string& append(const value_type* s) {
-		return append(s, s + traits_length(s));
+		return append(view(s));
 	}
 
 	WJR_CONSTEXPR20 basic_string& append(std::initializer_list<value_type> il) {
-		return append(il.begin(), il.end());
+		return append(view(il));
 	}
 
 	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& append(const StringView& t) {
-		auto sv = view_type(t);
-		return append(sv.data(), sv.size());
+		const auto sv = view(t);
+		return append(sv.data(), sv.data() + sv.size());
 	}
 
-	template<typename StringView, std::enable_if_t<_Is_string_view_like_v<StringView>, int> = 0>
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& append(const StringView& t,
-		const size_type pos, const size_type n = npos) {
-		auto sv = view_type(t);
-		return append(sv.data(), std::min(n, sv.size() - pos));
+		const size_type off, const size_type n = npos) {
+		return apend(except_view(t, off, n));
 	}
 
 	WJR_CONSTEXPR20 basic_string& append(const size_type n, const value_type c) {
-		remove_end();
 		m_core.append(n, c);
 		set_end();
 		return *this;
@@ -12322,7 +13656,6 @@ public:
 	}
 
 	WJR_CONSTEXPR20 void push_back(const value_type c) {
-		remove_end();
 		m_core.push_back(c);
 		set_end();
 	}
@@ -12332,7 +13665,6 @@ public:
 	}
 
 	WJR_CONSTEXPR20 void pop_back() {
-		remove_end();
 		m_core.pop_back();
 		set_end();
 	}
@@ -12345,96 +13677,86 @@ public:
 		return (*this) = std::move(other);
 	}
 
-	WJR_CONSTEXPR20 basic_string& assign(const basic_string& other, const size_type pos, const size_type n = npos) {
-		return assign(other.data() + pos, std::min(n, other.size() - pos));
+	WJR_CONSTEXPR20 basic_string& assign(const basic_string& other, const size_type off, const size_type n = npos) {
+		return assign(except_view(other, off, n));
 	}
 
 	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& assign(iter first, iter last) {
-		remove_end();
 		m_core.assign(first, last);
 		set_end();
 		return *this;
 	}
 
 	WJR_CONSTEXPR20 basic_string& assign(const value_type* s, const size_type n) {
-		assign(s, s + n);
-		return *this;
+		return assign(view(s, n));
 	}
 
 	WJR_CONSTEXPR20 basic_string& assign(const value_type* s) {
-		assign(s, traits_length(s));
-		return *this;
+		return assign(view(s));
 	}
 
 	WJR_CONSTEXPR20 basic_string& assign(std::initializer_list<value_type> il) {
-		assign(il.begin(), il.end());
-		return *this;
+		return assign(view(il));
 	}
 
 	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& assign(const StringView& t) {
-		auto sv = view_type(t);
-		return assign(sv.data(), sv.size());
+		const auto sv = view(t);
+		return assign(sv.data(), sv.data() + sv.size());
 	}
 
-	template<typename StringView, std::enable_if_t<_Is_string_view_like_v<StringView>, int> = 0>
-	WJR_CONSTEXPR20 basic_string& assign(const StringView& t, const size_type pos, const size_type n = npos) {
-		auto sv = view_type(t);
-		return assign(sv.data(), std::min(n, sv.size() - pos));
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_CONSTEXPR20 basic_string& assign(const StringView& t, const size_type off, const size_type n = npos) {
+		return assign(except_view(t, off, n));
 	}
 
-	WJR_CONSTEXPR20 basic_string& assign(const size_type n, const value_type c) {
-		remove_end();
+	WJR_CONSTEXPR20 basic_string& assign(const size_type n, const value_type c){
 		m_core.assign(n, c);
 		set_end();
 		return *this;
 	}
 
-	WJR_CONSTEXPR20 basic_string& insert(const size_type pos, const basic_string& str) {
-		insert(begin() + pos, str.begin(), str.end());
-		return *this;
+	WJR_CONSTEXPR20 basic_string& insert(const size_type off, const basic_string& str) {
+		return insert(off, view(str));
 	}
 
-	WJR_CONSTEXPR20 basic_string& insert(const size_type pos1,
-		const basic_string& s, const size_type pos2, const size_type n = npos) {
-		return insert(pos1, s.data() + pos2, std::min(n, s.size() - pos2));
+	WJR_CONSTEXPR20 basic_string& insert(const size_type off1,
+		const basic_string& str, const size_type off2, const size_type n = npos) {
+		return insert(off1, except_view(str, off2, n));
 	}
 
 	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
 	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, iter first, iter last) {
-		auto __old_pos = static_cast<size_type>(_Where - begin());
-		remove_end();
+		auto __old_pos = static_cast<size_type>(_Where - cbegin());
 		m_core.insert(_Where, first, last);
 		set_end();
 		return begin() + __old_pos;
 	}
 
-	WJR_CONSTEXPR20 basic_string& insert(const size_type pos, const value_type* s, const size_type n) {
-		insert(begin() + pos, s, s + n);
-		return *this;
+	WJR_CONSTEXPR20 basic_string& insert(const size_type off, const value_type* s, const size_type n) {
+		return insert(off, view(s, n));
 	}
 
-	WJR_CONSTEXPR20 basic_string& insert(const size_type pos, const value_type* s) {
-		return insert(pos, s, traits_length(s));
+	WJR_CONSTEXPR20 basic_string& insert(const size_type off, const value_type* s) {
+		return insert(off, view(s));
 	}
 
 	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, const size_type n, const value_type c) {
-		auto __old_pos = static_cast<size_type>(_Where - begin());
-		remove_end();
+		auto __old_pos = static_cast<size_type>(_Where - cbegin());
 		m_core.insert(_Where, n, c);
 		set_end();
 		return begin() + __old_pos;
 	}
 
-	WJR_CONSTEXPR20 basic_string& insert(const size_type pos, const size_type n, const value_type c) {
-		insert(begin() + pos, n, c);
+	WJR_CONSTEXPR20 basic_string& insert(const size_type off, const size_type n, const value_type c) {
+		WJR_UNUSED const auto __ck = except_view(*this, off);
+		insert(cbegin() + off, n, c);
 		return *this;
 	}
 
 	WJR_CONSTEXPR20 iterator insert(const_iterator _Where, const value_type c) {
-		auto __old_pos = static_cast<size_type>(_Where - begin());
-		remove_end();
+		auto __old_pos = static_cast<size_type>(_Where - cbegin());
 		m_core.insert(_Where, c);
 		set_end();
 		return begin() + __old_pos;
@@ -12445,44 +13767,40 @@ public:
 	}
 
 	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
-	WJR_CONSTEXPR20 basic_string& insert(const size_type pos, const StringView& t) {
-		auto sv = view_type(t);
-		insert(begin() + pos, sv.data(), sv.size());
+	WJR_CONSTEXPR20 basic_string& insert(const size_type off, const StringView& t) {
+		WJR_UNUSED const auto __ck = except_view(*this, off);
+		const auto sv = view(t);
+		insert(cbegin() + off, sv.data(), sv.data() + sv.size());
 		return *this;
 	}
 
-	template<typename StringView, std::enable_if_t<_Is_string_view_like_v<StringView>, int> = 0>
-	WJR_CONSTEXPR20 basic_string& insert(const size_type pos1,
-		const StringView& t, const size_type pos2, const size_type n = npos) {
-		auto sv = view_type(t);
-		insert(pos1, sv.data(), std::min(n, sv.size() - pos2));
-		return *this;
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_CONSTEXPR20 basic_string& insert(const size_type off1, 
+		const StringView& t, const size_type off2, const size_type n = npos) {
+		return insert(off1, view(t, off2, n));
 	}
 
 	WJR_CONSTEXPR20 iterator erase(const_iterator first, const_iterator last) {
 		auto __old_pos = first - cbegin();
-		remove_end();
 		m_core.erase(first, last);
 		set_end();
 		return begin() + __old_pos;
 	}
 
-	WJR_CONSTEXPR20 basic_string& erase(const size_type pos = 0, size_type n = npos) {
-		erase(cbegin() + pos, cbegin() + std::min(n, size() - pos));
+	WJR_CONSTEXPR20 basic_string& erase(const size_type off = 0, size_type n = npos){
+		const auto sv = except_view(*this, off, n);
+		erase(sv.begin(), sv.end());
 		return *this;
 	}
 
 	WJR_CONSTEXPR20 iterator erase(const_iterator _Where) {
 		auto __old_pos = _Where - cbegin();
-		remove_end();
 		m_core.erase(_Where);
 		set_end();
 		return begin() + __old_pos;
 	}
 
-	WJR_CONSTEXPR20 void swap(basic_string& other)noexcept {
-		remove_end();
-		other.remove_end();
+	WJR_CONSTEXPR20 void swap(basic_string& other)noexcept { 
 		m_core.swap(other.m_core);
 		set_end();
 		other.set_end();
@@ -12493,7 +13811,296 @@ public:
 	WJR_INTRINSIC_CONSTEXPR20 const value_type* data() const { return m_core.data(); }
 
 	WJR_INTRINSIC_CONSTEXPR20 bool empty()const { return m_core.empty(); }
+	
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const basic_string& other) const noexcept{
+		return compare(view(other));
+	}
 
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1, const basic_string& other) const {
+		return compare(off1, n1, view(other));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1, const basic_string& other,
+		const size_type off2, const size_type n2 = npos) const {
+		return compare(off1, n1, view(other, off2, n2));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const value_type* s) const {
+		return compare(view(s));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1, const value_type* s) const {
+		return compare(off1, n1, view(s));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1, const value_type* s,
+		const size_type n2) const {
+		return compare(off1, n1, view(s, n2));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const StringView& t) const noexcept {
+		return view().compare(view(t));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1, const StringView& t) const {
+		return view(*this, off1, n1).compare(view(t));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 int compare(const size_type off1, const size_type n1, const StringView& t,
+		const size_type off2, const size_type n2 = npos) const {
+		return compare(off1, n1, view(t, off2, n2));
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool starts_with(const StringView& t) const noexcept {
+		return view().starts_with(view(t));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool starts_with(const value_type ch) const noexcept {
+		return view().starts_with(ch);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool starts_with(const value_type* const ptr) const {
+		return view().starts_with(ptr);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool ends_with(const StringView& t) const noexcept {
+		return view().ends_with(view(t));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool ends_with(const value_type ch) const noexcept {
+		return view().ends_with(ch);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool ends_with(const value_type* const ptr) const {
+		return view().ends_with(ptr);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool contains(const StringView& t) const noexcept {
+		return view().contains(view(t));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool contains(const value_type ch) const noexcept {
+		return view().contains(ch);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool contains(const value_type* const ptr) const {
+		return view().contains(ptr);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const StringView& t, const size_type off = 0) const noexcept{
+		return view().find(view(t), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const value_type ch, const size_type off = 0) const noexcept {
+		return view().find(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const value_type* const ptr, 
+		const size_type off, const size_type n) const {
+		return view().find(ptr, off, n);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find(const value_type* const ptr, const size_type off = 0) const {
+		return view().find(ptr, off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const StringView& t, const size_type off = npos) const noexcept {
+		return view().rfind(view(t), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const value_type ch, const size_type off = npos) const noexcept {
+		return view().rfind(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const value_type* const ptr,
+		const size_type off, const size_type n) const {
+		return view().rfind(ptr, off, n);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type rfind(const value_type* const ptr, const size_type off = npos) const {
+		return view().rfind(ptr, off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(
+		const StringView& t, const size_type off = 0) const noexcept {
+		return view().find_first_of(view(t), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(
+		const value_type ch, const size_type off = 0) const noexcept {
+		return view().find_first_of(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(const value_type* const ptr,
+		const size_type off, const size_type n) const {
+		return view().find_first_of(ptr, off, n);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_of(
+		const value_type* const ptr, const size_type off = 0) const {
+		return view().find_first_of(ptr, off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(
+		const StringView& t, const size_type off = npos) const noexcept {
+		return view().find_last_of(view(t), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(
+		const value_type ch, const size_type off = npos) const noexcept {
+		return view().find_last_of(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(const value_type* const ptr,
+		const size_type off, const size_type n) const {
+		return view().find_last_of(ptr, off, n);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_of(
+		const value_type* const ptr, const size_type off = npos) const {
+		return view().find_last_of(ptr, off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(
+		const StringView& t, const size_type off = 0) const noexcept {
+		return view().find_first_not_of(view(t), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(
+		const value_type ch, const size_type off = 0) const noexcept {
+		return view().find_first_not_of(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(const value_type* const ptr,
+		const size_type off, const size_type n) const {
+		return view().find_first_not_of(ptr, off, n);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_first_not_of(
+		const value_type* const ptr, const size_type off = 0) const {
+		return view().find_first_not_of(ptr, off);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(
+		const StringView& t, const size_type off = npos) const noexcept {
+		return view().find_last_not_of(view(t), off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(
+		const value_type ch, const size_type off = npos) const noexcept {
+		return view().find_last_not_of(ch, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(const value_type* const ptr,
+		const size_type off, const size_type n) const {
+		return view().find_last_not_of(ptr, off, n);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 size_type find_last_not_of(
+		const value_type* const ptr, const size_type off = npos) const {
+		return view().find_last_not_of(ptr, off);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 basic_string substr(
+		const size_type off = 0, const size_type n = npos) const {
+		return basic_string(except_view(*this, off, n));
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(size_type off, size_type n,
+		const basic_string& str) {
+		return replace(off, n, view(str));
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(const_iterator first, const_iterator last,
+		const basic_string& str) {
+		return replace(first, last, view(str));
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(size_type off1, size_type n1,
+		const basic_string& str,
+		size_type off2, size_type n2 = npos) {
+		return replace(off1, n1, view(str, off2, n2));
+	}
+
+	template<typename iter>
+	WJR_CONSTEXPR20 basic_string& replace(const_iterator first, const_iterator last,
+		iter first2, iter last2) {
+		m_core.replace(first, last, first2, last2);
+		set_end();
+		return *this;
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(size_type off, size_type n1,
+		const value_type* ptr, size_type n2) {
+		const auto sv = view(*this, off, n1);
+		return replace(sv.begin(), sv.end(), view(ptr, n2));
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(const_iterator first, const_iterator last,
+		const value_type* ptr, size_type n2) {
+		return replace(first, last, view(ptr, n2));
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(size_type off, size_type n1,
+		const value_type* ptr) {
+		return replace(off, n1, view(ptr));
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(const_iterator first, const_iterator last,
+		const value_type* ptr) {
+		return replace(first, last, view(ptr));
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(size_type off, size_type n1,
+		size_type n2, value_type ch) {
+		const auto sv = view(*this, off, n1);
+		return replace(sv.begin(), sv.end(), n2, ch);
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(const_iterator first, const_iterator last,
+		size_type n2, value_type ch) {
+		m_core.replace(first, last, n2, ch);
+		set_end();
+		return *this;
+	}
+
+	WJR_CONSTEXPR20 basic_string& replace(const_iterator first, const_iterator last,
+		std::initializer_list<value_type> il) {
+		return replace(first, last, view(il));
+	}
+
+	template <typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_CONSTEXPR20 basic_string& replace(size_type off, size_type n,
+		const StringView& t) {
+		const auto sv = view(*this, off, n);
+		return replace(sv.begin(), sv.end(), view(t));
+	}
+
+	template <typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_CONSTEXPR20 basic_string& replace(const_iterator first, const_iterator last,
+		const StringView& t) {
+		const auto sv = view(t);
+		return replace(first, last, sv.begin(), sv.end());
+	}
+
+	template <typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_CONSTEXPR20 basic_string& replace(size_type off1, size_type n1, const StringView& t,
+		size_type off2, size_type n2 = npos) {
+		return replace(off1, n1, view(t, off2, n2));
+	}
+	
 	WJR_CONSTEXPR20 allocator_type& get_allocator() {
 		return m_core.get_allocator();
 	}
@@ -12503,6 +14110,8 @@ public:
 	}
 
 	// non-standard extension functions
+
+	/*------Internal management function------*/
 
 	WJR_CONSTEXPR20 static void copyConstruct(_Alty& al, const data_type& _Src, data_type& _Dest)
 		noexcept(noexcept(vector_type::copyConstruct(al, _Src, _Dest))) {
@@ -12514,9 +14123,9 @@ public:
 		vector_type::moveConstruct(al, std::move(_Src), _Dest);
 	}
 
-	WJR_CONSTEXPR20 static void Swap(_Alty& al, data_type& _Left, data_type& _Right)
-		noexcept(noexcept(vector_type::Swap(al, _Left, _Right))) {
-		vector_type::Swap(al, _Left, _Right);
+	WJR_CONSTEXPR20 static void Swap(_Alty& al, data_type& _Left, data_type& other)
+		noexcept(noexcept(vector_type::Swap(al, _Left, other))) {
+		vector_type::Swap(al, _Left, other);
 	}
 
 	WJR_CONSTEXPR20 static void Destroy(_Alty& al, data_type& _Data) {
@@ -12577,20 +14186,65 @@ public:
 		getData().inc_size(_Size);
 	}
 
-	WJR_INTRINSIC_CONSTEXPR20 void remove_end() {
-		wjr::destroy_at(getAllocator(), lastPtr());
-	}
-
 	WJR_INTRINSIC_CONSTEXPR20 void set_end() {
 		wjr::construct_at(getAllocator(), lastPtr());
 	}
 
-	WJR_CONSTEXPR20 basic_string& prepend(const basic_string& other) {
-		return prepend(other.data(), other.size());
+	/*------External extension function------*/
+
+	WJR_NODISCARD WJR_CONSTEXPR20 basic_string noexcept_substr(
+		const size_type off = 0, const size_type n = npos) const {
+		return basic_string(view(*this, off, n));
 	}
 
-	WJR_CONSTEXPR20 basic_string& prepend(const basic_string& other, const size_type pos, const size_type n = npos) {
-		return prepend(other.data() + pos, std::min(n, other.size() - pos));
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type view(const basic_string& str) noexcept {
+		return view_type::view(str);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type view(const basic_string& str,
+		const size_type off, const size_type n = npos) noexcept {
+		return view_type::view(str, off, n);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type view(const value_type* s, const size_type n) noexcept {
+		return view_type::view(s, n);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type view(const value_type* s) noexcept {
+		return view_type::view(s);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type view(std::initializer_list<value_type> il) noexcept {
+		return view_type::view(il);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type view(const StringView& t) noexcept {
+		return view_type::view(t);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type view(const StringView& t,
+		const size_type off, const size_type n = npos) noexcept{
+		return view_type::view(t, off, n);
+	}
+
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 view_type view() const noexcept {
+		return view(*this);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 static view_type except_view(const StringView& t,
+		const size_type off, const size_type n = npos) WJR_NOEXCEPT {
+		return view_type::except_view(t, off, n);
+	}
+
+	WJR_CONSTEXPR20 basic_string& prepend(const basic_string& other) {
+		return prepend(view(other));
+	}
+
+	WJR_CONSTEXPR20 basic_string& prepend(const basic_string& other, const size_type off, const size_type n = npos) {
+		return prepend(view(other, off, n));
 	}
 
 	template<typename iter, std::enable_if_t<is_iterator_v<iter>, int> = 0>
@@ -12600,28 +14254,27 @@ public:
 	}
 
 	WJR_CONSTEXPR20 basic_string& prepend(const value_type* s, size_type n) {
-		return prepend(s, s + n);
+		return prepend(view(s, n));
 	}
 
 	WJR_CONSTEXPR20 basic_string& prepend(const value_type* s) {
-		return prepend(s, traits_length(s));
+		return prepend(view(s));
 	}
 
 	WJR_CONSTEXPR20 basic_string& prepend(std::initializer_list<value_type> il) {
-		return prepend(il.begin(), il.end());
+		return prepend(view(il));
 	}
 
 	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& prepend(const StringView& t) {
-		auto sv = view_type(t);
-		return prepend(sv.data(), sv.size());
+		const auto sv = view_type(t);
+		return prepend(sv.data(), sv.data() + sv.size());
 	}
 
-	template<typename StringView, std::enable_if_t<_Is_string_view_like_v<StringView>, int> = 0>
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
 	WJR_CONSTEXPR20 basic_string& prepend(const StringView& t,
-		const size_type pos, const size_type n = npos) {
-		auto sv = view_type(t);
-		return prepend(sv.data(), std::min(n, sv.size() - pos));
+		const size_type off, const size_type n = npos) {
+		return prepend(view(t, off, n));
 	}
 
 	WJR_CONSTEXPR20 basic_string& prepend(const size_type n, const value_type c) {
@@ -12630,24 +14283,365 @@ public:
 	}
 
 	WJR_CONSTEXPR20 basic_string& prepend(const value_type c) {
-		remove_end();
 		m_core.emplace(m_core.begin(), c);
 		set_end();
 		return *this;
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const StringView& t) const noexcept {
+		return view().equal(t);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off, const size_type n, const StringView& t)
+		const WJR_NOEXCEPT {
+		return view().equal(off, n, t);
+	}
+
+	template<typename StringView, std::enable_if_t<_Is_noptr_string_view_like_v<StringView>, int> = 0>
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off1, const size_type n1, const StringView& t,
+		const size_type off2, const size_type n2) const WJR_NOEXCEPT {
+		return view().equal(off1, n1, t, off2, n2);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const Char* const ptr) const {
+		return view().equal(ptr);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off, const size_type n, const Char* const ptr) const {
+		return view().equal(off, n, ptr);
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 bool equal(const size_type off1, const size_type n1,
+		const Char* const ptr, const size_type n2) const {
+		return view().equal(off1, n1, ptr, n2);
 	}
 
 private:
 	vector_type m_core;
 };
 
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(
+	const basic_string<Char, Alloc, Data>& lhs, 
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return lhs.equal(rhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const Char* rhs) noexcept {
+	return lhs.equal(rhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(
+	const Char* lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return rhs == lhs;
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator!=(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator!=(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const Char* rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator!=(
+	const Char* lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return lhs.compare(rhs) < 0;
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const Char* rhs) noexcept {
+	return lhs.compare(rhs) < 0;
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<(
+	const Char* lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return rhs.compare(lhs) > 0;
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return rhs < lhs;
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const Char* rhs) noexcept {
+	return rhs < lhs;
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>(
+	const Char* lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return rhs < lhs;
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<=(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return !(rhs < lhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<=(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const Char* rhs) noexcept {
+	return !(rhs < lhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator<=(
+	const Char* lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return !(rhs < lhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>=(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return !(lhs < rhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>=(
+	const basic_string<Char, Alloc, Data>& lhs,
+	const Char* rhs) noexcept {
+	return !(lhs < rhs);
+}
+
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 bool operator>=(
+	const Char* lhs,
+	const basic_string<Char, Alloc, Data>& rhs) noexcept {
+	return !(lhs < rhs);
+}
+
 using string = basic_string<char>;
-using wstring = basic_string<wchar_t>;
-#if defined(WJR_CPP_20)
+#if defined(WJR_CHAR8_T)
 using u8string = basic_string<char8_t>;
-#endif
+#endif // WJR_CHAR8_T
 using u16string = basic_string<char16_t>;
 using u32string = basic_string<char32_t>;
+using wstring = basic_string<wchar_t>;
+
+template<typename Char, size_t N, typename Alloc = std::allocator<Char>>
+using static_basic_string = basic_string<Char, Alloc, string_static_data<Char, N, Alloc>>;
+
+template<size_t N>
+using static_string = static_basic_string<char, N>;
+#if defined(WJR_CHAR8_T)
+template<size_t N>
+using static_u8string = static_basic_string<char8_t, N>;
+#endif // WJR_CHAR8_T
+template<size_t N>
+using static_u16string = static_basic_string<char16_t, N>;
+template<size_t N>
+using static_u32string = static_basic_string<char32_t, N>;
+template<size_t N>
+using static_wstring = static_basic_string<wchar_t, N>;
 
 _WJR_END
 
 #endif // __WJR_STRING_H
+#pragma once
+#ifndef __WJR_ALLOCATOR_H
+#define __WJR_ALLOCATOR_H
+
+#include <new>
+
+_WJR_BEGIN
+
+template<typename _Ty>
+struct __aligned_helper;
+
+template<>
+struct __aligned_helper<void> {
+	constexpr static size_t value = std::max((size_t)(16), (size_t)(alignof(max_align_t)));
+};
+
+template<typename _Ty>
+struct __aligned_helper {
+	constexpr static size_t value = std::max((size_t)alignof(_Ty), __aligned_helper<void>::value);
+};
+
+//#if defined(_DEBUG)
+#define WJR_TEST_ALLOCATOR
+//#endif
+
+#if defined(WJR_TEST_ALLOCATOR)
+struct __test_allocator {
+	~__test_allocator();
+	long long _Count = 0;
+};
+extern __test_allocator __test_allocator_instance;
+#endif
+
+template<typename _Ty, size_t _Al = __aligned_helper<_Ty>::value, size_t _Off = 0>
+class aligned_allocator {
+public:
+	static_assert(!std::is_const_v<_Ty>, "The C++ Standard forbids containers of const elements "
+		"because allocator<const T> is ill-formed.");
+	static_assert(_Al >= 8, "The alignment must be greater than or equal to 8.");
+	static_assert(_Off >= 0 && _Off < _Al,
+		"The offset must be greater than or equal to 0 and less than the alignment.");
+	static_assert((_Al & (_Al - 1)) == 0, "The alignment must be a power of 2.");
+
+	using value_type = _Ty;
+
+#if !defined(WJR_CPP_20)
+	using pointer = _Ty*;
+	using const_pointer = const _Ty*;
+
+	using reference = _Ty&;
+	using const_reference = const _Ty&;
+#endif // !WJR_CPP_20
+
+	using size_type = size_t;
+	using difference_type = ptrdiff_t;
+
+	using propagate_on_container_move_assignment = std::true_type;
+	using is_always_equal = std::true_type;
+
+	template <typename _Other>
+	struct rebind {
+		using other = aligned_allocator<_Other, _Al, _Off>;
+	};
+
+#if !defined(WJR_CPP_20)
+	WJR_NODISCARD _Ty* address(_Ty& _Val) const noexcept {
+		return std::addressof(_Val);
+	}
+
+	WJR_NODISCARD const _Ty* address(const _Ty& _Val) const noexcept {
+		return std::addressof(_Val);
+	}
+#endif // !WJR_CPP_20
+
+	constexpr aligned_allocator() noexcept {}
+
+	constexpr aligned_allocator(const aligned_allocator&) noexcept = default;
+	template <typename _Other>
+	constexpr aligned_allocator(const aligned_allocator<_Other, _Al, _Off>&) noexcept {}
+	WJR_CONSTEXPR20 ~aligned_allocator() = default;
+	WJR_CONSTEXPR20 aligned_allocator& operator=(const aligned_allocator&) = default;
+
+	WJR_CONSTEXPR20 void deallocate(_Ty* const _Ptr, const size_t _Count) {
+#if defined(WJR_TEST_ALLOCATOR)
+		__test_allocator_instance._Count -= _Count * sizeof(_Ty) + _Off;
+#endif
+		WJR_ASSUME(reinterpret_cast<uintptr_t>(_Ptr) % _Al == _Off);
+		auto ptr = reinterpret_cast<char*>(_Ptr) - _Off;
+		::operator delete(ptr, _Count * sizeof(_Ty) + _Off, static_cast<std::align_val_t>(_Al));
+	}
+
+	WJR_NODISCARD WJR_CONSTEXPR20 _Ty* allocate(const size_t _Count) {
+#if defined(WJR_TEST_ALLOCATOR)
+		__test_allocator_instance._Count += _Count * sizeof(_Ty) + _Off;
+#endif
+		auto ptr = static_cast<char*>(::operator new(_Count * sizeof(_Ty) + _Off, 
+			static_cast<std::align_val_t>(_Al))) + _Off;
+		WJR_ASSUME(reinterpret_cast<uintptr_t>(ptr) % _Al == _Off);
+		return reinterpret_cast<_Ty*>(ptr);
+	}
+
+#if !defined(WJR_CPP_20)
+	WJR_NODISCARD size_t max_size() const noexcept {
+		return static_cast<size_t>(-1) / sizeof(_Ty);
+	}
+#endif // !WJR_CPP_20
+};
+
+template <size_t _Al, size_t _Off>
+class aligned_allocator<void, _Al, _Off> {
+public:
+	using value_type = void;
+#if !defined(WJR_CPP_20)
+	using pointer = void*;
+	using const_pointer = const void*;
+#endif // !WJR_CPP_20
+
+	using size_type = size_t;
+	using difference_type = ptrdiff_t;
+
+	using propagate_on_container_move_assignment = std::true_type;
+	using is_always_equal = std::true_type;
+
+#if !defined(WJR_CPP_20)
+	template <class _Other>
+	struct rebind {
+		using other = aligned_allocator<_Other>;
+	};
+#endif // !WJR_CPP_20
+};
+
+template <typename _Ty, typename _Other, size_t _Al, size_t _Off>
+WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
+	const aligned_allocator<_Ty, _Al, _Off>&,
+	const aligned_allocator<_Other, _Al, _Off>&) noexcept {
+	return true;
+}
+
+template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
+WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
+	const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
+	const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
+	return false;
+}
+
+template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
+WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator!=(
+	const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
+	const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+template<typename T, size_t _Al, size_t _Off>
+struct is_default_allocator<aligned_allocator<T, _Al, _Off>> : std::true_type {};
+
+_WJR_END
+
+#endif // __WJR_ALLOCATOR_H
+#include <stdio.h>
+
+_WJR_BEGIN
+#if defined(WJR_TEST_ALLOCATOR)
+__test_allocator::~__test_allocator() {
+	if (_Count != 0) {
+		printf("memory leak: %lld bytes", _Count);
+	}
+}
+__test_allocator __test_allocator_instance;
+#endif
+_WJR_END
