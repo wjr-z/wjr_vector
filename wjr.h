@@ -13455,7 +13455,7 @@ wjr::spin_mutex m_temp = {};
 
 wjr::spin_mutex m_flushing = {};
 
-std::atomic_bool m_valid = false;
+bool m_valid = false;
 std::atomic_bool m_pause = false;
 
 };
@@ -13541,6 +13541,213 @@ return task_promise->get_future();
 _WJR_END
 
 #endif // __WJR_NETWORK_THREAD_POOL_H
+
+_WJR_BEGIN
+
+thread_pool::thread_pool(
+unsigned int core_threads_size,
+size_t task_limit,
+unsigned int max_threads_size)
+: thread_pool(core_threads_size, task_limit, max_threads_size, std::chrono::nanoseconds(0)) {}
+
+thread_pool::~thread_pool() {
+end();
+}
+
+void thread_pool::start(
+unsigned int core_threads_size,
+size_t task_limit,
+unsigned int max_threads_size) {
+start(core_threads_size, task_limit, max_threads_size, std::chrono::nanoseconds(0));
+}
+
+void thread_pool::end() {
+destroy_all_threads();
+}
+
+void thread_pool::pause() {
+m_pause = true;
+}
+
+void thread_pool::unpause() {
+m_pause = false;
+}
+
+void thread_pool::flush() {
+std::unique_lock<spin_mutex> spin_lock(m_flushing);
+{
+std::unique_lock<std::mutex> tasks_lock(m_mutex);
+m_flush_cond.wait(tasks_lock, [this] {
+return (m_real_tasks == (m_pause ? m_tasks.size() : 0));
+});
+}
+}
+
+bool thread_pool::is_valid() const {
+return m_valid;
+}
+
+bool thread_pool::is_paused() const {
+return m_pause;
+}
+
+unsigned int thread_pool::get_core_threads_size() const {
+return m_core_threads.size();
+}
+
+unsigned int thread_pool::get_temp_threads_size() const {
+return m_temp_size - m_temp_stack.size();
+}
+
+unsigned int thread_pool::get_all_threads_size() const {
+return get_core_threads_size() + get_temp_threads_size();
+}
+
+void thread_pool::core_work() {
+
+for (;;) {
+std::function<void()> task;
+
+{
+std::unique_lock<std::mutex> tasks_lock(m_mutex);
+m_tasks_cond.wait(tasks_lock, [this] { return !m_tasks.empty() || !m_valid; });
+
+if (is_likely(m_valid)) {
+if (!m_pause) {
+task = std::move(m_tasks.front());
+m_tasks.pop_front();
+tasks_lock.unlock();
+task();
+tasks_lock.lock();
+--m_real_tasks;
+tasks_lock.unlock();
+if (m_flushing.try_lock()) {
+m_flushing.unlock();
+}
+else {
+m_flush_cond.notify_one();
+}
+}
+continue;
+}
+
+break;
+}
+}
+
+}
+
+void thread_pool::temp_work(unsigned int x) {
+
+for (;;) {
+std::function<void()> task;
+
+{
+std::unique_lock<std::mutex> tasks_lock(m_mutex);
+if (is_likely(m_tasks_cond.wait_for(
+tasks_lock, m_alive_limit, [this] { return !m_tasks.empty() || !m_valid; }))) {
+if (is_likely(m_valid)) {
+if (!m_pause) {
+task = std::move(m_tasks.front());
+m_tasks.pop_front();
+tasks_lock.unlock();
+task();
+tasks_lock.lock();
+--m_real_tasks;
+tasks_lock.unlock();
+if (m_flushing.try_lock()) {
+m_flushing.unlock();
+}
+else {
+m_flush_cond.notify_one();
+}
+}
+continue;
+}
+break;
+}
+break;
+}
+}
+
+destroy_temp_threads(x);
+}
+
+void thread_pool::create_all_threads(
+unsigned int core_threads_size,
+size_t task_limit,
+unsigned int max_threads_size,
+std::chrono::nanoseconds alive_limit
+) {
+std::unique_lock<rw_spin_mutex> rw_spin_lock(m_create);
+if (!m_valid) {
+#if defined(_WJR_EXCEPTION)
+if (!core_threads_size) {
+throw std::invalid_argument("!core_threads_size");
+}
+#endif // _WJR_EXCEPTION
+
+m_temp_size = max_threads_size < core_threads_size ? 0 : max_threads_size - core_threads_size;
+m_task_limit = task_limit;
+m_alive_limit = alive_limit;
+
+m_valid = true;
+m_pause = false;
+m_real_tasks = 0;
+
+m_core_threads.reserve(core_threads_size);
+
+m_temp_threads.reserve(m_temp_size);
+
+m_temp_stack.resize(m_temp_size, default_construct_tag{});
+for (size_t i = 0; i < m_temp_size; ++i) {
+m_temp_stack[i] = i;
+}
+
+for (unsigned int i = 0; i < core_threads_size; ++i) {
+m_core_threads.emplace_back(&thread_pool::core_work, this);
+}
+}
+}
+
+void thread_pool::create_temp_threads() {
+std::unique_lock<spin_mutex> spin_lock(m_temp);
+if (!m_temp_stack.empty()) {
+auto x = m_temp_stack.back();
+m_temp_stack.pop_back();
+wjr::construct_at(&m_temp_threads[x], &thread_pool::temp_work, this, x);
+}
+}
+
+void thread_pool::destroy_all_threads() {
+std::unique_lock<rw_spin_mutex> rw_spin_lock(m_create);
+if (!m_core_threads.empty()) {
+flush();
+m_valid = false;
+m_tasks_cond.notify_all();
+for (auto& i : m_core_threads) i.join();
+m_core_threads.clear();
+m_tasks.clear();
+{
+std::unique_lock<std::mutex> lock(m_mutex);
+m_done_cond.wait(lock, [this]() {return this->m_temp_stack.size() == m_temp_size; });
+}
+}
+}
+
+void thread_pool::destroy_temp_threads(unsigned int x) {
+std::unique_lock<spin_mutex> spin_lock(m_temp);
+m_temp_threads[x].detach();
+wjr::destroy_at(&m_temp_threads[x]);
+m_temp_stack.push_back(x);
+m_done_cond.notify_one();
+}
+
+size_t thread_pool::default_threads_size() {
+return std::max(static_cast<size_t>(1), static_cast<size_t>(std::thread::hardware_concurrency()));
+}
+
+_WJR_END
 
 #pragma once
 #ifndef __WJR_STRING_H
