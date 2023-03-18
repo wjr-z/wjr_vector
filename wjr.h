@@ -859,6 +859,17 @@ return is_constant_evaluated();
 #endif
 }
 
+template<typename T>
+WJR_INTRINSIC_CONSTEXPR void assume_no_add_overflow(T a, T b) noexcept {
+constexpr T _Max = std::numeric_limits<T>::max();
+WJR_ASSUME(a <= _Max - b);
+}
+
+template<typename T>
+WJR_INTRINSIC_CONSTEXPR void assume_no_sub_overflow(T a, T b) noexcept {
+WJR_ASSUME(a >= b);
+}
+
 struct disable_tag {};
 
 struct default_construct_tag {};
@@ -866,6 +877,8 @@ struct value_construct_tag {};
 
 struct extend_tag {};
 struct reserve_tag {};
+
+struct defer_tag {};
 
 template<typename T, typename U, typename _Pred>
 struct has_global_binary_operator : std::false_type {};
@@ -1897,6 +1910,223 @@ return get<1>(move(p));
 #include <memory>
 #include <limits>
 #include <cstring>
+
+
+_WJR_BEGIN
+
+template<typename _Iter, typename _Ty, typename _Pred>
+WJR_CONSTEXPR20 _Iter find(_Iter _First, _Iter _Last, const _Ty& _val, _Pred pred);
+
+template<typename _Iter, typename _Ty>
+WJR_CONSTEXPR20 _Iter find(_Iter _First, _Iter _Last, const _Ty& _val);
+
+template<typename _Iter, typename _Pr>
+WJR_CONSTEXPR20 _Iter find_if(_Iter _First, _Iter _Last, _Pr _Pred);
+
+template<typename _Iter, typename _Pr>
+WJR_CONSTEXPR20 _Iter find_if_not(_Iter _First, _Iter _Last, _Pr _Pred);
+
+template<typename _Iter, typename _Ty>
+WJR_CONSTEXPR20 typename std::iterator_traits<_Iter>::difference_type
+count(_Iter _First, _Iter _Last, const _Ty& _Val);
+
+template<typename _Iter, typename _Pr>
+WJR_CONSTEXPR20 typename std::iterator_traits<_Iter>::difference_type
+count_if(_Iter _First, _Iter _Last, _Pr _Pred);
+
+template<typename _Iter1, typename _Iter2, typename _Pred>
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(
+_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred);
+
+template<typename _Iter1, typename _Iter2, typename _Pred>
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(
+_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(
+_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2);
+
+template<typename _Iter1, typename _Iter2, typename _Pred>
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred);
+
+template<typename _Iter1, typename _Iter2, typename _Pred>
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2);
+
+template<typename _Iter1, typename _Iter2, typename _Pred>
+WJR_CONSTEXPR20 bool lexicographical_compare(
+_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 bool lexicographical_compare(
+_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2);
+
+template<typename _Iter1, typename _Iter2, typename _Pred>
+WJR_CONSTEXPR20 int compare(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 int compare(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2);
+
+template<typename _Iter, typename _Val>
+WJR_CONSTEXPR20 void fill(_Iter _First, _Iter _Last, const _Val& value);
+
+template<typename _Iter, typename _Size, typename _Val>
+WJR_CONSTEXPR20 _Iter fill_n(_Iter _First, _Size count, const _Val& value);
+
+template<typename _Input, typename _Output>
+WJR_CONSTEXPR20 _Output copy(_Input _First1, _Input _Last1, _Output _First2);
+
+template<typename _Input, typename _Size, typename _Output>
+WJR_CONSTEXPR20 _Output copy_n(_Input _First1, _Size count, _Output _First2);
+
+template<typename _Input, typename _Output>
+WJR_CONSTEXPR20 _Output copy_backward(_Input _First1, _Input _Last1, _Output _Last2);
+
+template<typename _Input, typename _Output>
+WJR_CONSTEXPR20 _Output move(_Input _First1, _Input _Last1, _Output _First2);
+
+template<typename _Input, typename _Output>
+WJR_CONSTEXPR20 _Output move_backward(_Input _First1, _Input _Last1, _Output _Last2);
+
+template<typename _Iter, typename _Pred = std::equal_to<>>
+class default_searcher;
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 _Iter1 search(_Iter1 _First1, _Iter1 _Last1,
+_Iter2 _First2, _Iter2 _Last2);
+
+template<typename _Iter1, typename _Iter2, typename _Pred>
+WJR_CONSTEXPR20 _Iter1 search(_Iter1 _First1, _Iter1 _Last1,
+_Iter2 _First2, _Iter2 _Last2, _Pred pred);
+
+template<typename _Iter, typename _Searcher>
+WJR_CONSTEXPR20 _Iter search(_Iter _First, _Iter _Last, const _Searcher& _Srch);
+
+template<typename _Iter, typename...Args, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
+WJR_CONSTEXPR20 void construct_at(_Iter iter, Args&&... args);
+
+template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
+WJR_CONSTEXPR20 void construct_at(_Iter iter, default_construct_tag);
+
+template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
+WJR_CONSTEXPR20 void construct_at(_Iter iter, value_construct_tag);
+
+template<typename Alloc, typename _Iter, typename...Args, std::enable_if_t<!is_iterator_v<Alloc>, int> = 0>
+WJR_CONSTEXPR20 void construct_at(Alloc& al, _Iter iter, Args&&...args);
+
+template<typename _Iter>
+WJR_CONSTEXPR20 void destroy_at(_Iter ptr);
+
+template<typename Alloc, typename _Iter>
+WJR_CONSTEXPR20 void destroy_at(Alloc& al, _Iter iter);
+
+template<typename _Iter>
+WJR_CONSTEXPR20 void destroy(_Iter _First, _Iter _Last);
+
+template<typename Alloc, typename _Iter>
+WJR_CONSTEXPR20 void destroy(Alloc& al, _Iter _First, _Iter _Last);
+
+template<typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 void destroy_n(_Iter _First, const _Diff n);
+
+template<typename Alloc, typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 void destroy_n(Alloc& al, _Iter _First, _Diff n);
+
+template<typename _Iter>
+WJR_CONSTEXPR20 void uninitialized_default_construct(_Iter _First, _Iter _Last);
+
+template<typename Alloc, typename _Iter>
+WJR_CONSTEXPR20 void uninitialized_default_construct(
+Alloc& al, _Iter _First, _Iter _Last);
+
+template<typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 _Iter uninitialized_default_construct_n(_Iter _First, const _Diff n);
+
+template<typename Alloc, typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 _Iter uninitialized_default_construct_n(
+Alloc& al, _Iter _First, _Diff n);
+
+template<typename _Iter>
+WJR_CONSTEXPR20 void uninitialized_value_construct(_Iter _First, _Iter _Last);
+
+template<typename Alloc, typename _Iter>
+WJR_CONSTEXPR20 void uninitialized_value_construct(
+Alloc& al, _Iter _First, _Iter _Last);
+
+template<typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 _Iter uninitialized_value_construct_n(_Iter _First, _Diff n);
+
+template<typename Alloc, typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 _Iter uninitialized_value_construct_n(
+Alloc& al, _Iter _First, _Diff n);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest);
+
+template<typename Alloc, typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy(
+Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest);
+
+template<typename _Iter1, typename _Diff, typename _Iter2>
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy_n(_Iter1 _First, _Diff n, _Iter2 _Dest);
+
+template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy_n(Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest);
+
+
+template<typename _Iter, typename _Val>
+WJR_CONSTEXPR20 void uninitialized_fill(_Iter _First, _Iter _Last, const _Val& val);
+
+template<typename _Iter>
+WJR_CONSTEXPR20 void uninitialized_fill(_Iter _First, _Iter _Last, default_construct_tag);
+
+template<typename _Iter>
+WJR_CONSTEXPR20 void uninitialized_fill(_Iter _First, _Iter _Last, value_construct_tag);
+
+template<typename Alloc, typename _Iter, typename _Val>
+WJR_CONSTEXPR20 void uninitialized_fill(Alloc& al, _Iter _First, _Iter _Last, const _Val& val);
+
+template<typename _Iter, typename _Diff, typename _Val>
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(_Iter _First, _Diff count, const _Val& val);
+
+template<typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(_Iter _First, _Diff n, default_construct_tag);
+
+template<typename _Iter, typename _Diff>
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(_Iter _First, _Diff n, value_construct_tag);
+
+template<typename Alloc, typename _Iter, typename _Diff, typename _Val>
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(Alloc& al, _Iter _First, _Diff n, const _Val& val);
+
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 _Iter2 uninitialized_move(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest);
+
+template<typename Alloc, typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 _Iter2 uninitialized_move(Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest);
+
+template<typename _Iter1, typename _Diff, typename _Iter2>
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> uninitialized_move_n(_Iter1 _First, _Diff n, _Iter2 _Dest);
+
+template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> uninitialized_move_n(
+Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest);
+
+template<typename Alloc>
+class temporary_allocator_value;
+
+_WJR_END
+
+#ifndef __WJR_ALGORITHM_H__
+#error  "This file should not be included directly. Include <wjr/algorithm.h> instead."
+#endif //__WJR_ALGORITHM_H__
 
 #pragma once
 #ifndef __WJR_ALGO_ALOG_H
@@ -4469,7 +4699,7 @@ return wjr::masm::popcnt(x);
 }
 
 template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
-WJR_INTRINSIC_CONSTEXPR20 T byte_swap(T x) noexcept {
+WJR_INTRINSIC_CONSTEXPR20 T byteswap(T x) noexcept {
 using value_type = uint_t<8 * sizeof(T)>;
 return bit_cast<T>(wjr::masm::bswap(bit_cast<value_type>(x)));
 }
@@ -4477,7 +4707,7 @@ return bit_cast<T>(wjr::masm::bswap(bit_cast<value_type>(x)));
 template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
 WJR_INTRINSIC_CONSTEXPR20 T from_big_endian(T x) noexcept {
 if (is_little_endian()) {
-return byte_swap(x);
+return byteswap(x);
 }
 return x;
 }
@@ -4492,7 +4722,7 @@ WJR_INTRINSIC_CONSTEXPR20 T from_little_endian(T x) noexcept {
 if (is_little_endian()) {
 return x;
 }
-return byte_swap(x);
+return byteswap(x);
 }
 
 template<typename T, std::enable_if_t<is_standard_numer_v<T>, int> = 0>
@@ -9683,21 +9913,16 @@ wjr::is_reverse_iterator_v<_Iter>,
 algo::__has_fast_memrchr<_Iter_value, _Val, _Pred>,
 algo::__has_fast_memchr<_Iter_value, _Val, _Pred>
 >
->{};
+> {};
 
 template<typename _Iter, typename _Val, typename _Pred>
 constexpr bool __has_fast_find_v = __has_fast_find<_Iter, _Val, _Pred>::value;
 
-struct find_fn {
-
-template<typename _Iter, typename _Ty>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, const _Ty& _Val) const {
-return this->operator()(_First, _Last, _Val, std::equal_to<>{});
-}
+// find
 
 template<typename _Iter, typename _Ty, typename _Pred>
-WJR_CONSTEXPR20 _Iter operator()(
-_Iter _First, _Iter _Last, const _Ty& _Val, _Pred pred) const {
+WJR_CONSTEXPR20 _Iter find(
+_Iter _First, _Iter _Last, const _Ty& _Val, _Pred pred) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_find_v<_Iter, _Ty, _Pred>) {
 const auto n = std::distance(_First, _Last);
@@ -9726,43 +9951,34 @@ return _Last;
 }
 }
 
-};
+template<typename _Iter, typename _Ty>
+WJR_CONSTEXPR20 _Iter find(_Iter _First, _Iter _Last, const _Ty& _Val) {
+return wjr::find(_First, _Last, _Val, std::equal_to<>{});
+}
 
-constexpr find_fn find{};
-
-struct find_if_fn {
 template<typename _Iter, typename _Pr>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, _Pr _Pred) const {
+WJR_CONSTEXPR20 _Iter find_if(_Iter _First, _Iter _Last, _Pr _Pred) {
 return std::find_if(_First, _Last, _Pred);
 }
-};
 
-constexpr find_if_fn find_if{};
-
-struct find_if_not_fn {
 template<typename _Iter, typename _Pr>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, _Pr _Pred) const {
+WJR_CONSTEXPR20 _Iter find_if_not(_Iter _First, _Iter _Last, _Pr _Pred) {
 return std::find_if_not(_First, _Last, _Pred);
 }
-};
-
-constexpr find_if_not_fn find_if_not{};
 
 template<typename _Iter, typename _Val,
 typename _Iter_value = iter_val_t<_Iter>>
 struct __has_fast_count : std::conjunction<
 wjr::is_contiguous_iter<_Iter>,
 algo::__has_fast_memcnt<_Iter_value, _Val>
->{};
+> {};
 
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_count_v = __has_fast_count<_Iter, _Val>::value;
 
-struct count_fn {
-
 template<typename _Iter, typename _Ty>
 WJR_CONSTEXPR20 typename std::iterator_traits<_Iter>::difference_type
-operator()(_Iter _First, _Iter _Last, const _Ty& _Val) const {
+count(_Iter _First, _Iter _Last, const _Ty& _Val) {
 if (!wjr::is_constant_evaluated()) {
 #if defined(_WJR_FAST_MEMCNT)
 if constexpr (__has_fast_count_v<_Iter, _Ty>) {
@@ -9780,20 +9996,12 @@ return algo::memcnt(first, _Val, n);
 }
 return std::count(_First, _Last, _Val);
 }
-};
-
-constexpr count_fn count{};
-
-struct count_if_fn {
 
 template<typename _Iter, typename _Pr>
 WJR_CONSTEXPR20 typename std::iterator_traits<_Iter>::difference_type
-operator()(_Iter _First, _Iter _Last, _Pr _Pred) const {
+count_if(_Iter _First, _Iter _Last, _Pr _Pred) {
 return std::count_if(_First, _Last, _Pred);
 }
-};
-
-constexpr count_if_fn count_if{};
 
 // First use algo::memcmp
 // Then use memcmp
@@ -9805,7 +10013,7 @@ wjr::is_contiguous_iter<_Iter1>,
 wjr::is_contiguous_iter<_Iter2>,
 std::bool_constant<wjr::is_reverse_iterator_v<_Iter1> == wjr::is_reverse_iterator_v<_Iter2>>,
 algo::__has_fast_memcmp<_Iter_value1, _Iter_value2, _Pred>
->{};
+> {};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 struct __has_fast_equal : std::bool_constant<__has_fast_equal_helper<_Iter1, _Iter2, _Pred>::value> {};
@@ -9825,26 +10033,15 @@ wjr::is_reverse_iterator_v<_Iter1>,
 algo::__has_fast_memrmis<_Iter_value1, _Iter_value2, _Pred>,
 algo::__has_fast_memmis<_Iter_value1, _Iter_value2, _Pred>
 >
->{};
+> {};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_mismatch_v = __has_fast_mismatch<_Iter1, _Iter2, _Pred>::value;
 
-struct mismatch_fn {
-
-template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
-return this->operator()(_First1, _Last1, _First2, std::equal_to<>{});
-}
-
-template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
-return this->operator()(_First1, _Last1, _First2, _Last2, std::equal_to<>{});
-}
-
 template<typename _Iter1, typename _Iter2, typename _Pred>
-WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-if(!wjr::is_constant_evaluated()){
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(
+_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) {
+if (!wjr::is_constant_evaluated()) {
 #if defined(_WJR_FAST_MEMMIS)
 if constexpr (__has_fast_mismatch_v<_Iter1, _Iter2, _Pred>) {
 const auto n = std::distance(_First1, _Last1);
@@ -9871,37 +10068,32 @@ return std::mismatch(_First1, _Last1, _First2, pred);
 }
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
-WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-if(!wjr::is_constant_evaluated()){
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(
+_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) {
+if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_mismatch_v<_Iter1, _Iter2, _Pred>) {
 const auto n = _Last1 - _First1;
 const auto m = _Last2 - _First2;
 const auto _M = n < m ? n : m;
-return this->operator()(_First1, _First1 + _M, _First2, pred);
+return wjr::mismatch(_First1, _First1 + _M, _First2, pred);
 }
 }
 return std::mismatch(_First1, _Last1, _First2, _Last2, pred);
 }
 
-};
-
-constexpr mismatch_fn mismatch;
-
-struct equal_fn {
-
 template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) const {
-return this->operator()(_First1, _Last1, _First2, std::equal_to<>{});
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) {
+return wjr::mismatch(_First1, _Last1, _First2, std::equal_to<>{});
 }
 
 template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
-return this->operator()(_First1, _Last1, _First2, _Last2, std::equal_to<>{});
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> mismatch(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) {
+return wjr::mismatch(_First1, _Last1, _First2, _Last2, std::equal_to<>{});
 }
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
-WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) const {
-if(!wjr::is_constant_evaluated()){
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Pred pred) {
+if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_equal_v<_Iter1, _Iter2, _Pred>) {
 const auto n = _Last1 - _First1;
 if (is_unlikely(n == 0)) { return true; }
@@ -9922,21 +10114,27 @@ return std::equal(_First1, _Last1, _First2, pred);
 }
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
-WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-if(!wjr::is_constant_evaluated()){
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) {
+if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_equal_v<_Iter1, _Iter2, _Pred>) {
 const auto n = std::distance(_First1, _Last1);
 const auto m = std::distance(_First2, _Last2);
 if (n != m) { return false; }
-return this->operator()(_First1, _Last1, _First2, pred);
+return wjr::equal(_First1, _Last1, _First2, pred);
 }
 }
 return std::equal(_First1, _Last1, _First2, _Last2, pred);
 }
 
-};
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2) {
+return wjr::equal(_First1, _Last1, _First2, std::equal_to<>{});
+}
 
-constexpr equal_fn equal{};
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 bool equal(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) {
+return wjr::equal(_First1, _Last1, _First2, _Last2, std::equal_to<>{});
+}
 
 template<typename _Iter1, typename _Iter2, typename _Pred,
 typename _Iter_value1 = iter_val_t<_Iter1>,
@@ -9958,20 +10156,13 @@ std::is_unsigned<_Iter_value1>,
 std::is_unsigned<_Iter_value2>,
 wjr::is_any_index_of<sizeof(_Iter_value1), 1>
 #endif // _WJR_FAST_MEMMIS
->{};
+> {};
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
 constexpr bool __has_fast_lexicographical_compare_v = __has_fast_lexicographical_compare<_Iter1, _Iter2, _Pred>::value;
 
-struct lexicographical_compare_fn {
-
-template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
-return this->operator()(_First1, _Last1, _First2, _Last2, std::less<>{});
-}
-
 template<typename _Iter1, typename _Iter2, typename _Pred>
-WJR_CONSTEXPR20 bool operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
+WJR_CONSTEXPR20 bool lexicographical_compare(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_lexicographical_compare_v<_Iter1, _Iter2, _Pred>) {
 const auto n = std::distance(_First1, _Last1);
@@ -9996,19 +10187,14 @@ return n < m;
 }
 return std::lexicographical_compare(_First1, _Last1, _First2, _Last2, pred);
 }
-};
-
-constexpr lexicographical_compare_fn lexicographical_compare{};
-
-struct compare_fn {
 
 template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 int operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) const {
-return this->operator()(_First1, _Last1, _First2, _Last2, std::less<>{});
+WJR_CONSTEXPR20 bool lexicographical_compare(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) {
+return wjr::lexicographical_compare(_First1, _Last1, _First2, _Last2, std::less<>{});
 }
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
-WJR_CONSTEXPR20 int operator()(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
+WJR_CONSTEXPR20 int compare(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2, _Pred pred) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_lexicographical_compare_v<_Iter1, _Iter2, _Pred>) {
 const auto n = std::distance(_First1, _Last1);
@@ -10041,23 +10227,24 @@ return 1;
 }
 return _First1 == _Last1 ? (_First2 == _Last2 ? 0 : -1) : 1;
 }
-};
 
-constexpr compare_fn compare{};
+template<typename _Iter1, typename _Iter2>
+WJR_CONSTEXPR20 int compare(_Iter1 _First1, _Iter1 _Last1, _Iter2 _First2, _Iter2 _Last2) {
+return wjr::compare(_First1, _Last1, _First2, _Last2, std::less<>{});
+}
 
 template<typename _Iter, typename _Val,
 typename _Iter_ref = iter_ref_t<_Iter>>
 struct __has_fast_fill : std::conjunction<
 is_contiguous_iter<_Iter>,
 algo::__has_fast_assign_memset<remove_cref_t<_Iter_ref>, add_cref_t<_Val>>
->{};
+> {};
 
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_fill_v = __has_fast_fill<_Iter, _Val>::value;
 
-struct fill_fn {
 template<typename _Iter, typename _Val>
-WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, const _Val& value) const {
+WJR_CONSTEXPR20 void fill(_Iter _First, _Iter _Last, const _Val& value) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_fill_v<_Iter, _Val>) {
 const auto n = std::distance(_First, _Last);
@@ -10076,13 +10263,8 @@ return;
 return std::fill(_First, _Last, value);
 }
 
-};
-
-constexpr fill_fn fill{};
-
-struct fill_n_fn {
 template<typename _Iter, typename _Size, typename _Val>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Size count, const _Val& value) const {
+WJR_CONSTEXPR20 _Iter fill_n(_Iter _First, _Size count, const _Val& value) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_fill_v<_Iter, _Val>) {
 if (count <= 0) { return _First; }
@@ -10092,10 +10274,6 @@ return _First + count;
 }
 return std::fill_n(_First, count, value);
 }
-
-};
-
-constexpr fill_n_fn fill_n{};
 
 template<typename _Input, typename _Output,
 typename _Input_ref = iter_ref_t<_Input>,
@@ -10110,9 +10288,8 @@ algo::__has_fast_assign_memcpy<remove_ref_t<_Output_ref>, _Input_ref>
 template<typename _Input, typename _Output>
 constexpr bool __has_fast_copy_v = __has_fast_copy<_Input, _Output>::value;
 
-struct copy_fn {
 template<typename _Input, typename _Output>
-WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _First2) const {
+WJR_CONSTEXPR20 _Output copy(_Input _First1, _Input _Last1, _Output _First2) {
 static_assert(!std::is_const_v<iter_ref_t<_Output>>, "Output iterator must not be const");
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_copy_v<_Input, _Output>) {
@@ -10136,13 +10313,10 @@ return _First2 + n;
 }
 return std::copy(_First1, _Last1, _First2);
 }
-};
 
-constexpr copy_fn copy{};
 
-struct copy_n_fn {
 template<typename _Input, typename _Size, typename _Output>
-WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Size count, _Output _First2) const {
+WJR_CONSTEXPR20 _Output copy_n(_Input _First1, _Size count, _Output _First2) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_copy_v<_Input, _Output>) {
 if (count <= 0) { return _First2; }
@@ -10151,40 +10325,25 @@ return wjr::copy(_First1, _First1 + count, _First2);
 }
 return std::copy_n(_First1, count, _First2);
 }
-};
 
-constexpr copy_n_fn copy_n{};
-
-struct copy_backward_fn {
 template<typename _Input, typename _Output>
-WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _Last2) const {
+WJR_CONSTEXPR20 _Output copy_backward(_Input _First1, _Input _Last1, _Output _Last2) {
 return wjr::copy(std::make_reverse_iterator(_Last1),
 std::make_reverse_iterator(_First1),
 std::make_reverse_iterator(_Last2)).base();
 }
-};
 
-constexpr copy_backward_fn copy_backward{};
-
-struct move_fn {
 template<typename _Input, typename _Output>
-WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _First2) const {
+WJR_CONSTEXPR20 _Output move(_Input _First1, _Input _Last1, _Output _First2) {
 return wjr::copy(std::make_move_iterator(_First1), std::make_move_iterator(_Last1), _First2);
 }
-};
 
-constexpr move_fn move{};
-
-struct move_backward_fn {
 template<typename _Input, typename _Output>
-WJR_CONSTEXPR20 _Output operator()(_Input _First1, _Input _Last1, _Output _Last2) const {
+WJR_CONSTEXPR20 _Output move_backward(_Input _First1, _Input _Last1, _Output _Last2) {
 return wjr::copy_backward(std::make_move_iterator(_First1), std::make_move_iterator(_Last1), _Last2);
 }
-};
 
-constexpr move_backward_fn move_backward{};
-
-template<typename _Iter, typename _Pred = std::equal_to<>>
+template<typename _Iter, typename _Pred>
 class default_searcher {
 public:
 WJR_CONSTEXPR20 default_searcher(_Iter _First, _Iter _Last, _Pred _Eq = _Pred())
@@ -10200,7 +10359,7 @@ auto _Mylast = m_pair.second().second;
 if constexpr (is_random_iter_v<_Iter> && is_random_iter_v<_Iter2>) {
 const auto n = std::distance(_First, _Last);
 const auto m = std::distance(_Myfirst, _Mylast);
-if (m == 0){
+if (m == 0) {
 return std::make_pair(_First, _First);
 }
 if (n < m) {
@@ -10241,64 +10400,53 @@ private:
 compressed_pair<_Pred, std::pair<_Iter, _Iter>> m_pair;
 };
 
-struct search_fn {
 template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 _Iter1 operator()(_Iter1 _First1, _Iter1 _Last1,
-_Iter2 _First2, _Iter2 _Last2) const {
-return this->operator()(_First1, _Last1, _First2, _Last2, std::equal_to<>{});
+WJR_CONSTEXPR20 _Iter1 search(_Iter1 _First1, _Iter1 _Last1,
+_Iter2 _First2, _Iter2 _Last2) {
+return wjr::search(_First1, _Last1, _First2, _Last2, std::equal_to<>{});
 }
 
 template<typename _Iter1, typename _Iter2, typename _Pred>
-WJR_CONSTEXPR20 _Iter1 operator()(_Iter1 _First1, _Iter1 _Last1,
-_Iter2 _First2, _Iter2 _Last2, _Pred pred) const {
-return this->operator()(_First1, _Last1, wjr::default_searcher(_First2, _Last2, pred));
+WJR_CONSTEXPR20 _Iter1 search(_Iter1 _First1, _Iter1 _Last1,
+_Iter2 _First2, _Iter2 _Last2, _Pred pred) {
+return wjr::search(_First1, _Last1, wjr::default_searcher(_First2, _Last2, pred));
 }
 
 template<typename _Iter, typename _Searcher>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Iter _Last, const _Searcher& _Srch) const {
+WJR_CONSTEXPR20 _Iter search(_Iter _First, _Iter _Last, const _Searcher& _Srch) {
 return _Srch(_First, _Last).first;
 }
 
-};
-
-constexpr search_fn search;
-
-struct construct_at_fn {
-template<typename _Iter, typename...Args, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
-WJR_CONSTEXPR20 void operator()(_Iter iter, Args&&... args) const {
+template<typename _Iter, typename...Args, std::enable_if_t<is_iterator_v<_Iter>, int>>
+WJR_CONSTEXPR20 void construct_at(_Iter iter, Args&&... args) {
 using value_type = iter_val_t<_Iter>;
 ::new (voidify(get_address(iter))) value_type(std::forward<Args>(args)...);
 }
 
-template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
-WJR_CONSTEXPR20 void operator()(_Iter iter, default_construct_tag) const {
+template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int>>
+WJR_CONSTEXPR20 void construct_at(_Iter iter, default_construct_tag) {
 using value_type = iter_val_t<_Iter>;
 ::new (voidify(get_address(iter))) value_type;
 }
 
-template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int> = 0>
-WJR_CONSTEXPR20 void operator()(_Iter iter, value_construct_tag) const {
-this->operator()(iter);
+template<typename _Iter, std::enable_if_t<is_iterator_v<_Iter>, int>>
+WJR_CONSTEXPR20 void construct_at(_Iter iter, value_construct_tag) {
+wjr::construct_at(iter);
 }
 
-template<typename Alloc, typename _Iter, typename...Args, std::enable_if_t<!is_iterator_v<Alloc>, int> = 0>
-WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter iter, Args&&...args) const {
+template<typename Alloc, typename _Iter, typename...Args, std::enable_if_t<!is_iterator_v<Alloc>, int>>
+WJR_CONSTEXPR20 void construct_at(Alloc& al, _Iter iter, Args&&...args) {
 using pointer = iter_address_t<_Iter>;
 if constexpr (is_default_allocator_construct_v<Alloc, pointer, Args...>) {
-this->operator()(iter, std::forward<Args>(args)...);
+wjr::construct_at(iter, std::forward<Args>(args)...);
 }
 else {
 std::allocator_traits<Alloc>::construct(al, get_address(iter), std::forward<Args>(args)...);
 }
 }
 
-};
-
-constexpr construct_at_fn construct_at;
-
-struct destroy_at_fn {
 template<typename _Iter>
-WJR_CONSTEXPR20 void operator()(_Iter ptr) const {
+WJR_CONSTEXPR20 void destroy_at(_Iter ptr) {
 using value_type = iter_val_t<_Iter>;
 if constexpr (!std::is_trivially_destructible_v<value_type>) {
 get_address(ptr)->~value_type();
@@ -10306,22 +10454,17 @@ get_address(ptr)->~value_type();
 }
 
 template<typename Alloc, typename _Iter>
-WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter iter) const {
+WJR_CONSTEXPR20 void destroy_at(Alloc& al, _Iter iter) {
 if constexpr (is_default_allocator_destroy_v<Alloc, _Iter>) {
-this->operator()(iter);
+wjr::destroy_at(iter);
 }
 else {
 std::allocator_traits<Alloc>::destroy(al, get_address(iter));
 }
 }
 
-};
-
-constexpr destroy_at_fn destroy_at;
-
-struct destroy_fn {
 template<typename _Iter>
-WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last) const {
+WJR_CONSTEXPR20 void destroy(_Iter _First, _Iter _Last) {
 using value_type = iter_val_t<_Iter>;
 if constexpr (!std::is_trivially_destructible_v<value_type>) {
 for (; _First != _Last; ++_First) {
@@ -10331,7 +10474,7 @@ wjr::destroy_at(_First);
 }
 
 template<typename Alloc, typename _Iter>
-WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Iter _Last) const {
+WJR_CONSTEXPR20 void destroy(Alloc& al, _Iter _First, _Iter _Last) {
 using value_type = iter_val_t<_Iter>;
 if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter>
 && std::is_trivially_destructible_v<value_type>)) {
@@ -10340,13 +10483,10 @@ wjr::destroy_at(al, _First);
 }
 }
 }
-};
 
-constexpr destroy_fn destroy;
 
-struct destroy_n_fn {
 template<typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 void operator()(_Iter _First, const _Diff n) const {
+WJR_CONSTEXPR20 void destroy_n(_Iter _First, const _Diff n) {
 using value_type = iter_val_t<_Iter>;
 if constexpr (!std::is_trivially_destructible_v<value_type>) {
 for (; n > 0; (void)++_First, --n) {
@@ -10356,7 +10496,7 @@ wjr::destroy_at(_First);
 }
 
 template<typename Alloc, typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Diff n) const {
+WJR_CONSTEXPR20 void destroy_n(Alloc& al, _Iter _First, _Diff n) {
 using value_type = iter_val_t<_Iter>;
 if constexpr (!(is_default_allocator_destroy_v<Alloc, _Iter> && std::is_trivially_destructible_v<value_type>)) {
 for (; n > 0; (void)++_First, --n) {
@@ -10364,22 +10504,17 @@ wjr::destroy_at(al, _First);
 }
 }
 }
-};
-
-constexpr destroy_n_fn destroy_n;
-
-struct uninitialized_default_construct_fn {
 
 template<typename _Iter>
-WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last) const {
+WJR_CONSTEXPR20 void uninitialized_default_construct(_Iter _First, _Iter _Last) {
 std::uninitialized_default_construct(_First, _Last);
 }
 
 template<typename Alloc, typename _Iter>
-WJR_CONSTEXPR20 void operator()(
-Alloc& al, _Iter _First, _Iter _Last) const {
+WJR_CONSTEXPR20 void uninitialized_default_construct(
+Alloc& al, _Iter _First, _Iter _Last) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter, default_construct_tag>) {
-this->operator()(_First, _Last);
+wjr::uninitialized_default_construct(_First, _Last);
 }
 else {
 for (; _First != _Last; (void)++_First) {
@@ -10387,21 +10522,17 @@ wjr::construct_at(al, _First, default_construct_tag{});
 }
 }
 }
-};
 
-constexpr uninitialized_default_construct_fn uninitialized_default_construct;
-
-struct uninitialized_default_construct_n_fn {
 template<typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, const _Diff n) const {
+WJR_CONSTEXPR20 _Iter uninitialized_default_construct_n(_Iter _First, const _Diff n) {
 return std::uninitialized_default_construct_n(_First, n);
 }
 
 template<typename Alloc, typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 _Iter operator()(
-Alloc& al, _Iter _First, _Diff n) const {
+WJR_CONSTEXPR20 _Iter uninitialized_default_construct_n(
+Alloc& al, _Iter _First, _Diff n) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter, default_construct_tag>) {
-return this->operator()(_First, n);
+return wjr::uninitialized_default_construct_n(_First, n);
 }
 else {
 for (; n > 0; (void)++_First, --n) {
@@ -10410,21 +10541,17 @@ wjr::construct_at(al, _First, default_construct_tag{});
 return _First;
 }
 }
-};
 
-constexpr uninitialized_default_construct_n_fn uninitialized_default_construct_n;
-
-struct uninitialized_value_construct_fn {
 template<typename _Iter>
-WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last) const {
+WJR_CONSTEXPR20 void uninitialized_value_construct(_Iter _First, _Iter _Last) {
 std::uninitialized_value_construct(_First, _Last);
 }
 
 template<typename Alloc, typename _Iter>
-WJR_CONSTEXPR20 void operator()(
-Alloc& al, _Iter _First, _Iter _Last) const {
+WJR_CONSTEXPR20 void uninitialized_value_construct(
+Alloc& al, _Iter _First, _Iter _Last) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter, value_construct_tag>) {
-this->operator()(_First, _Last);
+wjr::uninitialized_value_construct(_First, _Last);
 }
 else {
 for (; _First != _Last; (void)++_First) {
@@ -10432,21 +10559,17 @@ wjr::construct_at(al, _First, value_construct_tag{});
 }
 }
 }
-};
 
-constexpr uninitialized_value_construct_fn uninitialized_value_construct;
-
-struct uninitialized_value_construct_n_fn {
 template<typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n) const {
+WJR_CONSTEXPR20 _Iter uninitialized_value_construct_n(_Iter _First, _Diff n) {
 return std::uninitialized_value_construct_n(_First, n);
 }
 
 template<typename Alloc, typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 _Iter operator()(
-Alloc& al, _Iter _First, _Diff n) const {
+WJR_CONSTEXPR20 _Iter uninitialized_value_construct_n(
+Alloc& al, _Iter _First, _Diff n) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter, value_construct_tag>) {
-return this->operator()(_First, n);
+return wjr::uninitialized_value_construct_n(_First, n);
 }
 else {
 for (; n > 0; (void)++_First, --n) {
@@ -10455,9 +10578,6 @@ wjr::construct_at(al, _First, value_construct_tag{});
 return _First;
 }
 }
-};
-
-constexpr uninitialized_value_construct_n_fn uninitialized_value_construct_n;
 
 template<typename _Input, typename _Output,
 typename _Input_ref = iter_ref_t<_Input>,
@@ -10472,9 +10592,8 @@ algo::__has_fast_construct_memcpy<remove_ref_t<_Output_ref>, _Input_ref>
 template<typename _Input, typename _Output>
 constexpr bool __has_fast_uninitialized_copy_v = __has_fast_uninitialized_copy<_Input, _Output>::value;
 
-struct uninitialized_copy_fn {
 template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 _Iter2 operator()(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_uninitialized_copy_v<_Iter1, _Iter2>) {
 const auto n = std::distance(_First, _Last);
@@ -10499,10 +10618,10 @@ return std::uninitialized_copy(_First, _Last, _Dest);
 }
 
 template<typename Alloc, typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 _Iter2 operator()(
-Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy(
+Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter2, decltype(*_First)>) {
-return this->operator()(_First, _Last, _Dest);
+return wjr::uninitialized_copy(_First, _Last, _Dest);
 }
 else {
 for (; _First != _Last; ++_Dest, (void)++_First) {
@@ -10510,13 +10629,9 @@ wjr::construct_at(al, _Dest, *_First);
 }
 }
 }
-};
 
-constexpr uninitialized_copy_fn uninitialized_copy;
-
-struct uninitialized_copy_n_fn {
 template<typename _Iter1, typename _Diff, typename _Iter2>
-WJR_CONSTEXPR20 _Iter2 operator()(_Iter1 _First, _Diff n, _Iter2 _Dest) const {
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy_n(_Iter1 _First, _Diff n, _Iter2 _Dest) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_uninitialized_copy_v<_Iter1, _Iter2>) {
 if (n <= 0) { return _Dest; }
@@ -10527,9 +10642,9 @@ return std::uninitialized_copy_n(_First, n, _Dest);
 }
 
 template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
-WJR_CONSTEXPR20 _Iter2 operator()(Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) const {
+WJR_CONSTEXPR20 _Iter2 uninitialized_copy_n(Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter2, decltype(*_First)>) {
-return this->operator()(_First, n, _Dest);
+return wjr::uninitialized_copy_n(_First, n, _Dest);
 }
 else {
 for (; n > 0; ++_First, (void)++_Dest, --n) {
@@ -10538,9 +10653,6 @@ wjr::construct_at(al, _Dest, *_First);
 return _Dest;
 }
 }
-};
-
-constexpr uninitialized_copy_n_fn uninitialized_copy_n;
 
 template<typename _Iter, typename _Val,
 typename _Iter_ref = iter_ref_t<_Iter>>
@@ -10552,9 +10664,8 @@ algo::__has_fast_construct_memset<remove_cref_t<_Iter_ref>, add_cref_t<_Val>>
 template<typename _Iter, typename _Val>
 constexpr bool __has_fast_uninitialized_fill_v = __has_fast_uninitialized_fill<_Iter, _Val>::value;
 
-struct uninitialized_fill_fn {
 template<typename _Iter, typename _Val>
-WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, const _Val& val) const {
+WJR_CONSTEXPR20 void uninitialized_fill(_Iter _First, _Iter _Last, const _Val& val) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_uninitialized_fill_v<_Iter, _Val>) {
 const auto n = std::distance(_First, _Last);
@@ -10574,19 +10685,19 @@ return std::uninitialized_fill(_First, _Last, val);
 }
 
 template<typename _Iter>
-WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, default_construct_tag) const {
+WJR_CONSTEXPR20 void uninitialized_fill(_Iter _First, _Iter _Last, default_construct_tag) {
 wjr::uninitialized_default_construct(_First, _Last);
 }
 
 template<typename _Iter>
-WJR_CONSTEXPR20 void operator()(_Iter _First, _Iter _Last, value_construct_tag) const {
+WJR_CONSTEXPR20 void uninitialized_fill(_Iter _First, _Iter _Last, value_construct_tag) {
 wjr::uninitialized_value_construct(_First, _Last);
 }
 
 template<typename Alloc, typename _Iter, typename _Val>
-WJR_CONSTEXPR20 void operator()(Alloc& al, _Iter _First, _Iter _Last, const _Val& val) const {
+WJR_CONSTEXPR20 void uninitialized_fill(Alloc& al, _Iter _First, _Iter _Last, const _Val& val) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter, _Val>) {
-this->operator()(_First, _Last, val);
+wjr::uninitialized_fill(_First, _Last, val);
 }
 else {
 for (; _First != _Last; (void)++_First) {
@@ -10594,13 +10705,9 @@ wjr::construct_at(al, _First, val);
 }
 }
 }
-};
 
-constexpr uninitialized_fill_fn uninitialized_fill;
-
-struct uninitialized_fill_n_fn {
 template<typename _Iter, typename _Diff, typename _Val>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff count, const _Val& val) const {
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(_Iter _First, _Diff count, const _Val& val) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_uninitialized_fill_v<_Iter, _Val>) {
 if (count <= 0) { return _First; }
@@ -10612,19 +10719,19 @@ return std::uninitialized_fill_n(_First, count, val);
 }
 
 template<typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n, default_construct_tag) const {
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(_Iter _First, _Diff n, default_construct_tag) {
 return wjr::uninitialized_default_construct_n(_First, n);
 }
 
 template<typename _Iter, typename _Diff>
-WJR_CONSTEXPR20 _Iter operator()(_Iter _First, _Diff n, value_construct_tag) const {
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(_Iter _First, _Diff n, value_construct_tag) {
 return wjr::uninitialized_value_construct_n(_First, n);
 }
 
 template<typename Alloc, typename _Iter, typename _Diff, typename _Val>
-WJR_CONSTEXPR20 _Iter operator()(Alloc& al, _Iter _First, _Diff n, const _Val& val) const {
+WJR_CONSTEXPR20 _Iter uninitialized_fill_n(Alloc& al, _Iter _First, _Diff n, const _Val& val) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter, _Val>) {
-return this->operator()(_First, n, val);
+return wjr::uninitialized_fill_n(_First, n, val);
 }
 else {
 for (; n > 0; (void)++_First, --n) {
@@ -10632,13 +10739,9 @@ wjr::construct_at(al, _First, val);
 }
 }
 }
-};
 
-constexpr uninitialized_fill_n_fn uninitialized_fill_n;
-
-struct uninitialized_move_fn {
 template<typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 _Iter2 operator()(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
+WJR_CONSTEXPR20 _Iter2 uninitialized_move(_Iter1 _First, _Iter1 _Last, _Iter2 _Dest) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_uninitialized_copy_v<_Iter1, std::move_iterator<_Iter1>>) {
 const auto n = std::distance(_First, _Last);
@@ -10663,9 +10766,9 @@ return std::uninitialized_move(_First, _Last, _Dest);
 }
 
 template<typename Alloc, typename _Iter1, typename _Iter2>
-WJR_CONSTEXPR20 _Iter2 operator()(Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest) const {
+WJR_CONSTEXPR20 _Iter2 uninitialized_move(Alloc& al, _Iter1 _First, _Iter1 _Last, _Iter2 _Dest) {
 if constexpr (is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>) {
-return this->operator()(_First, _Last, _Dest);
+return wjr::uninitialized_move(_First, _Last, _Dest);
 }
 else {
 for (; _First != _Last; ++_Dest, (void)++_First) {
@@ -10674,13 +10777,9 @@ wjr::construct_at(al, _Dest, std::move(*_First));
 return _Dest;
 }
 }
-};
 
-constexpr uninitialized_move_fn uninitialized_move;
-
-struct uninitialized_move_n_fn {
 template<typename _Iter1, typename _Diff, typename _Iter2>
-WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(_Iter1 _First, _Diff n, _Iter2 _Dest) const {
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> uninitialized_move_n(_Iter1 _First, _Diff n, _Iter2 _Dest) {
 if (!wjr::is_constant_evaluated()) {
 if constexpr (__has_fast_uninitialized_copy_v<_Iter1, std::move_iterator<_Iter1>>) {
 if (n <= 0) return std::make_pair(_First, _Dest);
@@ -10692,10 +10791,10 @@ return std::uninitialized_move_n(_First, n, _Dest);
 }
 
 template<typename Alloc, typename _Iter1, typename _Diff, typename _Iter2>
-WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> operator()(
-Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) const {
-if constexpr(is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>){
-return this->operator()(_First, n, _Dest);
+WJR_CONSTEXPR20 std::pair<_Iter1, _Iter2> uninitialized_move_n(
+Alloc& al, _Iter1 _First, _Diff n, _Iter2 _Dest) {
+if constexpr (is_default_allocator_construct_v<Alloc, _Iter1, decltype(std::move(*_First))>) {
+return wjr::uninitialized_move_n(_First, n, _Dest);
 }
 else {
 for (; n > 0; ++_First, (void)++_Dest, --n) {
@@ -10704,9 +10803,6 @@ wjr::construct_at(al, _Dest, std::move(*_First));
 return std::make_pair(_First, _Dest);
 }
 }
-};
-
-constexpr uninitialized_move_n_fn uninitialized_move_n;
 
 template<typename Alloc>
 class temporary_allocator_value {
@@ -10751,7 +10847,8 @@ std::aligned_storage_t<sizeof(value_type), alignof(value_type)> vl;
 
 _WJR_END
 
-#endif
+
+#endif // __WJR_ALGORITHM_H__
 
 _WJR_BEGIN
 
@@ -12632,678 +12729,36 @@ return n;
 
 #endif // !__WJR_VECTOR_H
 #pragma once
-#ifndef __WJR_QUEUE_H
-#define __WJR_QUEUE_H
-
-#include <queue>
-
-#pragma once
-#ifndef __WJR_DEQUE_H
-#define __WJR_DEQUE_H
-
-
-_WJR_BEGIN
-
-template<typename T>
-class deque_const_iterator {
-public:
-using iterator_category = std::random_access_iterator_tag;
-using value_type = T;
-using size_type = size_t;
-using difference_type = ptrdiff_t;
-using pointer = const value_type*;
-using reference = const value_type&;
-
-static_assert(std::is_signed_v<difference_type>, "");
-
-WJR_CONSTEXPR20 deque_const_iterator() = default;
-
-WJR_CONSTEXPR20 deque_const_iterator(
-pointer head, pointer tail,
-difference_type offset
-) : m_head(head), m_tail(tail), m_offset(offset) {}
-
-WJR_CONSTEXPR20 deque_const_iterator(const deque_const_iterator& other) = default;
-
-WJR_CONSTEXPR20 deque_const_iterator& operator=(const deque_const_iterator&) = default;
-
-WJR_CONSTEXPR20 reference operator*() const {
-return m_offset >= 0 ? m_tail[m_offset] : m_head[-m_offset - 1];
-}
-
-WJR_CONSTEXPR20 reference operator[](difference_type n) const {
-return *((*this) + n);
-}
-
-WJR_CONSTEXPR20 pointer operator->() const {
-return std::addressof(*this);
-}
-
-WJR_CONSTEXPR20 deque_const_iterator& operator++() {
-++m_offset;
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_const_iterator& operator++(int) {
-deque_const_iterator tmp = *this;
-++(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 deque_const_iterator& operator--() {
---m_offset;
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_const_iterator& operator--(int) {
-deque_const_iterator tmp = *this;
---(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 deque_const_iterator& operator+=(difference_type n) {
-m_offset += n;
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_const_iterator operator+(difference_type n) const {
-deque_const_iterator tmp = *this;
-return tmp += n;
-}
-
-WJR_CONSTEXPR20 deque_const_iterator& operator-=(difference_type n) {
-m_offset -= n;
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_const_iterator operator-(difference_type n) const {
-deque_const_iterator tmp = *this;
-return tmp -= n;
-}
-
-WJR_CONSTEXPR20 bool operator==(const deque_const_iterator& other) const {
-return m_offset == other.m_offset;
-}
-
-WJR_CONSTEXPR20 bool operator!=(const deque_const_iterator& other) const {
-return !(*this == other);
-}
-
-WJR_CONSTEXPR20 difference_type operator-(const deque_const_iterator& other) const {
-return m_offset - other.m_offset;
-}
-
-WJR_CONSTEXPR20 difference_type offset() const { return m_offset; }
-
-private:
-value_type* m_head = nullptr;
-value_type* m_tail = nullptr;
-difference_type m_offset;
-// m_offset >= 0 ? ptr in tail : ptr in head
-};
-
-template<typename T>
-class deque_iterator : public deque_const_iterator<T> {
-public:
-using _Mybase = deque_const_iterator<T>;
-
-using iterator_category = std::random_access_iterator_tag;
-using value_type = T;
-using size_type = size_t;
-using difference_type = ptrdiff_t;
-using pointer = value_type*;
-using reference = value_type&;
-
-static_assert(std::is_signed_v<difference_type>, "");
-
-WJR_CONSTEXPR20 deque_iterator() = default;
-
-WJR_CONSTEXPR20 deque_iterator(
-pointer head, pointer tail,
-difference_type offset
-) : _Mybase(head, tail, offset) {}
-
-WJR_CONSTEXPR20 deque_iterator(const deque_iterator& other) = default;
-
-WJR_CONSTEXPR20 deque_iterator& operator=(const deque_iterator&) = default;
-
-WJR_CONSTEXPR20 reference operator*() const {
-return const_cast<reference>(_Mybase::operator*());
-}
-
-WJR_CONSTEXPR20 reference operator[](difference_type n) const {
-return const_cast<reference>(_Mybase::operator[](n));
-}
-
-WJR_CONSTEXPR20 pointer operator->() const {
-return const_cast<pointer>(_Mybase::operator->());
-}
-
-WJR_CONSTEXPR20 deque_iterator& operator++() {
-deque_const_iterator<T>::operator++();
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_iterator& operator++(int) {
-deque_iterator tmp = *this;
-++(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 deque_iterator& operator--() {
-deque_const_iterator<T>::operator--();
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_iterator& operator--(int) {
-deque_iterator tmp = *this;
---(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 deque_iterator& operator+=(difference_type n) {
-deque_const_iterator<T>::operator+=(n);
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_iterator operator+(difference_type n) const {
-deque_iterator tmp = *this;
-return tmp += n;
-}
-
-WJR_CONSTEXPR20 deque_iterator& operator-=(difference_type n) {
-deque_const_iterator<T>::operator-=(n);
-return *this;
-}
-
-WJR_CONSTEXPR20 deque_iterator operator-(difference_type n) const {
-deque_iterator tmp = *this;
-return tmp -= n;
-}
-
-WJR_CONSTEXPR20 bool operator==(const deque_iterator& other) const {
-return deque_const_iterator<T>::operator==(other);
-}
-
-WJR_CONSTEXPR20 bool operator!=(const deque_iterator& other) const {
-return !(*this == other);
-}
-
-WJR_CONSTEXPR20 difference_type operator-(const deque_iterator& other) const {
-return deque_const_iterator<T>::operator-(other);
-}
-
-WJR_CONSTEXPR20 difference_type offset() const { return _Mybase::offset();; }
-};
-
-template <typename T, typename Alloc = std::allocator<T>>
-class deque {
-public:
-using value_type = T;
-using allocator_type = Alloc;
-using size_type = size_t;
-using difference_type = ptrdiff_t;
-using reference = T&;
-using const_reference = const T;
-using pointer = typename std::allocator_traits<allocator_type>::pointer;
-using const_pointer = typename std::allocator_traits<allocator_type>::const_pointer;
-
-using iterator = deque_iterator<T>;
-using const_iterator = deque_const_iterator<T>;
-using reverse_iterator = std::reverse_iterator<iterator>;
-using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-
-static_assert(std::is_signed_v<difference_type>, "");
-
-WJR_CONSTEXPR20 deque() = default;
-
-WJR_CONSTEXPR20 explicit deque(const allocator_type& al)
-: head(al), tail(al) {}
-
-WJR_CONSTEXPR20 deque(size_type n, const T& val, const allocator_type& al = allocator_type())
-: head(al), tail(n, val, al) { }
-
-WJR_CONSTEXPR20 explicit deque(size_type n, const allocator_type& al = allocator_type())
-: head(al), tail(n, al) { }
-
-template <typename InputIt>
-WJR_CONSTEXPR20 deque(InputIt first, InputIt last, const allocator_type& al = allocator_type())
-: head(al), tail(first, last, al) { }
-
-WJR_CONSTEXPR20 deque(const deque& other)
-: head(other.head), tail(other.tail) {}
-
-WJR_CONSTEXPR20 deque(deque&& other) noexcept
-: head(std::move(other.head)), tail(std::move(other.tail)) {}
-
-WJR_CONSTEXPR20 deque(std::initializer_list<T> il, const allocator_type& al = allocator_type())
-: head(al), tail(il, al) { }
-
-~deque() = default;
-
-WJR_CONSTEXPR20 deque& operator=(const deque& other) {
-if (is_likely(this != std::addressof(other))) {
-head = other.head;
-tail = other.tail;
-}
-return *this;
-}
-
-WJR_CONSTEXPR20 deque& operator=(deque&& other) noexcept {
-if (is_likely(this != std::addressof(other))) {
-head = std::move(other.head);
-tail = std::move(other.tail);
-}
-return *this;
-}
-
-WJR_CONSTEXPR20 deque& operator=(std::initializer_list<T> il) {
-assign(il);
-return *this;
-}
-
-WJR_CONSTEXPR20 void assign(size_type n, const T& val) {
-head.clear();
-tail.assign(n, val);
-}
-
-template <typename InputIt>
-WJR_CONSTEXPR20 void assign(InputIt first, InputIt last) {
-head.clear();
-tail.assign(first, last);
-}
-
-WJR_CONSTEXPR20 void assign(std::initializer_list<T> il) {
-head.clear();
-tail.assign(il);
-}
-
-WJR_CONSTEXPR20 reference at(size_type pos) {
-if (is_unlikely(pos >= size())) {
-throw std::out_of_range("deque::at");
-}
-return (*this)[pos];
-}
-
-WJR_CONSTEXPR20 const_reference at(size_type pos) const {
-if (is_unlikely(pos >= size())) {
-throw std::out_of_range("deque::at");
-}
-return (*this)[pos];
-}
-
-WJR_CONSTEXPR20 reference operator[](size_type pos) {
-return pos < head.size() ? head[head.size() - pos - 1] : tail[pos - head.size()];
-}
-
-WJR_CONSTEXPR20 const_reference operator[](size_type pos) const {
-return pos < head.size() ? head[head.size() - pos - 1] : tail[pos - head.size()];
-}
-
-WJR_CONSTEXPR20 reference front() {
-return head.empty() ? tail.front() : head.back();
-}
-
-WJR_CONSTEXPR20 const_reference front() const {
-return head.empty() ? tail.front() : head.back();
-}
-
-WJR_CONSTEXPR20 reference back() {
-return tail.empty() ? head.front() : tail.back();
-}
-
-WJR_CONSTEXPR20 const_reference back() const {
-return tail.empty() ? head.front() : tail.back();
-}
-
-WJR_CONSTEXPR20 iterator begin() noexcept {
-const auto offset = -std::max(
-static_cast<ptrdiff_t>(0),
-static_cast<ptrdiff_t>(head.size())
-);
-return iterator(head.begin(), tail.begin(), offset);
-}
-
-WJR_CONSTEXPR20 const_iterator begin() const noexcept {
-return cbegin();
-}
-
-WJR_CONSTEXPR20 const_iterator cbegin() const noexcept {
-const auto offset = -std::max(
-static_cast<difference_type>(0),
-static_cast<difference_type>(head.size())
-);
-return const_iterator(head.begin(), tail.begin(), offset);
-}
-
-WJR_CONSTEXPR20 iterator end() noexcept {
-const auto offset = std::max(
-static_cast<difference_type>(0),
-static_cast<difference_type>(tail.size())
-);
-return iterator(head.begin(), tail.begin(), offset);
-}
-
-WJR_CONSTEXPR20 const_iterator end() const noexcept {
-return cend();
-}
-
-WJR_CONSTEXPR20 const_iterator cend() const noexcept {
-const auto offset = std::max(
-static_cast<difference_type>(0),
-static_cast<difference_type>(tail.size())
-);
-return const_iterator(head.begin(), tail.begin(), offset);
-}
-
-WJR_CONSTEXPR20 reverse_iterator rbegin() noexcept {
-return reverse_iterator(end());
-}
-
-WJR_CONSTEXPR20 const_reverse_iterator rbegin() const noexcept {
-return const_reverse_iterator(end());
-}
-
-WJR_CONSTEXPR20 const_reverse_iterator crbegin() const noexcept {
-return const_reverse_iterator(end());
-}
-
-WJR_CONSTEXPR20 reverse_iterator rend() noexcept {
-return reverse_iterator(begin());
-}
-
-WJR_CONSTEXPR20 const_reverse_iterator rend() const noexcept {
-return const_reverse_iterator(begin());
-}
-
-WJR_CONSTEXPR20 const_reverse_iterator crend() const noexcept {
-return const_reverse_iterator(begin());
-}
-
-WJR_CONSTEXPR20 bool empty() const noexcept {
-return head.empty() && tail.empty();
-}
-
-WJR_CONSTEXPR20 size_type size() const noexcept {
-return head.size() + tail.size();
-}
-
-WJR_CONSTEXPR20 size_type max_size() const noexcept {
-return std::min(head.max_size(), tail.max_size());
-}
-
-WJR_CONSTEXPR20 void reserve(size_type new_cap) {
-head.reserve(new_cap / 2 + 1);
-tail.reserve(new_cap / 2 + 1);
-}
-
-WJR_CONSTEXPR20 size_type capacity() const noexcept {
-return head.capacity() + tail.capacity();
-}
-
-WJR_CONSTEXPR20 void shrink_to_fit() {
-head.shrink_to_fit();
-tail.shrink_to_fit();
-}
-
-WJR_CONSTEXPR20 void clear() noexcept {
-head.clear();
-tail.clear();
-}
-
-WJR_CONSTEXPR20 iterator insert(const_iterator pos, const T& value) {
-const auto _Pos = pos - cbegin();
-const auto offset = pos.offset();
-if (offset < 0) {
-head.insert(head.begin() - offset - 1, value);
-}
-else {
-tail.insert(tail.begin() + offset, value);
-}
-return begin() + _Pos;
-}
-
-WJR_CONSTEXPR20 iterator insert(const_iterator pos, T&& value) {
-const auto _Pos = pos - cbegin();
-const auto offset = pos.offset();
-if (offset < 0) {
-head.insert(head.begin() - offset - 1, std::move(value));
-}
-else {
-tail.insert(tail.begin() + offset, std::move(value));
-}
-return begin() + _Pos;
-}
-
-WJR_CONSTEXPR20 iterator insert(const_iterator pos, size_type count, const T& value) {
-const auto _Pos = pos - cbegin();
-const auto offset = pos.offset();
-if (offset < 0) {
-head.insert(head.begin() - offset - 1, count, value);
-}
-else {
-tail.insert(tail.begin() + offset, count, value);
-}
-return begin() + _Pos;
-}
-
-template <typename InputIt>
-WJR_CONSTEXPR20 iterator insert(const_iterator pos, InputIt first, InputIt last) {
-const auto _Pos = pos - cbegin();
-const auto offset = pos.offset();
-if (offset < 0) {
-head.insert(head.begin() - offset - 1,
-std::make_reverse_iterator(last),
-std::make_reverse_iterator(first));
-}
-else {
-tail.insert(tail.begin() + offset, first, last);
-}
-return begin() + _Pos;
-}
-
-WJR_CONSTEXPR20 iterator insert(const_iterator pos, std::initializer_list<T> il) {
-return insert(pos, il.begin(), il.end());
-}
-
-template<typename...Args>
-WJR_CONSTEXPR20 iterator emplace(const_iterator pos, Args&&...args) {
-const auto _Pos = pos - cbegin();
-const auto offset = pos.offset();
-if (offset < 0) {
-head.emplace(head.begin() - offset - 1, std::forward<Args>(args)...);
-}
-else {
-tail.insert(tail.begin() + offset, std::forward<Args>(args)...);
-}
-return begin() + _Pos;
-}
-
-WJR_CONSTEXPR20 iterator erase(const_iterator pos) {
-const auto _Pos = pos - cbegin();
-const auto offset = pos.offset();
-if (offset < 0) {
-head.erase(head.begin() - offset - 1);
-}
-else {
-tail.erase(tail.begin() + offset);
-}
-return begin() + _Pos;
-}
-
-WJR_CONSTEXPR20 iterator erase(const_iterator first, const_iterator last) {
-const auto _Pos = first - cbegin();
-const auto offset1 = first.offset();
-const auto offset2 = last.offset();
-WJR_ASSUME(offset1 <= offset2);
-if (offset1 < 0) {
-if (offset2 < 0) {
-head.erase(head.begin() - offset2 - 1, head.begin() - offset1 - 1);
-}
-else {
-head.erase(head.begin(), head.begin() - offset1 - 1);
-tail.erase(tail.begin(), tail.begin() + offset2);
-}
-}
-else {
-tail.erase(tail.begin() + offset1, tail.begin() + offset2);
-}
-return begin() + _Pos;
-}
-
-WJR_CONSTEXPR20 void push_back(const T& value) {
-tail.push_back(value);
-}
-
-WJR_CONSTEXPR20 void push_back(T&& value) {
-tail.push_back(std::move(value));
-}
-
-template<typename...Args>
-WJR_CONSTEXPR20 reference emplace_back(Args&&...args) {
-return tail.emplace_back(std::forward<Args>(args)...);
-}
-
-WJR_CONSTEXPR20 void pop_back() {
-if (tail.empty()) {
-const auto mid = head.size() / 2 + 1;
-tail.assign(std::make_reverse_iterator(head.begin() + mid), std::make_reverse_iterator(head.begin()));
-head.erase(head.begin(), head.begin() + mid);
-}
-tail.pop_back();
-}
-
-WJR_CONSTEXPR20 void push_front(const T& value) {
-head.push_back(value);
-}
-
-WJR_CONSTEXPR20 void push_front(T&& value) {
-head.push_back(std::move(value));
-}
-
-template<typename...Args>
-WJR_CONSTEXPR20 reference emplace_front(Args&&...args) {
-return head.emplace_back(std::forward<Args>(args)...);
-}
-
-WJR_CONSTEXPR20 void pop_front() {
-if (head.empty()) {
-const auto mid = tail.size() / 2 + 1;
-head.assign(std::make_reverse_iterator(tail.begin() + mid), std::make_reverse_iterator(tail.begin()));
-tail.erase(tail.begin(), tail.begin() + mid);
-}
-head.pop_back();
-}
-
-WJR_CONSTEXPR20 void resize(size_type count) {
-const auto old_size = size();
-if (count < old_size) {
-erase(begin() + count, end());
-}
-else {
-tail.append(count - old_size, value_construct_tag());
-}
-}
-
-WJR_CONSTEXPR20 void resize(size_type count, const T& value) {
-const auto old_size = size();
-if (count < old_size) {
-erase(begin() + count, end());
-}
-else {
-tail.append(count - old_size, value);
-}
-}
-
-WJR_CONSTEXPR20 void swap(deque& other) noexcept {
-head.swap(other.head);
-tail.swap(other.tail);
-}
-
-private:
-vector<T, Alloc> head;
-vector<T, Alloc> tail;
-};
-
-template <typename T, typename Alloc>
-WJR_CONSTEXPR20 bool operator==(const deque<T, Alloc>& lhs, const deque<T, Alloc>& rhs) {
-return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
-}
-
-template <typename T, typename Alloc>
-WJR_CONSTEXPR20 bool operator!=(const deque<T, Alloc>& lhs, const deque<T, Alloc>& rhs) {
-return !(lhs == rhs);
-}
-
-template <typename T, typename Alloc>
-WJR_CONSTEXPR20 bool operator<(const deque<T, Alloc>& lhs, const deque<T, Alloc>& rhs) {
-return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
-}
-
-template <typename T, typename Alloc>
-WJR_CONSTEXPR20 bool operator<=(const deque<T, Alloc>& lhs, const deque<T, Alloc>& rhs) {
-return !(rhs < lhs);
-}
-
-template <typename T, typename Alloc>
-WJR_CONSTEXPR20 bool operator>(const deque<T, Alloc>& lhs, const deque<T, Alloc>& rhs) {
-return rhs < lhs;
-}
-
-template <typename T, typename Alloc>
-WJR_CONSTEXPR20 bool operator>=(const deque<T, Alloc>& lhs, const deque<T, Alloc>& rhs) {
-return !(lhs < rhs);
-}
-
-_WJR_END
-
-namespace std {
-template <typename T, typename Alloc>
-WJR_CONSTEXPR20 void swap(wjr::deque<T, Alloc>& lhs, wjr::deque<T, Alloc>& rhs) noexcept {
-lhs.swap(rhs);
-}
-}
-
-#endif // __WJR_DEQUE_H
-
-_WJR_BEGIN
-
-template<typename T, typename Alloc = std::allocator<T>>
-using queue = std::queue<T, wjr::deque<T, Alloc>>;
-
-_WJR_END
-
-#endif // __WJR_QUEUE_H
-#pragma once
 #ifndef __WJR_NETWORK_SPIN_MUTEX_H
 #define __WJR_NETWORK_SPIN_MUTEX_H
 
 #include <atomic>
+#include <mutex>
 
 
 _WJR_BEGIN
 
 class spin_mutex {
 public:
-spin_mutex() = default;
+WJR_INTRINSIC_INLINE spin_mutex() = default;
 spin_mutex(const spin_mutex&) = delete;
 spin_mutex& operator=(const spin_mutex&) = delete;
-~spin_mutex() = default;
+WJR_INTRINSIC_INLINE ~spin_mutex() = default;
 
-void lock() noexcept {
+WJR_INTRINSIC_INLINE void lock() noexcept {
 while (m_flag.test_and_set(std::memory_order_acquire));
 }
 
-bool try_lock() noexcept {
+WJR_INTRINSIC_INLINE bool try_lock() noexcept {
 return !m_flag.test_and_set(std::memory_order_acquire);
 }
 
-void unlock() noexcept {
+WJR_INTRINSIC_INLINE void unlock() noexcept {
 m_flag.clear(std::memory_order_release);
 }
 
-std::atomic_flag& flag() { return m_flag; }
-const std::atomic_flag& flag() const { return m_flag; }
+WJR_INTRINSIC_INLINE std::atomic_flag& flag() { return m_flag; }
+WJR_INTRINSIC_INLINE const std::atomic_flag& flag() const { return m_flag; }
 
 private:
 std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
@@ -13311,30 +12766,30 @@ std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
 
 class rw_spin_mutex {
 public:
-rw_spin_mutex() = default;
+WJR_INTRINSIC_INLINE rw_spin_mutex() = default;
 rw_spin_mutex(const rw_spin_mutex&) = delete;
 rw_spin_mutex& operator=(const rw_spin_mutex&) = delete;
-~rw_spin_mutex() = default;
+WJR_INTRINSIC_INLINE ~rw_spin_mutex() = default;
 
-void lock() noexcept {
+WJR_INTRINSIC_INLINE void lock() noexcept {
 m_write.lock();
 }
 
-bool try_lock() noexcept {
+WJR_INTRINSIC_INLINE bool try_lock() noexcept {
 return m_write.try_lock();
 }
 
-void unlock() noexcept {
+WJR_INTRINSIC_INLINE void unlock() noexcept {
 m_write.unlock();
 }
 
-void lock_shared() noexcept {
+WJR_INTRINSIC_INLINE void lock_shared() noexcept {
 m_read.lock();
 if (++m_count == 1)m_write.lock();
 m_read.unlock();
 }
 
-bool try_lock_shared() noexcept {
+WJR_INTRINSIC_INLINE bool try_lock_shared() noexcept {
 if (!m_read.try_lock())return false;
 if (++m_count == 1) {
 if (!m_write.try_lock()) {
@@ -13347,14 +12802,16 @@ m_read.unlock();
 return true;
 }
 
-void unlock_shared() noexcept {
+WJR_INTRINSIC_INLINE void unlock_shared() noexcept {
 m_read.lock();
 if (--m_count == 0)m_write.unlock();
 m_read.unlock();
 }
 
-spin_mutex& read_flag() { return m_read; }
-const spin_mutex& write_flag() const { return m_write; }
+WJR_INTRINSIC_INLINE spin_mutex& read_flag() { return m_read; }
+WJR_INTRINSIC_INLINE const spin_mutex& read_flag() const { return m_read; }
+WJR_INTRINSIC_INLINE spin_mutex& write_flag() { return m_write; }
+WJR_INTRINSIC_INLINE const spin_mutex& write_flag() const { return m_write; }
 
 private:
 spin_mutex m_read = {};
@@ -13365,6 +12822,672 @@ size_t m_count = 0;
 _WJR_END
 
 #endif //__WJR_NETWORK_SPIN_MUTEX_H
+#pragma once
+#ifndef __WJR_CIRCULAR_BUFFER_H
+#define __WJR_CIRCULAR_BUFFER_H
+
+
+_WJR_BEGIN
+
+template<typename T>
+class circular_buffer_const_iteartor {
+public:
+using iterator_category = std::random_access_iterator_tag;
+using value_type = T;
+using difference_type = std::ptrdiff_t;
+using pointer = const T*;
+using reference = const T&;
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor() noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_const_iteartor(const circular_buffer_const_iteartor&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_const_iteartor&
+operator=(const circular_buffer_const_iteartor&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_const_iteartor(pointer m_ptr, size_t m_pos, size_t m_capacity) noexcept
+: m_ptr(m_ptr), m_pos(m_pos), m_capacity(m_capacity) {}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator*() const noexcept {
+return m_ptr[offset()];
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 pointer operator->() const noexcept {
+return m_ptr + offset();
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor& operator++() noexcept {
+assume_no_add_overflow(m_pos, static_cast<size_t>(1));
+++m_pos;
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor operator++(int)noexcept {
+circular_buffer_const_iteartor tmp = *this;
+++(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor& operator--() noexcept {
+assume_no_sub_overflow(m_pos, static_cast<size_t>(1));
+--m_pos;
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor operator--(int)noexcept {
+circular_buffer_const_iteartor tmp = *this;
+--(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor& operator+=(const difference_type n) noexcept {
+assume_no_add_overflow(m_pos, static_cast<size_t>(n));
+m_pos += n;
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor operator+(const difference_type n) const noexcept {
+circular_buffer_const_iteartor tmp = *this;
+tmp += n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor& operator-=(const difference_type n) noexcept {
+(*this) += (-n);
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iteartor operator-(const difference_type n) const noexcept {
+circular_buffer_const_iteartor tmp = *this;
+tmp -= n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 friend difference_type operator-(
+const circular_buffer_const_iteartor& lhs,
+const circular_buffer_const_iteartor& rhs
+) noexcept {
+return lhs.m_pos - rhs.m_pos;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator[](const difference_type n) const noexcept {
+return *(*this + n);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator==(
+const circular_buffer_const_iteartor& lhs,
+const circular_buffer_const_iteartor& rhs
+) noexcept {
+return lhs.m_pos == rhs.m_pos;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator!=(
+const circular_buffer_const_iteartor& lhs,
+const circular_buffer_const_iteartor& rhs
+) noexcept {
+return !(lhs == rhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<(
+const circular_buffer_const_iteartor& lhs,
+const circular_buffer_const_iteartor& rhs
+) noexcept {
+return lhs.m_pos < rhs.m_pos;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<=(
+const circular_buffer_const_iteartor& lhs,
+const circular_buffer_const_iteartor& rhs
+) noexcept {
+return !(rhs < lhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>(
+const circular_buffer_const_iteartor& lhs,
+const circular_buffer_const_iteartor& rhs
+) noexcept {
+return rhs < lhs;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>=(
+const circular_buffer_const_iteartor& lhs,
+const circular_buffer_const_iteartor& rhs
+) noexcept {
+return !(lhs < rhs);
+}
+
+WJR_CONSTEXPR20 pointer ptr() const noexcept {
+return m_ptr;
+}
+
+WJR_CONSTEXPR20 size_t pos() const noexcept {
+return m_pos;
+}
+
+WJR_CONSTEXPR20 size_t offset() const noexcept {
+return m_pos >= m_capacity ? m_pos - m_capacity : m_pos;
+}
+
+WJR_CONSTEXPR20 size_t capacity() const noexcept {
+return m_capacity;
+}
+
+private:
+pointer m_ptr = nullptr;
+size_t m_pos = 0;
+size_t m_capacity = 0;
+};
+
+template<typename T>
+class circular_buffer_iteartor : public circular_buffer_const_iteartor<T> {
+public:
+using iterator_category = std::random_access_iterator_tag;
+using value_type = T;
+using difference_type = std::ptrdiff_t;
+using pointer = T*;
+using reference = T&;
+
+using _Mybase = circular_buffer_const_iteartor<T>;
+
+WJR_CONSTEXPR20 circular_buffer_iteartor() noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_iteartor(const circular_buffer_iteartor&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_iteartor&
+operator=(const circular_buffer_iteartor&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_iteartor(pointer m_ptr, size_t m_pos, size_t m_capacity) noexcept
+: _Mybase(m_ptr, m_pos, m_capacity) {}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator*() const noexcept {
+return const_cast<reference>(_Mybase::operator*());
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 pointer operator->() const noexcept {
+return const_cast<pointer>(_Mybase::operator->());
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor& operator++() noexcept {
+_Mybase::operator++();
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor operator++(int)noexcept {
+circular_buffer_iteartor tmp = *this;
+++(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor& operator--() noexcept {
+_Mybase::operator--();
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor operator--(int)noexcept {
+circular_buffer_iteartor tmp = *this;
+--(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor& operator+=(const difference_type n) noexcept {
+_Mybase::operator+=(n);
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor operator+(const difference_type n) const noexcept {
+circular_buffer_iteartor tmp = *this;
+tmp += n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor& operator-=(const difference_type n) noexcept {
+(*this) += (-n);
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iteartor operator-(const difference_type n) const noexcept {
+circular_buffer_iteartor tmp = *this;
+tmp -= n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 friend difference_type operator-(
+const circular_buffer_iteartor& lhs,
+const circular_buffer_iteartor& rhs
+) noexcept {
+return lhs.pos() - rhs.pos();
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator[](const difference_type n) const noexcept {
+return *(*this + n);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator==(
+const circular_buffer_iteartor& lhs,
+const circular_buffer_iteartor& rhs
+) noexcept {
+return lhs.pos() == rhs.pos();
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator!=(
+const circular_buffer_iteartor& lhs,
+const circular_buffer_iteartor& rhs
+) noexcept {
+return !(lhs == rhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<(
+const circular_buffer_iteartor& lhs,
+const circular_buffer_iteartor& rhs
+) noexcept {
+return lhs.pos() < rhs.pos();
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<=(
+const circular_buffer_iteartor& lhs,
+const circular_buffer_iteartor& rhs
+) noexcept {
+return !(rhs < lhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>(
+const circular_buffer_iteartor& lhs,
+const circular_buffer_iteartor& rhs
+) noexcept {
+return rhs < lhs;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>=(
+const circular_buffer_iteartor& lhs,
+const circular_buffer_iteartor& rhs
+) noexcept {
+return !(lhs < rhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 _Mybase& base() {
+return *this;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 const _Mybase& base() const {
+return *this;
+}
+};
+
+// algorithm
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_const_iteartor<T> _First, circular_buffer_const_iteartor<T> _Last, _Iter _Dest);
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_iteartor<T> _First, circular_buffer_iteartor<T> _Last, _Iter _Dest);
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_const_iteartor<T> _First, circular_buffer_const_iteartor<T> _Last, _Iter _Dest);
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_iteartor<T> _First, circular_buffer_iteartor<T> _Last, _Iter _Dest);
+
+template<typename T, typename Alloc = std::allocator<T>>
+class circular_buffer {
+using _Alty = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+using _Alty_traits = std::allocator_traits<_Alty>;
+public:
+using value_type = T;
+using allocator_type = Alloc;
+using size_type = typename _Alty_traits::size_type;
+using difference_type = typename _Alty_traits::difference_type;
+using reference = value_type&;
+using const_reference = const value_type&;
+using pointer = typename _Alty_traits::pointer;
+using const_pointer = typename _Alty_traits::const_pointer;
+using iterator = circular_buffer_iteartor<T>;
+using const_iterator = circular_buffer_const_iteartor<T>;
+using reverse_iterator = std::reverse_iterator<iterator>;
+using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+private:
+struct __data {
+
+WJR_INTRINSIC_CONSTEXPR20 void reset() noexcept {
+_Myptr = nullptr;
+_Myhead = _Mytail = _Mysize = _Mycapacity = 0;
+}
+
+pointer _Myptr = nullptr;
+size_type _Myhead = 0;
+size_type _Mytail = 0;
+size_type _Mysize = 0;
+size_type _Mycapacity = 0;
+};
+public:
+WJR_CONSTEXPR20 circular_buffer()
+noexcept(std::is_nothrow_default_constructible_v<_Alty>) = default;
+WJR_CONSTEXPR20 circular_buffer(const allocator_type& al)
+noexcept(std::is_nothrow_constructible_v<_Alty, const allocator_type&>)
+: _Myval(std::piecewise_construct_t{},
+std::forward_as_tuple(al),
+std::forward_as_tuple()) {}
+WJR_CONSTEXPR20 circular_buffer(const circular_buffer&) = delete;
+WJR_CONSTEXPR20 circular_buffer(circular_buffer&& other)
+noexcept(std::is_nothrow_move_constructible_v<_Alty>)
+: _Myval(std::piecewise_construct_t{},
+std::forward_as_tuple(std::move(other.getAllocator())),
+std::forward_as_tuple(other.getData())) {
+other.getData().reset();
+}
+
+WJR_CONSTEXPR20 circular_buffer& operator=(const circular_buffer&) = delete;
+
+WJR_CONSTEXPR20 circular_buffer& operator=(circular_buffer&&) = delete;
+
+template<typename...Args>
+WJR_CONSTEXPR20 decltype(auto) emplace_back(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
+wjr::construct_at(al, _Mydata._Myptr + _Mydata._Mytail, std::forward<Args>(args)...);
+++_Mydata._Mytail;
+_Mydata._Mytail = _Mydata._Mytail == _Mydata._Mycapacity ? 0 : _Mydata._Mytail;
+++_Mydata._Mysize;
+}
+else {
+_M_realloc_insert_at_end(std::forward<Args>(args)...);
+}
+return back();
+}
+
+WJR_CONSTEXPR20 void push_back(const value_type& val) { emplace_back(val); }
+WJR_CONSTEXPR20 void push_back(value_type&& val) { emplace_back(std::move(val)); }
+
+template<typename...Args>
+WJR_CONSTEXPR20 decltype(auto) emplac_front(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
+_Mydata._Myhead = _Mydata._Myhead == 0 ? _Mydata._Mycapacity : _Mydata._Myhead;
+--_Mydata._Myhead;
+wjr::construct_at(al, _Mydata._Myptr + _Mydata._Myhead, std::forward<Args>(args)...);
+++_Mydata._Mysize;
+}
+else {
+_M_realloc_insert_at_begin(std::forward<Args>(args)...);
+}
+return back();
+}
+
+WJR_CONSTEXPR20 void push_front(const value_type& val) { emplace_front(val); }
+WJR_CONSTEXPR20 void push_front(value_type&& val) { emplace_front(std::move(val)); }
+
+WJR_INTRINSIC_CONSTEXPR20 void pop_front() noexcept {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+wjr::destroy_at(al, _Mydata._Myptr + _Mydata._Myhead);
+++_Mydata._Myhead;
+_Mydata._Myhead = _Mydata._Myhead == _Mydata._Mycapacity ? 0 : _Mydata._Myhead;
+--_Mydata._Mysize;
+}
+
+WJR_INTRINSIC_CONSTEXPR20 void pop_back() noexcept {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+_Mydata._Mytail = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
+--_Mydata._Mytail;
+wjr::destroy_at(al, _Mydata._Myptr + _Mydata._Mytail);
+--_Mydata._Mysize;
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reference front() noexcept {
+const auto& _Mydata = getData();
+return _Mydata._Myptr[_Mydata._Myhead];
+}
+WJR_INTRINSIC_CONSTEXPR20 const_reference front() const noexcept {
+const auto& _Mydata = getData();
+return _Mydata._Myptr[_Mydata._Myhead];
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reference back() noexcept {
+const auto& _Mydata = getData();
+const auto __offset = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
+return _Mydata._Myptr[__offset - 1];
+}
+WJR_INTRINSIC_CONSTEXPR20 const_reference back() const noexcept {
+const auto& _Mydata = getData();
+const auto __offset = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
+return _Mydata._Myptr[__offset - 1];
+}
+
+WJR_INTRINSIC_CONSTEXPR20 size_type size() const noexcept { return getData()._Mysize; }
+WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept { return getData()._Mycapacity; }
+
+WJR_INTRINSIC_CONSTEXPR20 bool empty() const noexcept { return size() == 0; }
+
+WJR_CONSTEXPR20 void clear() {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (_Mydata._Mysize) {
+if (_Mydata._Myhead < _Mydata._Mytail) {
+wjr::destroy(al,
+_Mydata._Myptr + _Mydata._Myhead,
+_Mydata._Myptr + _Mydata._Mytail);
+}
+else if (_Mydata._Mytail < _Mydata._Myhead) {
+wjr::destroy(al,
+_Mydata._Myptr + _Mydata._Myhead,
+_Mydata._Myptr + _Mydata._Mycapacity);
+wjr::destroy(al,
+_Mydata._Myptr,
+_Mydata._Myptr + _Mydata._Mytail);
+}
+else {
+wjr::destroy(al,
+_Mydata._Myptr,
+_Mydata._Myptr + _Mydata._Mycapacity);
+}
+_Mydata._Myhead = _Mydata._Mytail = _Mydata._Mysize = 0;
+}
+}
+
+WJR_INTRINSIC_CONSTEXPR20 iterator begin() {
+const auto& _Mydata = getData();
+return iterator(_Mydata._Myptr, _Mydata._Myhead, _Mydata._Mycapacity);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator begin() const {
+const auto& _Mydata = getData();
+return iterator(_Mydata._Myptr, _Mydata._Myhead, _Mydata._Mycapacity);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator cbegin() const {
+return begin();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 iterator end() {
+return begin() + size();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator end() const {
+return begin() + size();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator cend() const {
+return end();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reverse_iterator rbegin() {
+return reverse_iterator(end());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator rbegin() const {
+return const_reverse_iterator(end());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator crbegin() const {
+return const_reverse_iterator(end());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reverse_iterator rend() {
+return reverse_iterator(begin());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator rend() const {
+return const_reverse_iterator(begin());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator crend() const {
+return const_reverse_iterator(begin());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reference operator[](size_type pos) {
+return *(begin() + pos);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reference operator[](size_type pos) const {
+return *(begin() + pos);
+}
+
+WJR_CONSTEXPR20 void tidy() {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (_Mydata._Mysize) {
+clear();
+_Alty_traits::deallocate(al, _Mydata._Myptr, _Mydata._Mycapacity);
+_Mydata._Myptr = nullptr;
+_Mydata._Mycapacity = 0;
+}
+}
+
+WJR_INTRINSIC_CONSTEXPR20 _Alty& getAllocator() noexcept { return _Myval.first(); }
+WJR_INTRINSIC_CONSTEXPR20 const _Alty& getAllocator() const noexcept { return _Myval.first(); }
+WJR_INTRINSIC_CONSTEXPR20 __data& getData() noexcept { return _Myval.second(); }
+WJR_INTRINSIC_CONSTEXPR20 const __data& getData() const noexcept { return _Myval.second(); }
+
+private:
+
+WJR_CONSTEXPR20 static size_type getGrowthCapacity(
+const size_type _Oldcapacity, const size_type _Newsize) noexcept {
+WJR_ASSUME(_Newsize > _Oldcapacity);
+const auto _Newcapacity = _Oldcapacity + _Oldcapacity / 2;
+const auto _FixedCapacity = _Newcapacity < _Newsize ? _Newsize : _Newcapacity;
+const auto ret = _FixedCapacity < 32 ? ((_FixedCapacity + 3) & (-4)) :
+_FixedCapacity < 256 ? ((_FixedCapacity + 15) & (-16)) :
+((_FixedCapacity + 63) & (-64));
+WJR_ASSUME(ret >= _Newsize);
+return ret;
+}
+
+template<typename...Args>
+WJR_CONSTEXPR20 void _M_realloc_insert_at_begin(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+const auto _Oldsize = _Mydata._Mysize;
+WJR_ASSUME(_Mydata._Mysize == _Mydata._Mycapacity);
+WJR_ASSUME(_Mydata._Myhead == _Mydata._Mytail);
+const auto _Newsize = _Oldsize + 1;
+const auto _Newcapacity = getGrowthCapacity(_Oldsize, _Newsize);
+
+auto _Newptr = _Alty_traits::allocate(al, _Newcapacity);
+wjr::construct_at(al, _Newptr, std::forward<Args>(args)...);
+
+wjr::uninitialized_move(al, begin(), begin() + capacity(), _Newptr + 1);
+
+tidy();
+
+_Mydata._Myptr = _Newptr;
+_Mydata._Myhead = 0;
+_Mydata._Mytail = _Mydata._Mysize = _Newsize;
+_Mydata._Mycapacity = _Newcapacity;
+}
+
+template<typename...Args>
+WJR_CONSTEXPR20 void _M_realloc_insert_at_end(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+const auto _Oldsize = _Mydata._Mysize;
+WJR_ASSUME(_Mydata._Mysize == _Mydata._Mycapacity);
+WJR_ASSUME(_Mydata._Myhead == _Mydata._Mytail);
+const auto _Newsize = _Oldsize + 1;
+const auto _Newcapacity = getGrowthCapacity(_Oldsize, _Newsize);
+
+auto _Newptr = _Alty_traits::allocate(al, _Newcapacity);
+wjr::construct_at(al, _Newptr + _Oldsize, std::forward<Args>(args)...);
+
+wjr::uninitialized_move(al, begin(), begin() + capacity(), _Newptr);
+
+tidy();
+
+_Mydata._Myptr = _Newptr;
+_Mydata._Myhead = 0;
+_Mydata._Mytail = _Mydata._Mysize = _Newsize;
+_Mydata._Mycapacity = _Newcapacity;
+}
+
+compressed_pair<_Alty, __data> _Myval;
+};
+
+_WJR_END
+
+#ifndef __WJR_CIRCULAR_BUFFER_H
+#error "This file should not be included directly. Include <wjr/circular_buffer.h> instead."
+#endif // __WJR_CIRCULAR_BUFFER_H
+
+// algorithm
+
+_WJR_BEGIN
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_const_iteartor<T> _First, circular_buffer_const_iteartor<T> _Last, _Iter _Dest) {
+const auto ptr = _First.ptr();
+const auto head_pos = _First.pos();
+const auto tail_pos = _Last.pos();
+const auto c = _First.capacity();
+if (tail_pos < c) {
+return wjr::uninitialized_move(ptr + head_pos, ptr + tail_pos, _Dest);
+}
+return wjr::uninitialized_move(
+ptr,
+ptr + tail_pos - c,
+wjr::uninitialized_move(
+ptr + head_pos,
+ptr + c,
+_Dest
+)
+);
+}
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_iteartor<T> _First, circular_buffer_iteartor<T> _Last, _Iter _Dest) {
+return wjr::uninitialized_move(_First.base(), _Last.base(), _Dest);
+}
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_const_iteartor<T> _First, circular_buffer_const_iteartor<T> _Last, _Iter _Dest){
+const auto ptr = _First.ptr();
+const auto head_pos = _First.pos();
+const auto tail_pos = _Last.pos();
+const auto c = _First.capacity();
+if (tail_pos < c) {
+return wjr::uninitialized_move(al, ptr + head_pos, ptr + tail_pos, _Dest);
+}
+return wjr::uninitialized_move(al,
+ptr,
+ptr + tail_pos - c,
+wjr::uninitialized_move(al,
+ptr + head_pos,
+ptr + c,
+_Dest
+)
+);
+}
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_iteartor<T> _First, circular_buffer_iteartor<T> _Last, _Iter _Dest) {
+return wjr::uninitialized_move(al, _First.base(), _Last.base(), _Dest);
+}
+
+_WJR_END
+
+#endif // __WJR_CIRCULAR_BUFFER_H
 
 _WJR_BEGIN
 
@@ -13383,6 +13506,25 @@ unsigned int max_threads_size,
 const std::chrono::duration<Rep, Period>& alive_limit);
 ~thread_pool();
 
+void pause();
+void unpause();
+void flush();
+
+bool is_valid() const;
+bool is_paused() const;
+
+template<typename Func, typename...Args>
+void push(Func&& func, Args&&...args);
+
+template<typename Func, typename...Args, typename R = std::invoke_result_t<Func&&, Args&&...>>
+WJR_NODISCARD std::future<R> submit(Func&& func, Args&&... args);
+
+unsigned int get_threads_size() const;
+
+static size_t default_threads_size();
+
+private:
+
 void start(
 unsigned int core_threads_size = default_threads_size(),
 size_t task_limit = -1,
@@ -13395,68 +13537,32 @@ size_t task_limit,
 unsigned int max_threads_size,
 const std::chrono::duration<Rep, Period>& alive_limit);
 
-void end();
-
-void pause();
-void unpause();
-void flush();
-
-bool is_valid() const;
-bool is_paused() const;
-
-unsigned int get_core_threads_size() const;
-unsigned int get_temp_threads_size() const;
-unsigned int get_all_threads_size() const;
-
-template<typename Func, typename...Args>
-void push(Func&& func, Args&&...args);
-
-template<typename Func, typename...Args, typename R = std::invoke_result_t<Func&&, Args&&...>>
-WJR_NODISCARD std::future<R> submit(Func&& func, Args&&... args);
-
-static size_t default_threads_size();
-
-private:
-
 void core_work();
-void temp_work(unsigned int x);
 
 void create_all_threads(
 unsigned int core_threads_size,
 size_t task_limit,
 unsigned int max_threads_size,
 std::chrono::nanoseconds alive_limit);
-void create_temp_threads();
-
-void destroy_all_threads();
-void destroy_temp_threads(unsigned int x);
 
 wjr::vector<std::thread> m_core_threads;
 
-wjr::vector<std::thread> m_temp_threads;
-wjr::vector<unsigned int> m_temp_stack;
+circular_buffer<std::function<void()>> m_task_queue;
 
-wjr::deque<std::function<void()>> m_tasks;
+std::mutex m_slow_task_mutex;
 
-std::mutex m_mutex;
+spin_mutex m_fast_flush_mutex = {};
 
-std::condition_variable m_tasks_cond;
-std::condition_variable m_flush_cond;
-std::condition_variable m_done_cond;
+std::condition_variable m_task_cv;
+std::condition_variable m_flush_cv;
+std::condition_variable m_done_cv;
 
-std::chrono::nanoseconds m_alive_limit;
 size_t m_task_limit;
-size_t m_temp_size;
-size_t m_real_tasks;
-
-wjr::rw_spin_mutex m_create = {};
-
-wjr::spin_mutex m_temp = {};
-
-wjr::spin_mutex m_flushing = {};
+std::chrono::nanoseconds m_alive_limit;
 
 bool m_valid = false;
 std::atomic_bool m_pause = false;
+std::atomic<size_t> m_real_tasks = 0;
 
 };
 
@@ -13486,25 +13592,18 @@ std::chrono::duration_cast<std::chrono::nanoseconds>(alive_limit)
 template<typename Func, typename...Args>
 void thread_pool::push(Func&& func, Args&&...args) {
 std::function<void()> function = std::bind(std::forward<Func>(func), std::forward<Args>(args)...);
-std::shared_lock<rw_spin_mutex> rw_spin_lock(m_create);
-#if defined(_WJR_EXCEPTION)
-if(is_likely(m_valid)){
-#endif // _WJR_EXCEPTION
 {
-std::unique_lock<std::mutex> lock(m_mutex);
-m_tasks.push_back(std::move(function));
-++m_real_tasks;
-}
-// No need to protect
-m_tasks_cond.notify_one();
-if (m_real_tasks > m_task_limit) {
-create_temp_threads();
-}
-return;
+std::unique_lock slow_task_lock(m_slow_task_mutex);
+m_task_queue.push_back(std::move(function));
 #if defined(_WJR_EXCEPTION)
+if (is_unlikely(!m_valid)) {
+throw std::runtime_error("can't put task into invalid thread_pool");
 }
-throw std::runtime_error("can put task into a invalid pool");
 #endif // _WJR_EXCEPTION
+}
+m_real_tasks.fetch_add(1, std::memory_order_relaxed);
+// No need to protect
+m_task_cv.notify_one();
 }
 
 template<typename Func, typename...Args, typename R>
@@ -13551,7 +13650,13 @@ unsigned int max_threads_size)
 : thread_pool(core_threads_size, task_limit, max_threads_size, std::chrono::nanoseconds(0)) {}
 
 thread_pool::~thread_pool() {
-end();
+flush();
+{
+std::unique_lock slow_task_lock(m_slow_task_mutex);
+m_valid = false;
+}
+m_task_cv.notify_all();
+for (auto& i : m_core_threads) i.join();
 }
 
 void thread_pool::start(
@@ -13561,26 +13666,20 @@ unsigned int max_threads_size) {
 start(core_threads_size, task_limit, max_threads_size, std::chrono::nanoseconds(0));
 }
 
-void thread_pool::end() {
-destroy_all_threads();
-}
-
 void thread_pool::pause() {
-m_pause = true;
+m_pause.store(true);
 }
 
 void thread_pool::unpause() {
-m_pause = false;
+m_pause.store(false);
 }
 
 void thread_pool::flush() {
-std::unique_lock<spin_mutex> spin_lock(m_flushing);
-{
-std::unique_lock<std::mutex> tasks_lock(m_mutex);
-m_flush_cond.wait(tasks_lock, [this] {
-return (m_real_tasks == (m_pause ? m_tasks.size() : 0));
+std::unique_lock fast_flush_lock(m_fast_flush_mutex);
+std::unique_lock slow_task_lock(m_slow_task_mutex);
+m_flush_cv.wait(slow_task_lock, [this] {
+return (m_real_tasks.load(std::memory_order_relaxed) == (m_pause ? m_task_queue.size() : 0));
 });
-}
 }
 
 bool thread_pool::is_valid() const {
@@ -13591,16 +13690,8 @@ bool thread_pool::is_paused() const {
 return m_pause;
 }
 
-unsigned int thread_pool::get_core_threads_size() const {
+unsigned int thread_pool::get_threads_size() const {
 return m_core_threads.size();
-}
-
-unsigned int thread_pool::get_temp_threads_size() const {
-return m_temp_size - m_temp_stack.size();
-}
-
-unsigned int thread_pool::get_all_threads_size() const {
-return get_core_threads_size() + get_temp_threads_size();
 }
 
 void thread_pool::core_work() {
@@ -13609,23 +13700,27 @@ for (;;) {
 std::function<void()> task;
 
 {
-std::unique_lock<std::mutex> tasks_lock(m_mutex);
-m_tasks_cond.wait(tasks_lock, [this] { return !m_tasks.empty() || !m_valid; });
+std::unique_lock slow_task_lock(m_slow_task_mutex);
+m_task_cv.wait(slow_task_lock, [this] {
+return !m_task_queue.empty()
+|| !m_valid;
+});
 
 if (is_likely(m_valid)) {
 if (!m_pause) {
-task = std::move(m_tasks.front());
-m_tasks.pop_front();
-tasks_lock.unlock();
+task = std::move(m_task_queue.front());
+m_task_queue.pop_front();
+slow_task_lock.unlock();
 task();
-tasks_lock.lock();
---m_real_tasks;
-tasks_lock.unlock();
-if (m_flushing.try_lock()) {
-m_flushing.unlock();
+if (is_likely(m_fast_flush_mutex.try_lock())) {
+m_real_tasks.fetch_sub(1, std::memory_order_relaxed);
+m_fast_flush_mutex.unlock();
 }
 else {
-m_flush_cond.notify_one();
+slow_task_lock.lock();
+m_real_tasks.fetch_sub(1, std::memory_order_relaxed);
+slow_task_lock.unlock();
+m_flush_cv.notify_one();
 }
 }
 continue;
@@ -13635,42 +13730,6 @@ break;
 }
 }
 
-}
-
-void thread_pool::temp_work(unsigned int x) {
-
-for (;;) {
-std::function<void()> task;
-
-{
-std::unique_lock<std::mutex> tasks_lock(m_mutex);
-if (is_likely(m_tasks_cond.wait_for(
-tasks_lock, m_alive_limit, [this] { return !m_tasks.empty() || !m_valid; }))) {
-if (is_likely(m_valid)) {
-if (!m_pause) {
-task = std::move(m_tasks.front());
-m_tasks.pop_front();
-tasks_lock.unlock();
-task();
-tasks_lock.lock();
---m_real_tasks;
-tasks_lock.unlock();
-if (m_flushing.try_lock()) {
-m_flushing.unlock();
-}
-else {
-m_flush_cond.notify_one();
-}
-}
-continue;
-}
-break;
-}
-break;
-}
-}
-
-destroy_temp_threads(x);
 }
 
 void thread_pool::create_all_threads(
@@ -13679,68 +13738,23 @@ size_t task_limit,
 unsigned int max_threads_size,
 std::chrono::nanoseconds alive_limit
 ) {
-std::unique_lock<rw_spin_mutex> rw_spin_lock(m_create);
-if (!m_valid) {
 #if defined(_WJR_EXCEPTION)
 if (!core_threads_size) {
 throw std::invalid_argument("!core_threads_size");
 }
 #endif // _WJR_EXCEPTION
 
-m_temp_size = max_threads_size < core_threads_size ? 0 : max_threads_size - core_threads_size;
 m_task_limit = task_limit;
 m_alive_limit = alive_limit;
 
-m_valid = true;
-m_pause = false;
-m_real_tasks = 0;
-
 m_core_threads.reserve(core_threads_size);
 
-m_temp_threads.reserve(m_temp_size);
-
-m_temp_stack.resize(m_temp_size, default_construct_tag{});
-for (size_t i = 0; i < m_temp_size; ++i) {
-m_temp_stack[i] = i;
-}
+m_valid = true;
+m_pause = false;
 
 for (unsigned int i = 0; i < core_threads_size; ++i) {
 m_core_threads.emplace_back(&thread_pool::core_work, this);
 }
-}
-}
-
-void thread_pool::create_temp_threads() {
-std::unique_lock<spin_mutex> spin_lock(m_temp);
-if (!m_temp_stack.empty()) {
-auto x = m_temp_stack.back();
-m_temp_stack.pop_back();
-wjr::construct_at(&m_temp_threads[x], &thread_pool::temp_work, this, x);
-}
-}
-
-void thread_pool::destroy_all_threads() {
-std::unique_lock<rw_spin_mutex> rw_spin_lock(m_create);
-if (!m_core_threads.empty()) {
-flush();
-m_valid = false;
-m_tasks_cond.notify_all();
-for (auto& i : m_core_threads) i.join();
-m_core_threads.clear();
-m_tasks.clear();
-{
-std::unique_lock<std::mutex> lock(m_mutex);
-m_done_cond.wait(lock, [this]() {return this->m_temp_stack.size() == m_temp_size; });
-}
-}
-}
-
-void thread_pool::destroy_temp_threads(unsigned int x) {
-std::unique_lock<spin_mutex> spin_lock(m_temp);
-m_temp_threads[x].detach();
-wjr::destroy_at(&m_temp_threads[x]);
-m_temp_stack.push_back(x);
-m_done_cond.notify_one();
 }
 
 size_t thread_pool::default_threads_size() {
@@ -13778,15 +13792,15 @@ _WJR_BEGIN
 // virtual size is equal to actual size, so EOF needs to be handled manually
 // virtual size = actual size <= virtual capacity = actual capacity - 1 < actual capacity
 
-enum CaseSensitivity {
-CaseSensitive = 0,
-CaseInsensitive = 1
+enum string_mode {
+case_sensitive = 0,
+case_insensitive = 1,
 };
 
-template<typename Char>
+template<typename Char, typename Traits = std::char_traits<Char>>
 class basic_string_view {
 
-using _Std_view_type = std::basic_string_view<Char, std::char_traits<Char>>;
+using _Std_view_type = std::basic_string_view<Char, Traits>;
 
 template<typename T>
 struct _Is_string_view_like : std::conjunction<
@@ -15624,9 +15638,9 @@ struct __aligned_helper {
 constexpr static size_t value = std::max((size_t)alignof(_Ty), __aligned_helper<void>::value);
 };
 
-//#if defined(_DEBUG)
+#if defined(_DEBUG)
 #define WJR_TEST_ALLOCATOR
-//#endif
+#endif
 
 #if defined(WJR_TEST_ALLOCATOR)
 struct __test_allocator {
@@ -15773,3 +15787,203 @@ printf("memory leak: %lld bytes", _Count);
 __test_allocator __test_allocator_instance;
 #endif
 _WJR_END
+#pragma once
+#ifndef __WJR_RANDOM_H
+#define __WJR_RANDOM_H
+
+#include <random>
+
+
+_WJR_BEGIN
+
+template<typename Engine>
+struct basic_random_static_wrapper {
+static Engine m_engine;
+static Engine& engine() {
+return m_engine;
+}
+};
+
+template<typename Engine>
+Engine basic_random_static_wrapper<Engine>::m_engine(std::random_device{}());
+
+template<typename Engine>
+struct basic_random_thread_local_wrapper {
+static Engine& engine() {
+thread_local Engine m_engine(std::random_device{}());
+return m_engine;
+}
+};
+
+template<
+typename Engine,
+template<typename> typename EngineWrapper,
+template<typename> typename IntegerDist = std::uniform_int_distribution,
+template<typename> typename RealDist = std::uniform_real_distribution,
+typename BoolDist = std::bernoulli_distribution
+>
+class basic_random : public EngineWrapper<Engine>{
+
+template<typename T>
+using _Is_container = std::conjunction<
+std::has_global_function_begin<T>,
+std::has_global_function_end<T>
+>;
+
+template<typename T>
+using _Has_size = std::has_global_function_size<T>;
+
+public:
+using _Mybase = EngineWrapper<Engine>;
+
+using engine_type = Engine;
+
+template<typename T>
+using integer_dist_t = IntegerDist<T>;
+
+template<typename T>
+using real_dist_t = RealDist<T>;
+
+using bool_dist_t = BoolDist;
+
+using common = std::common_type<>;
+
+using _Mybase::engine;
+
+basic_random() = delete;
+
+constexpr static typename engine_type::result_type min() {
+return engine_type::min();
+}
+
+constexpr static typename engine_type::result_type max() {
+return engine_type::max();
+}
+
+static void discard(size_t n) {
+engine().discard(n);
+}
+
+static void reseed() {
+engine().seed(std::random_device{}());
+}
+
+static void seed(typename engine_type::result_type seed = engine_type::default_seed) {
+engine().seed(seed);
+}
+
+template<typename Seq>
+static void seed(Seq& seq) {
+engine().seed(seq);
+}
+
+static typename engine_type::result_type get() {
+return engine()();
+}
+
+template<typename T, std::enable_if_t<std::conjunction_v<
+std::is_arithmetic<T>, std::negation<std::is_same<T, bool>>>, int> = 0>
+static T get(
+T __min = std::numeric_limits<T>::min(),
+T __max = std::numeric_limits<T>::max()) {
+if constexpr (std::is_integral_v<T>) {
+if constexpr (sizeof(T) < sizeof(short)) {
+using short_t = std::conditional_t<std::is_signed<T>::value,
+short, unsigned short>;
+return static_cast<T>(integer_dist_t<short_t>{__min, __max}(engine()));
+}
+else {
+using type = int_or_uint_t<sizeof(T) * 8, std::is_signed_v<T>>;
+return integer_dist_t<type>{__min, __max}(engine());
+}
+}
+else {
+return real_dist_t<T>{__min, __max}(engine());
+}
+}
+
+template<typename X, typename T, typename U, typename R = std::common_type_t<T, U>,
+std::enable_if_t<std::conjunction_v<
+std::is_same<X, common>,
+std::is_arithmetic<T>,
+std::is_arithmetic<U>>, int> = 0>
+static R get(
+T __min = std::numeric_limits<T>::min(),
+U __max = std::numeric_limits<U>::max()) {
+return get<R>(static_cast<R>(__min), static_cast<R>(__max));
+}
+
+template<typename T, std::enable_if_t<std::is_same_v<T, bool>, int> = 0>
+static T get(double p = 0.5) {
+return bool_dist_t{ p }(engine());
+}
+
+template<typename Dist, typename...Args>
+static typename Dist::result_type get(Args&&...args) {
+return Dist{ std::forward<Args>(args)... }(engine());
+}
+
+template<typename Dist>
+static typename Dist::result_type get(Dist& dist) {
+return dist(engine());
+}
+
+template<typename _Container, std::enable_if_t<std::conjunction_v<
+std::has_global_function_begin<_Container>,
+std::has_global_function_end<_Container>>, int> = 0>
+static decltype(auto) get(_Container& container) {
+auto first = std::begin(container);
+auto last = std::end(container);
+auto n = wjr::size(container);
+if (n == 0)return last;
+using diff_t = wjr::iter_diff_t<decltype(first)>;
+return std::next(first, get<diff_t>(0, n - 1));
+}
+
+template<typename iter, std::enable_if_t<wjr::is_iterator_v<iter>, int> = 0>
+static iter get(iter first, iter last) {
+return get(wjr::make_iter_wrapper(first, last));
+}
+
+template<typename T>
+static T get(std::initializer_list<T> il) {
+return *get(std::begin(il), std::end(il));
+}
+
+template<typename _Ty, size_t _Size>
+static _Ty get(_Ty(&arr)[_Size]) {
+return *get(std::begin(arr), std::end(arr));
+}
+
+template<typename _Container>
+static void shuffle(_Container& container) {
+std::shuffle(std::begin(container), std::end(container), engine());
+}
+
+template<typename iter>
+static void shuffle(iter first, iter last) {
+shuffle(wjr::make_iter_wrapper(first, last));
+}
+
+};
+
+template<typename Engine,
+template<typename>typename IntegerDist = std::uniform_int_distribution,
+template<typename>typename RealDist = std::uniform_real_distribution,
+typename BoolDist = std::bernoulli_distribution>
+using basic_random_static = basic_random<Engine, basic_random_static_wrapper, IntegerDist, RealDist, BoolDist>;
+
+template<typename Engine,
+template<typename>typename IntegerDist = std::uniform_int_distribution,
+template<typename>typename RealDist = std::uniform_real_distribution,
+typename BoolDist = std::bernoulli_distribution>
+using basic_random_thread_local = basic_random<Engine, basic_random_thread_local_wrapper, IntegerDist, RealDist, BoolDist>;
+
+using random_static = basic_random_static<std::mt19937>;
+using random_thread_local = basic_random_thread_local<std::mt19937>;
+
+using Random = random_static;
+
+_WJR_END
+
+#endif // __WJR_RANDOM_H
