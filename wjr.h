@@ -173,6 +173,14 @@
 #define WJR_ARM
 #endif
 
+#if defined(__aarch64__)
+#define WJR_AARCH64
+#endif
+
+#if defined(__powerpc64__)
+#define WJR_PPC64
+#endif
+
 #if !defined(WJR_X86)
 #error "ARM is not supported"
 #endif
@@ -184,6 +192,10 @@
 #elif defined(_MSC_VER)
 #define WJR_COMPILER_MSVC
 #endif
+
+#if defined(_MSC_VER)
+#define WJR_MSVC
+#endif // _MSC_VER
 
 // judge if i can use inline asm
 #if defined(WJR_X86) && (defined(WJR_COMPILER_GCC) || defined(WJR_COMPILER_CLANG))
@@ -4614,6 +4626,34 @@ asm volatile("rep stosq" : "+D"(s), "+c"(n) : "a"(val) : "memory");
 }
 
 #endif  // _WJR_FAST_REP
+
+_WJR_ASM_END
+#ifndef __WJR_ASM_ASM_H
+#error "This file should not be included directly. Include <wjr/asm.h> instead."
+#endif
+
+_WJR_ASM_BEGIN
+
+WJR_INTRINSIC_INLINE void __volatile_pause() noexcept {
+volatile int x = 0;
+++x; ++x; ++x; ++x; ++x;
+++x; ++x; ++x; ++x; ++x;
+++x; ++x; ++x; ++x; ++x;
+}
+
+WJR_INTRINSIC_INLINE void pause() noexcept {
+#if defined(WJR_MSVC) && defined(WJR_X86)
+_mm_pause();
+#elif defined(WJR_INLINE_ASM)
+#if defined(WJR_X86)
+asm volatile("pause");
+#else
+__volatile_pause();
+#endif
+#else
+__volatile_pause();
+#endif
+}
 
 _WJR_ASM_END
 
@@ -12520,6 +12560,116 @@ return n;
 #include <atomic>
 #include <mutex>
 
+#pragma once
+#ifndef __WJR_NETWORK_WAITER_H
+#define __WJR_NETWORK_WAITER_H
+#include <chrono>
+#include <thread>
+
+
+_WJR_BEGIN
+
+// waiter : non-blocking
+// use pause when the number of times is small,
+// use yield if the wait time is long,
+// use sleep when wait time is too long
+// pause : about 5 ~ 20ns (default : 2^5 times -> 160 ` 640 ns)
+// yield : about 100 ~ 1000ns (default : 2^16 times -> 6 ~ 60 ms)
+// sleep : about 10 ms (sleep after 60 ms)
+class waiter {
+public:
+constexpr static unsigned int default_pause_limit = 1 << 5;
+constexpr static unsigned int default_yield_limit = 1 << 16;
+constexpr static std::chrono::milliseconds default_sleep_time = std::chrono::milliseconds(10);
+
+WJR_INTRINSIC_CONSTEXPR waiter() noexcept = default;
+WJR_INTRINSIC_CONSTEXPR waiter(
+unsigned int pause_limit,
+unsigned int yield_limit = default_yield_limit,
+const std::chrono::milliseconds& sleep_time = default_sleep_time)
+: m_pause_limit(pause_limit), m_yield_limit(yield_limit), m_sleep_time(sleep_time) {}
+
+WJR_INTRINSIC_CONSTEXPR waiter(const waiter& other) noexcept = default;
+WJR_INTRINSIC_CONSTEXPR waiter& operator=(const waiter& other) noexcept = default;
+
+WJR_INTRINSIC_INLINE void operator()() noexcept {
+assume_no_add_overflow(m_count, 1u);
+if (m_count < m_pause_limit) {
+++m_count;
+wjr::masm::pause();
+}
+else {
+if (m_count < m_yield_limit) {
+++m_count;
+std::this_thread::yield();
+}
+else {
+std::this_thread::sleep_for(m_sleep_time);
+}
+}
+}
+
+private:
+unsigned int m_count = 0;
+unsigned int m_pause_limit = default_pause_limit;
+unsigned int m_yield_limit = default_yield_limit;
+std::chrono::milliseconds m_sleep_time = default_sleep_time;
+};
+
+WJR_INTRINSIC_INLINE void wait(waiter& it) {
+it();
+}
+
+
+template<typename Func>
+WJR_INTRINSIC_INLINE void wait(waiter& it, Func fn) {
+while (!fn()) {
+wait(it);
+}
+}
+
+template<typename Clock, typename Duration>
+WJR_INTRINSIC_INLINE void wait_until(waiter& it,
+const std::chrono::time_point<Clock, Duration>& rel_time) {
+while (true) {
+const auto _Now = Clock::now();
+if (_Now >= rel_time) {
+return;
+}
+wait(it);
+}
+}
+
+// if time out return false
+// else return true
+template<typename Clock, typename Duration, typename Func>
+WJR_INTRINSIC_INLINE bool wait_until(waiter& it,
+const std::chrono::time_point<Clock, Duration>& rel_time, Func fn) {
+while (!fn()) {
+const auto _Now = Clock::now();
+if (_Now >= rel_time) {
+return false;
+}
+wait(it);
+}
+return true;
+}
+
+template<typename Rep, typename Period>
+WJR_INTRINSIC_INLINE void wait_for(waiter& it,
+const std::chrono::duration<Rep, Period>& rel_time) {
+wait_until(it, std::chrono::steady_clock::now() + rel_time);
+}
+
+template<typename Rep, typename Period, typename Func>
+WJR_INTRINSIC_INLINE void wait_for(waiter& it,
+const std::chrono::duration<Rep, Period>& rel_time, Func fn) {
+wait_until(it, std::chrono::steady_clock::now() + rel_time, std::move(fn));
+}
+
+_WJR_END
+
+#endif // __WJR_NETWORK_WAITER_H
 
 _WJR_BEGIN
 
@@ -12530,8 +12680,15 @@ spin_mutex(const spin_mutex&) = delete;
 spin_mutex& operator=(const spin_mutex&) = delete;
 WJR_INTRINSIC_INLINE ~spin_mutex() = default;
 
+template<typename Waiter>
+WJR_INTRINSIC_INLINE void lock(Waiter it) noexcept {
+while (m_flag.test_and_set(std::memory_order_acquire)) {
+it();
+}
+}
+
 WJR_INTRINSIC_INLINE void lock() noexcept {
-while (m_flag.test_and_set(std::memory_order_acquire));
+lock(waiter());
 }
 
 WJR_INTRINSIC_INLINE bool try_lock() noexcept {
@@ -12549,12 +12706,12 @@ private:
 std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
 };
 
-class rw_spin_mutex {
+class shared_spin_mutex {
 public:
-WJR_INTRINSIC_INLINE rw_spin_mutex() = default;
-rw_spin_mutex(const rw_spin_mutex&) = delete;
-rw_spin_mutex& operator=(const rw_spin_mutex&) = delete;
-WJR_INTRINSIC_INLINE ~rw_spin_mutex() = default;
+WJR_INTRINSIC_INLINE shared_spin_mutex() = default;
+shared_spin_mutex(const shared_spin_mutex&) = delete;
+shared_spin_mutex& operator=(const shared_spin_mutex&) = delete;
+WJR_INTRINSIC_INLINE ~shared_spin_mutex() = default;
 
 WJR_INTRINSIC_INLINE void lock() noexcept {
 m_write.lock();
@@ -12603,6 +12760,60 @@ spin_mutex m_read = {};
 spin_mutex m_write = {};
 size_t m_count = 0;
 };
+
+template<typename Mutex>
+WJR_INTRINSIC_INLINE void wait(std::unique_lock<Mutex>& lck, waiter& it) {
+lck.unlock();
+it();
+lck.lock();
+}
+
+
+template<typename Mutex, typename Func>
+WJR_INTRINSIC_INLINE void wait(std::unique_lock<Mutex>& lck, waiter& it, Func fn) {
+while (!fn()) {
+wait(lck, it);
+}
+}
+
+template<typename Mutex, typename Clock, typename Duration>
+WJR_INTRINSIC_INLINE void wait_until(std::unique_lock<Mutex>& lck, waiter& it,
+const std::chrono::time_point<Clock, Duration>& rel_time){
+while (true) {
+const auto _Now = Clock::now();
+if (_Now >= rel_time) {
+return;
+}
+wait(lck, it);
+}
+}
+
+// if time out return false
+// else return true
+template<typename Mutex, typename Clock, typename Duration, typename Func>
+WJR_INTRINSIC_INLINE bool wait_until(std::unique_lock<Mutex>& lck, waiter& it,
+const std::chrono::time_point<Clock, Duration>& rel_time, Func fn) {
+while (!fn()) {
+const auto _Now = Clock::now();
+if (_Now >= rel_time) {
+return false;
+}
+wait(lck, it);
+}
+return true;
+}
+
+template<typename Mutex, typename Rep, typename Period>
+WJR_INTRINSIC_INLINE void wait_for(std::unique_lock<Mutex>& lck, waiter& it,
+const std::chrono::duration<Rep, Period>& rel_time) {
+wait_until(lck, it, std::chrono::steady_clock::now() + rel_time);
+}
+
+template<typename Mutex, typename Rep, typename Period, typename Func>
+WJR_INTRINSIC_INLINE void wait_for(std::unique_lock<Mutex>& lck, waiter& it,
+const std::chrono::duration<Rep, Period>& rel_time, Func fn) {
+wait_until(lck, it, std::chrono::steady_clock::now() + rel_time, std::move(fn));
+}
 
 _WJR_END
 
@@ -13009,7 +13220,7 @@ WJR_CONSTEXPR20 circular_buffer& operator=(const circular_buffer&) = delete;
 WJR_CONSTEXPR20 circular_buffer& operator=(circular_buffer&&) = delete;
 
 template<typename...Args>
-WJR_CONSTEXPR20 decltype(auto) emplace_back(Args&&...args) {
+WJR_INLINE_CONSTEXPR20 decltype(auto) emplace_back(Args&&...args) {
 auto& al = getAllocator();
 auto& _Mydata = getData();
 if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
@@ -13024,11 +13235,11 @@ _M_realloc_insert_at_end(std::forward<Args>(args)...);
 return back();
 }
 
-WJR_CONSTEXPR20 void push_back(const value_type& val) { emplace_back(val); }
-WJR_CONSTEXPR20 void push_back(value_type&& val) { emplace_back(std::move(val)); }
+WJR_INLINE_CONSTEXPR20 void push_back(const value_type& val) { emplace_back(val); }
+WJR_INLINE_CONSTEXPR20 void push_back(value_type&& val) { emplace_back(std::move(val)); }
 
 template<typename...Args>
-WJR_CONSTEXPR20 decltype(auto) emplac_front(Args&&...args) {
+WJR_INLINE_CONSTEXPR20 decltype(auto) emplac_front(Args&&...args) {
 auto& al = getAllocator();
 auto& _Mydata = getData();
 if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
@@ -13043,8 +13254,8 @@ _M_realloc_insert_at_begin(std::forward<Args>(args)...);
 return back();
 }
 
-WJR_CONSTEXPR20 void push_front(const value_type& val) { emplace_front(val); }
-WJR_CONSTEXPR20 void push_front(value_type&& val) { emplace_front(std::move(val)); }
+WJR_INLINE_CONSTEXPR20 void push_front(const value_type& val) { emplace_front(val); }
+WJR_INLINE_CONSTEXPR20 void push_front(value_type&& val) { emplace_front(std::move(val)); }
 
 WJR_INTRINSIC_CONSTEXPR20 void pop_front() noexcept {
 auto& al = getAllocator();
@@ -13384,34 +13595,25 @@ unsigned int get_threads_size() const;
 static size_t default_threads_size();
 
 private:
-
+public:
 void core_work();
 
 void create_all_threads(unsigned int core_threads_size);
 
-wjr::vector<std::thread> m_core_threads;
+alignas(8) spin_mutex m_fast_task_mutex;
+alignas(8) circular_buffer<std::function<void()>> m_task_queue;
+alignas(8) bool m_valid = true;
+alignas(8) std::atomic_bool m_pause = false;
 
-circular_buffer<std::function<void()>> m_task_queue;
-
-std::mutex m_slow_task_mutex;
-
-spin_mutex m_fast_flush_mutex = {};
-
-std::condition_variable m_task_cv;
-std::condition_variable m_flush_cv;
-std::condition_variable m_done_cv;
-
-bool m_valid = false;
-std::atomic_bool m_pause = false;
-std::atomic<size_t> m_real_tasks = 0;
-
+alignas(16) std::atomic<size_t> m_real_tasks = 0;
+alignas(16) wjr::vector<std::thread> m_core_threads;
 };
 
 template<typename Func, typename...Args>
 void thread_pool::push(Func&& func, Args&&...args) {
 std::function<void()> function = std::bind(std::forward<Func>(func), std::forward<Args>(args)...);
 {
-std::unique_lock slow_task_lock(m_slow_task_mutex);
+std::unique_lock slow_task_lock(m_fast_task_mutex);
 m_task_queue.push_back(std::move(function));
 #if defined(_WJR_EXCEPTION)
 if (is_unlikely(!m_valid)) {
@@ -13420,8 +13622,6 @@ throw std::runtime_error("can't put task into invalid thread_pool");
 #endif // _WJR_EXCEPTION
 }
 m_real_tasks.fetch_add(1, std::memory_order_relaxed);
-// No need to protect
-m_task_cv.notify_one();
 }
 
 template<typename Func, typename...Args, typename R>
@@ -13469,26 +13669,26 @@ create_all_threads(core_threads_size);
 thread_pool::~thread_pool() {
 flush();
 {
-std::unique_lock slow_task_lock(m_slow_task_mutex);
+std::unique_lock fast_task_lock(m_fast_task_mutex);
 m_valid = false;
 }
-m_task_cv.notify_all();
 for (auto& i : m_core_threads) i.join();
 }
 
 void thread_pool::pause() {
-m_pause.store(true);
+m_pause.store(true, std::memory_order_relaxed);
 }
 
 void thread_pool::unpause() {
-m_pause.store(false);
+m_pause.store(false, std::memory_order_relaxed);
 }
 
 void thread_pool::flush() {
-std::unique_lock fast_flush_lock(m_fast_flush_mutex);
-std::unique_lock slow_task_lock(m_slow_task_mutex);
-m_flush_cv.wait(slow_task_lock, [this] {
-return (m_real_tasks.load(std::memory_order_relaxed) == (m_pause ? m_task_queue.size() : 0));
+waiter it;
+std::unique_lock fast_task_lock(m_fast_task_mutex);
+wjr::wait(fast_task_lock, it, [this] {
+return (m_real_tasks.load(std::memory_order_relaxed)
+== (m_pause.load(std::memory_order_relaxed) ? m_task_queue.size() : 0));
 });
 }
 
@@ -13497,7 +13697,7 @@ return m_valid;
 }
 
 bool thread_pool::is_paused() const {
-return m_pause;
+return m_pause.load(std::memory_order_relaxed);
 }
 
 unsigned int thread_pool::get_threads_size() const {
@@ -13510,28 +13710,20 @@ for (;;) {
 std::function<void()> task;
 
 {
-std::unique_lock slow_task_lock(m_slow_task_mutex);
-m_task_cv.wait(slow_task_lock, [this] {
+waiter it;
+std::unique_lock fast_task_lock(m_fast_task_mutex);
+wjr::wait(fast_task_lock, it, [this] {
 return !m_task_queue.empty()
 || !m_valid;
 });
 
 if (is_likely(m_valid)) {
-if (!m_pause) {
+if (!m_pause.load(std::memory_order_relaxed)) {
 task = std::move(m_task_queue.front());
 m_task_queue.pop_front();
-slow_task_lock.unlock();
+fast_task_lock.unlock();
 task();
-if (is_likely(m_fast_flush_mutex.try_lock())) {
 m_real_tasks.fetch_sub(1, std::memory_order_relaxed);
-m_fast_flush_mutex.unlock();
-}
-else {
-slow_task_lock.lock();
-m_real_tasks.fetch_sub(1, std::memory_order_relaxed);
-slow_task_lock.unlock();
-m_flush_cv.notify_one();
-}
 }
 continue;
 }
@@ -15964,8 +16156,3 @@ using Random = random_static;
 _WJR_END
 
 #endif // __WJR_RANDOM_H
-
-#include <vector>
-#include <iostream>
-
-
