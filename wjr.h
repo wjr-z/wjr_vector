@@ -11563,7 +11563,6 @@ shrinkToFit(getAllocator(), getData());
 }
 
 WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept {
-WJR_ASSUME(capacity() == endPtr() - data());
 return getData().capacity();
 }
 
@@ -11585,7 +11584,6 @@ wjr::uninitialized_move_n(al, data(), _Oldsize, _Newdata.data());
 tidy();
 moveConstruct(al, std::move(_Newdata), getData());
 }
-WJR_ASSUME(capacity() >= n);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 reference operator[](size_type _Pos) noexcept {
@@ -11814,32 +11812,25 @@ return _Myval.second();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
-WJR_ASSUME(lastPtr() == data() + size());
 return getData().lastPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
-WJR_ASSUME(lastPtr() == data() + size());
 return getData().lastPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
-WJR_ASSUME(endPtr() == data() + capacity());
 return getData().endPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
-WJR_ASSUME(endPtr() == data() + capacity());
 return getData().endPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 getData().set_size(_Size);
-WJR_ASSUME(size() == _Size);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
-const auto _Oldsize = size();
 getData().inc_size(_Size);
-WJR_ASSUME(_Oldsize + _Size == size());
 }
 
 /*------External extension function------*/
@@ -14420,6 +14411,11 @@ private:
 vector_type m_core;
 };
 
+//template<typename Char, typename Alloc, typename Data>
+//WJR_NODISCARD WJR_CONSTEXPR20 basic_string<Char, Alloc, Data> operator+(
+//	const
+//	)
+
 template<typename Char, typename Alloc, typename Data>
 WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(
 const basic_string<Char, Alloc, Data>& lhs,
@@ -16208,3 +16204,21 @@ printf("memory leak: %lld bytes", _Count);
 __test_allocator __test_allocator_instance;
 #endif
 _WJR_END
+
+#include <benchmark/benchmark.h>
+
+using vec = wjr::string;
+auto foo(const vec& b, const vec& c) {
+vec a;
+a.reserve(b.size());
+WJR_ASSUME(a.capacity() >= b.size());
+// WJR_ASSUME(a.endPtr() - a.lastPtr() >= b.size());
+a.append(b);
+// a.append(c);
+return a;
+}
+
+int main() {
+vec x("abc"), y("wjr");
+std::cout << foo(x, y);
+}
