@@ -11563,7 +11563,6 @@ shrinkToFit(getAllocator(), getData());
 }
 
 WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept {
-WJR_ASSUME(capacity() == endPtr() - data());
 return getData().capacity();
 }
 
@@ -11816,36 +11815,42 @@ return _Myval.second();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
-const auto ptr = getData().endPtr();
-WJR_ASSUME(ptr == data() + size());
+auto& _Data = getData();
+auto ptr = _Data.lastPtr();
+WJR_ASSUME(ptr == _Data.data() + _Data.size());
 return ptr;
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
-const auto ptr = getData().endPtr();
-WJR_ASSUME(ptr == data() + size());
+const auto& _Data = getData();
+const auto ptr = _Data.lastPtr();
+WJR_ASSUME(ptr == _Data.data() + _Data.size());
 return ptr;
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
-const auto ptr = getData().endPtr();
-WJR_ASSUME(ptr == data() + capacity());
+auto& _Data = getData();
+auto ptr = _Data.endPtr();
+WJR_ASSUME(ptr == _Data.data() + _Data.capacity());
 return ptr;
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
-const auto ptr = getData().endPtr();
-WJR_ASSUME(ptr == data() + capacity());
+const auto& _Data = getData();
+const auto ptr = _Data.endPtr();
+WJR_ASSUME(ptr == _Data.data() + _Data.capacity());
 return ptr;
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
-getData().set_size(_Size);
-WJR_ASSUME(size() == _Size);
+auto& _Data = getData();
+_Data.set_size(_Size);
+WJR_ASSUME(_Data.size() == _Size);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
+auto& _Data = getData();
 const auto _Oldsize = size();
-getData().inc_size(_Size);
-WJR_ASSUME(_Oldsize + _Size == size());
+_Data.inc_size(_Size);
+WJR_ASSUME(_Oldsize + _Size == _Data.size());
 }
 
 /*------External extension function------*/
