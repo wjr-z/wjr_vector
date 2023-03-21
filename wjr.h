@@ -11563,6 +11563,7 @@ shrinkToFit(getAllocator(), getData());
 }
 
 WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept {
+WJR_ASSUME(capacity() == endPtr() - data());
 return getData().capacity();
 }
 
@@ -11584,6 +11585,7 @@ wjr::uninitialized_move_n(al, data(), _Oldsize, _Newdata.data());
 tidy();
 moveConstruct(al, std::move(_Newdata), getData());
 }
+WJR_ASSUME(capacity() >= n);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 reference operator[](size_type _Pos) noexcept {
@@ -11812,25 +11814,32 @@ return _Myval.second();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
+WJR_ASSUME(lastPtr() == data() + size());
 return getData().lastPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
+WJR_ASSUME(lastPtr() == data() + size());
 return getData().lastPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
+WJR_ASSUME(endPtr() == data() + capacity());
 return getData().endPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
+WJR_ASSUME(endPtr() == data() + capacity());
 return getData().endPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 getData().set_size(_Size);
+WJR_ASSUME(size() == _Size);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
+const auto _Oldsize = size();
 getData().inc_size(_Size);
+WJR_ASSUME(_Oldsize + _Size == size());
 }
 
 /*------External extension function------*/
