@@ -1,14 +1,10 @@
-#pragma once
-#ifndef __WJR_NETWORK_THREAD_POOL_H
-#define __WJR_NETWORK_THREAD_POOL_H
 
-#include <thread>
-#include <mutex>
-#include <shared_mutex>
-#include <condition_variable>
-#include <future>
-#include <functional>
-#include <chrono>
+#pragma once
+#ifndef __WJR_STRING_H
+#define __WJR_STRING_H
+
+#include <string_view>
+#include <iostream>
 
 #pragma once
 #ifndef __WJR_VECTOR_H
@@ -891,6 +887,7 @@ struct extend_tag {};
 struct reserve_tag {};
 
 struct defer_tag {};
+struct adopt_tag {};
 
 template<typename T, typename U, typename _Pred>
 struct has_global_binary_operator : std::false_type {};
@@ -11566,6 +11563,7 @@ shrinkToFit(getAllocator(), getData());
 }
 
 WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept {
+WJR_ASSUME(capacity() == endPtr() - data());
 return getData().capacity();
 }
 
@@ -11587,6 +11585,7 @@ wjr::uninitialized_move_n(al, data(), _Oldsize, _Newdata.data());
 tidy();
 moveConstruct(al, std::move(_Newdata), getData());
 }
+WJR_ASSUME(capacity() >= n);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 reference operator[](size_type _Pos) noexcept {
@@ -11815,25 +11814,32 @@ return _Myval.second();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
+WJR_ASSUME(lastPtr() == data() + size());
 return getData().lastPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
+WJR_ASSUME(lastPtr() == data() + size());
 return getData().lastPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
+WJR_ASSUME(endPtr() == data() + capacity());
 return getData().endPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
+WJR_ASSUME(endPtr() == data() + capacity());
 return getData().endPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
 getData().set_size(_Size);
+WJR_ASSUME(size() == _Size);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
+const auto _Oldsize = size();
 getData().inc_size(_Size);
+WJR_ASSUME(_Oldsize + _Size == size());
 }
 
 /*------External extension function------*/
@@ -11859,6 +11865,13 @@ _M_construct_n(_Count, default_construct_tag());
 WJR_CONSTEXPR20 vector(const size_type _Count, value_construct_tag, const allocator_type& al = allocator_type())
 : vector(al) {
 _M_construct_n(_Count, value_construct_tag());
+}
+
+WJR_CONSTEXPR20 vector(data_type&& _Data, const allocator_type& al = allocator_type())
+: _Myval(std::piecewise_construct_t{},
+std::forward_as_tuple(al),
+std::forward_as_tuple()) {
+moveConstruct(getAllocator(), std::move(_Data), getData());
 }
 
 WJR_CONSTEXPR20 void resize(const size_type _Newsize, default_construct_tag) {
@@ -12553,1218 +12566,6 @@ return n;
 #pragma pop_macro("new")
 
 #endif // !__WJR_VECTOR_H
-#pragma once
-#ifndef __WJR_NETWORK_SPIN_MUTEX_H
-#define __WJR_NETWORK_SPIN_MUTEX_H
-
-#include <atomic>
-#include <mutex>
-
-#pragma once
-#ifndef __WJR_NETWORK_WAITER_H
-#define __WJR_NETWORK_WAITER_H
-#include <chrono>
-#include <thread>
-
-
-_WJR_BEGIN
-
-// waiter : non-blocking
-// use pause when the number of times is small,
-// use yield if the wait time is long,
-// use sleep when wait time is too long
-// pause : about 5 ~ 20ns (default : 2^5 times -> 160 ` 640 ns)
-// yield : about 100 ~ 1000ns (default : 2^16 times -> 6 ~ 60 ms)
-// sleep : about 10 ms (sleep after 60 ms)
-class waiter {
-public:
-constexpr static unsigned int default_pause_limit = 1 << 5;
-constexpr static unsigned int default_yield_limit = 1 << 16;
-constexpr static std::chrono::milliseconds default_sleep_time = std::chrono::milliseconds(10);
-
-WJR_INTRINSIC_CONSTEXPR waiter() noexcept = default;
-WJR_INTRINSIC_CONSTEXPR waiter(
-unsigned int pause_limit,
-unsigned int yield_limit = default_yield_limit,
-const std::chrono::milliseconds& sleep_time = default_sleep_time)
-: m_pause_limit(pause_limit), m_yield_limit(yield_limit), m_sleep_time(sleep_time) {}
-
-WJR_INTRINSIC_CONSTEXPR waiter(const waiter& other) noexcept = default;
-WJR_INTRINSIC_CONSTEXPR waiter& operator=(const waiter& other) noexcept = default;
-
-WJR_INTRINSIC_INLINE void operator()() noexcept {
-assume_no_add_overflow(m_count, 1u);
-if (m_count < m_pause_limit) {
-++m_count;
-wjr::masm::pause();
-}
-else {
-if (m_count < m_yield_limit) {
-++m_count;
-std::this_thread::yield();
-}
-else {
-std::this_thread::sleep_for(m_sleep_time);
-}
-}
-}
-
-private:
-unsigned int m_count = 0;
-unsigned int m_pause_limit = default_pause_limit;
-unsigned int m_yield_limit = default_yield_limit;
-std::chrono::milliseconds m_sleep_time = default_sleep_time;
-};
-
-WJR_INTRINSIC_INLINE void wait(waiter& it) {
-it();
-}
-
-
-template<typename Func>
-WJR_INTRINSIC_INLINE void wait(waiter& it, Func fn) {
-while (!fn()) {
-wait(it);
-}
-}
-
-template<typename Clock, typename Duration>
-WJR_INTRINSIC_INLINE void wait_until(waiter& it,
-const std::chrono::time_point<Clock, Duration>& rel_time) {
-while (true) {
-const auto _Now = Clock::now();
-if (_Now >= rel_time) {
-return;
-}
-wait(it);
-}
-}
-
-// if time out return false
-// else return true
-template<typename Clock, typename Duration, typename Func>
-WJR_INTRINSIC_INLINE bool wait_until(waiter& it,
-const std::chrono::time_point<Clock, Duration>& rel_time, Func fn) {
-while (!fn()) {
-const auto _Now = Clock::now();
-if (_Now >= rel_time) {
-return false;
-}
-wait(it);
-}
-return true;
-}
-
-template<typename Rep, typename Period>
-WJR_INTRINSIC_INLINE void wait_for(waiter& it,
-const std::chrono::duration<Rep, Period>& rel_time) {
-wait_until(it, std::chrono::steady_clock::now() + rel_time);
-}
-
-template<typename Rep, typename Period, typename Func>
-WJR_INTRINSIC_INLINE void wait_for(waiter& it,
-const std::chrono::duration<Rep, Period>& rel_time, Func fn) {
-wait_until(it, std::chrono::steady_clock::now() + rel_time, std::move(fn));
-}
-
-_WJR_END
-
-#endif // __WJR_NETWORK_WAITER_H
-
-_WJR_BEGIN
-
-class spin_mutex {
-public:
-WJR_INTRINSIC_INLINE spin_mutex() = default;
-spin_mutex(const spin_mutex&) = delete;
-spin_mutex& operator=(const spin_mutex&) = delete;
-WJR_INTRINSIC_INLINE ~spin_mutex() = default;
-
-template<typename Waiter>
-WJR_INTRINSIC_INLINE void lock(Waiter it) noexcept {
-while (m_flag.test_and_set(std::memory_order_acquire)) {
-it();
-}
-}
-
-WJR_INTRINSIC_INLINE void lock() noexcept {
-lock(waiter());
-}
-
-WJR_INTRINSIC_INLINE bool try_lock() noexcept {
-return !m_flag.test_and_set(std::memory_order_acquire);
-}
-
-WJR_INTRINSIC_INLINE void unlock() noexcept {
-m_flag.clear(std::memory_order_release);
-}
-
-WJR_INTRINSIC_INLINE std::atomic_flag& flag() { return m_flag; }
-WJR_INTRINSIC_INLINE const std::atomic_flag& flag() const { return m_flag; }
-
-private:
-std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
-};
-
-class shared_spin_mutex {
-public:
-WJR_INTRINSIC_INLINE shared_spin_mutex() = default;
-shared_spin_mutex(const shared_spin_mutex&) = delete;
-shared_spin_mutex& operator=(const shared_spin_mutex&) = delete;
-WJR_INTRINSIC_INLINE ~shared_spin_mutex() = default;
-
-WJR_INTRINSIC_INLINE void lock() noexcept {
-m_write.lock();
-}
-
-WJR_INTRINSIC_INLINE bool try_lock() noexcept {
-return m_write.try_lock();
-}
-
-WJR_INTRINSIC_INLINE void unlock() noexcept {
-m_write.unlock();
-}
-
-WJR_INTRINSIC_INLINE void lock_shared() noexcept {
-m_read.lock();
-if (++m_count == 1)m_write.lock();
-m_read.unlock();
-}
-
-WJR_INTRINSIC_INLINE bool try_lock_shared() noexcept {
-if (!m_read.try_lock())return false;
-if (++m_count == 1) {
-if (!m_write.try_lock()) {
---m_count;
-m_read.unlock();
-return false;
-}
-}
-m_read.unlock();
-return true;
-}
-
-WJR_INTRINSIC_INLINE void unlock_shared() noexcept {
-m_read.lock();
-if (--m_count == 0)m_write.unlock();
-m_read.unlock();
-}
-
-WJR_INTRINSIC_INLINE spin_mutex& read_flag() { return m_read; }
-WJR_INTRINSIC_INLINE const spin_mutex& read_flag() const { return m_read; }
-WJR_INTRINSIC_INLINE spin_mutex& write_flag() { return m_write; }
-WJR_INTRINSIC_INLINE const spin_mutex& write_flag() const { return m_write; }
-
-private:
-spin_mutex m_read = {};
-spin_mutex m_write = {};
-size_t m_count = 0;
-};
-
-template<typename Mutex>
-WJR_INTRINSIC_INLINE void wait(std::unique_lock<Mutex>& lck, waiter& it) {
-lck.unlock();
-it();
-lck.lock();
-}
-
-
-template<typename Mutex, typename Func>
-WJR_INTRINSIC_INLINE void wait(std::unique_lock<Mutex>& lck, waiter& it, Func fn) {
-while (!fn()) {
-wait(lck, it);
-}
-}
-
-template<typename Mutex, typename Clock, typename Duration>
-WJR_INTRINSIC_INLINE void wait_until(std::unique_lock<Mutex>& lck, waiter& it,
-const std::chrono::time_point<Clock, Duration>& rel_time){
-while (true) {
-const auto _Now = Clock::now();
-if (_Now >= rel_time) {
-return;
-}
-wait(lck, it);
-}
-}
-
-// if time out return false
-// else return true
-template<typename Mutex, typename Clock, typename Duration, typename Func>
-WJR_INTRINSIC_INLINE bool wait_until(std::unique_lock<Mutex>& lck, waiter& it,
-const std::chrono::time_point<Clock, Duration>& rel_time, Func fn) {
-while (!fn()) {
-const auto _Now = Clock::now();
-if (_Now >= rel_time) {
-return false;
-}
-wait(lck, it);
-}
-return true;
-}
-
-template<typename Mutex, typename Rep, typename Period>
-WJR_INTRINSIC_INLINE void wait_for(std::unique_lock<Mutex>& lck, waiter& it,
-const std::chrono::duration<Rep, Period>& rel_time) {
-wait_until(lck, it, std::chrono::steady_clock::now() + rel_time);
-}
-
-template<typename Mutex, typename Rep, typename Period, typename Func>
-WJR_INTRINSIC_INLINE void wait_for(std::unique_lock<Mutex>& lck, waiter& it,
-const std::chrono::duration<Rep, Period>& rel_time, Func fn) {
-wait_until(lck, it, std::chrono::steady_clock::now() + rel_time, std::move(fn));
-}
-
-_WJR_END
-
-#endif //__WJR_NETWORK_SPIN_MUTEX_H
-#pragma once
-#ifndef __WJR_CIRCULAR_BUFFER_H
-#define __WJR_CIRCULAR_BUFFER_H
-
-
-_WJR_BEGIN
-
-// TODO
-
-template<typename T>
-class circular_buffer_const_iterator {
-public:
-using iterator_category = std::random_access_iterator_tag;
-using value_type = T;
-using difference_type = std::ptrdiff_t;
-using pointer = const T*;
-using reference = const T&;
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator() noexcept = default;
-WJR_CONSTEXPR20 circular_buffer_const_iterator(const circular_buffer_const_iterator&) noexcept = default;
-WJR_CONSTEXPR20 circular_buffer_const_iterator&
-operator=(const circular_buffer_const_iterator&) noexcept = default;
-WJR_CONSTEXPR20 circular_buffer_const_iterator(pointer m_ptr, size_t m_pos, size_t m_capacity) noexcept
-: m_ptr(m_ptr), m_pos(m_pos), m_capacity(m_capacity) {}
-
-WJR_NODISCARD WJR_CONSTEXPR20 reference operator*() const noexcept {
-return m_ptr[offset()];
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 pointer operator->() const noexcept {
-return m_ptr + offset();
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator& operator++() noexcept {
-assume_no_add_overflow(m_pos, static_cast<size_t>(1));
-++m_pos;
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator operator++(int)noexcept {
-circular_buffer_const_iterator tmp = *this;
-++(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator& operator--() noexcept {
-assume_no_sub_overflow(m_pos, static_cast<size_t>(1));
---m_pos;
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator operator--(int)noexcept {
-circular_buffer_const_iterator tmp = *this;
---(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator& operator+=(const difference_type n) noexcept {
-assume_no_add_overflow(m_pos, static_cast<size_t>(n));
-m_pos += n;
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator operator+(const difference_type n) const noexcept {
-circular_buffer_const_iterator tmp = *this;
-tmp += n;
-return tmp;
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator& operator-=(const difference_type n) noexcept {
-(*this) += (-n);
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_const_iterator operator-(const difference_type n) const noexcept {
-circular_buffer_const_iterator tmp = *this;
-tmp -= n;
-return tmp;
-}
-
-WJR_CONSTEXPR20 friend difference_type operator-(
-const circular_buffer_const_iterator& lhs,
-const circular_buffer_const_iterator& rhs
-) noexcept {
-return lhs.m_pos - rhs.m_pos;
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 reference operator[](const difference_type n) const noexcept {
-return *(*this + n);
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator==(
-const circular_buffer_const_iterator& lhs,
-const circular_buffer_const_iterator& rhs
-) noexcept {
-return lhs.m_pos == rhs.m_pos;
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator!=(
-const circular_buffer_const_iterator& lhs,
-const circular_buffer_const_iterator& rhs
-) noexcept {
-return !(lhs == rhs);
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<(
-const circular_buffer_const_iterator& lhs,
-const circular_buffer_const_iterator& rhs
-) noexcept {
-return lhs.m_pos < rhs.m_pos;
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<=(
-const circular_buffer_const_iterator& lhs,
-const circular_buffer_const_iterator& rhs
-) noexcept {
-return !(rhs < lhs);
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>(
-const circular_buffer_const_iterator& lhs,
-const circular_buffer_const_iterator& rhs
-) noexcept {
-return rhs < lhs;
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>=(
-const circular_buffer_const_iterator& lhs,
-const circular_buffer_const_iterator& rhs
-) noexcept {
-return !(lhs < rhs);
-}
-
-WJR_CONSTEXPR20 pointer ptr() const noexcept {
-return m_ptr;
-}
-
-WJR_CONSTEXPR20 size_t pos() const noexcept {
-return m_pos;
-}
-
-WJR_CONSTEXPR20 size_t offset() const noexcept {
-return m_pos >= m_capacity ? m_pos - m_capacity : m_pos;
-}
-
-WJR_CONSTEXPR20 size_t capacity() const noexcept {
-return m_capacity;
-}
-
-private:
-pointer m_ptr = nullptr;
-size_t m_pos = 0;
-size_t m_capacity = 0;
-};
-
-template<typename T>
-class circular_buffer_iterator : public circular_buffer_const_iterator<T> {
-public:
-using iterator_category = std::random_access_iterator_tag;
-using value_type = T;
-using difference_type = std::ptrdiff_t;
-using pointer = T*;
-using reference = T&;
-
-using _Mybase = circular_buffer_const_iterator<T>;
-
-WJR_CONSTEXPR20 circular_buffer_iterator() noexcept = default;
-WJR_CONSTEXPR20 circular_buffer_iterator(const circular_buffer_iterator&) noexcept = default;
-WJR_CONSTEXPR20 circular_buffer_iterator&
-operator=(const circular_buffer_iterator&) noexcept = default;
-WJR_CONSTEXPR20 circular_buffer_iterator(pointer m_ptr, size_t m_pos, size_t m_capacity) noexcept
-: _Mybase(m_ptr, m_pos, m_capacity) {}
-
-WJR_NODISCARD WJR_CONSTEXPR20 reference operator*() const noexcept {
-return const_cast<reference>(_Mybase::operator*());
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 pointer operator->() const noexcept {
-return const_cast<pointer>(_Mybase::operator->());
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator& operator++() noexcept {
-_Mybase::operator++();
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator operator++(int)noexcept {
-circular_buffer_iterator tmp = *this;
-++(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator& operator--() noexcept {
-_Mybase::operator--();
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator operator--(int)noexcept {
-circular_buffer_iterator tmp = *this;
---(*this);
-return tmp;
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator& operator+=(const difference_type n) noexcept {
-_Mybase::operator+=(n);
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator operator+(const difference_type n) const noexcept {
-circular_buffer_iterator tmp = *this;
-tmp += n;
-return tmp;
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator& operator-=(const difference_type n) noexcept {
-(*this) += (-n);
-return *this;
-}
-
-WJR_CONSTEXPR20 circular_buffer_iterator operator-(const difference_type n) const noexcept {
-circular_buffer_iterator tmp = *this;
-tmp -= n;
-return tmp;
-}
-
-WJR_CONSTEXPR20 friend difference_type operator-(
-const circular_buffer_iterator& lhs,
-const circular_buffer_iterator& rhs
-) noexcept {
-return lhs.pos() - rhs.pos();
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 reference operator[](const difference_type n) const noexcept {
-return *(*this + n);
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator==(
-const circular_buffer_iterator& lhs,
-const circular_buffer_iterator& rhs
-) noexcept {
-return lhs.pos() == rhs.pos();
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator!=(
-const circular_buffer_iterator& lhs,
-const circular_buffer_iterator& rhs
-) noexcept {
-return !(lhs == rhs);
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<(
-const circular_buffer_iterator& lhs,
-const circular_buffer_iterator& rhs
-) noexcept {
-return lhs.pos() < rhs.pos();
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<=(
-const circular_buffer_iterator& lhs,
-const circular_buffer_iterator& rhs
-) noexcept {
-return !(rhs < lhs);
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>(
-const circular_buffer_iterator& lhs,
-const circular_buffer_iterator& rhs
-) noexcept {
-return rhs < lhs;
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>=(
-const circular_buffer_iterator& lhs,
-const circular_buffer_iterator& rhs
-) noexcept {
-return !(lhs < rhs);
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 _Mybase& base() {
-return *this;
-}
-
-WJR_NODISCARD WJR_CONSTEXPR20 const _Mybase& base() const {
-return *this;
-}
-};
-
-// algorithm overload
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
-
-template<typename T, typename Alloc = std::allocator<T>>
-class circular_buffer {
-using _Alty = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
-using _Alty_traits = std::allocator_traits<_Alty>;
-public:
-using value_type = T;
-using allocator_type = Alloc;
-using size_type = typename _Alty_traits::size_type;
-using difference_type = typename _Alty_traits::difference_type;
-using reference = value_type&;
-using const_reference = const value_type&;
-using pointer = typename _Alty_traits::pointer;
-using const_pointer = typename _Alty_traits::const_pointer;
-using iterator = circular_buffer_iterator<T>;
-using const_iterator = circular_buffer_const_iterator<T>;
-using reverse_iterator = std::reverse_iterator<iterator>;
-using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-
-private:
-struct __data {
-
-WJR_INTRINSIC_CONSTEXPR20 void reset() noexcept {
-_Myptr = nullptr;
-_Myhead = _Mytail = _Mysize = _Mycapacity = 0;
-}
-
-pointer _Myptr = nullptr;
-size_type _Myhead = 0;
-size_type _Mytail = 0;
-size_type _Mysize = 0;
-size_type _Mycapacity = 0;
-};
-public:
-WJR_CONSTEXPR20 circular_buffer()
-noexcept(std::is_nothrow_default_constructible_v<_Alty>) = default;
-WJR_CONSTEXPR20 circular_buffer(const allocator_type& al)
-noexcept(std::is_nothrow_constructible_v<_Alty, const allocator_type&>)
-: _Myval(std::piecewise_construct_t{},
-std::forward_as_tuple(al),
-std::forward_as_tuple()) {}
-
-template<typename _Alloc>
-WJR_CONSTEXPR20 circular_buffer(const circular_buffer& other, _Alloc&& _Al, disable_tag)
-noexcept(std::is_nothrow_constructible_v<_Alty, _Alloc&&>)
-: _Myval(std::piecewise_construct_t{},
-std::forward_as_tuple(_Al),
-std::forward_as_tuple()){
-auto& al = getAllocator();
-auto& _Mydata = getData();
-const auto& _Otherdata = other.getData();
-if (_Otherdata._Mysize != 0) {
-const auto _Newcapacity = getGrowthCapacity(0, _Otherdata._Mysize);
-_Mydata._Myptr = _Alty_traits::allocate(al, _Newcapacity);
-_Mydata._Myhead = 0;
-_Mydata._Mytail = _Otherdata._Mysize;
-_Mydata._Mysize = _Otherdata._Mysize;
-_Mydata._Mycapacity = _Newcapacity;
-wjr::uninitialized_copy(other.begin(), other.end(), _Mydata._Myptr);
-}
-}
-
-WJR_CONSTEXPR20 circular_buffer(const circular_buffer& other)
-: circular_buffer(other, _Alty_traits::select_on_container_copy_construction(other.getAllocator()),
-disable_tag{}) {}
-
-WJR_CONSTEXPR20 circular_buffer(const circular_buffer& other, const allocator_type& al)
-: circular_buffer(other, al, disable_tag{}) {}
-
-WJR_CONSTEXPR20 circular_buffer(circular_buffer&& other)
-noexcept(std::is_nothrow_move_constructible_v<_Alty>)
-: _Myval(std::piecewise_construct_t{},
-std::forward_as_tuple(std::move(other.getAllocator())),
-std::forward_as_tuple(other.getData())) {
-other.getData().reset();
-}
-
-WJR_CONSTEXPR20 circular_buffer& operator=(const circular_buffer&) = delete;
-
-WJR_CONSTEXPR20 circular_buffer& operator=(circular_buffer&&) = delete;
-
-template<typename...Args>
-WJR_INLINE_CONSTEXPR20 decltype(auto) emplace_back(Args&&...args) {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
-wjr::construct_at(al, _Mydata._Myptr + _Mydata._Mytail, std::forward<Args>(args)...);
-++_Mydata._Mytail;
-_Mydata._Mytail = _Mydata._Mytail == _Mydata._Mycapacity ? 0 : _Mydata._Mytail;
-++_Mydata._Mysize;
-}
-else {
-_M_realloc_insert_at_end(std::forward<Args>(args)...);
-}
-return back();
-}
-
-WJR_INLINE_CONSTEXPR20 void push_back(const value_type& val) { emplace_back(val); }
-WJR_INLINE_CONSTEXPR20 void push_back(value_type&& val) { emplace_back(std::move(val)); }
-
-template<typename...Args>
-WJR_INLINE_CONSTEXPR20 decltype(auto) emplac_front(Args&&...args) {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
-_Mydata._Myhead = _Mydata._Myhead == 0 ? _Mydata._Mycapacity : _Mydata._Myhead;
---_Mydata._Myhead;
-wjr::construct_at(al, _Mydata._Myptr + _Mydata._Myhead, std::forward<Args>(args)...);
-++_Mydata._Mysize;
-}
-else {
-_M_realloc_insert_at_begin(std::forward<Args>(args)...);
-}
-return back();
-}
-
-WJR_INLINE_CONSTEXPR20 void push_front(const value_type& val) { emplace_front(val); }
-WJR_INLINE_CONSTEXPR20 void push_front(value_type&& val) { emplace_front(std::move(val)); }
-
-WJR_INTRINSIC_CONSTEXPR20 void pop_front() noexcept {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-wjr::destroy_at(al, _Mydata._Myptr + _Mydata._Myhead);
-++_Mydata._Myhead;
-_Mydata._Myhead = _Mydata._Myhead == _Mydata._Mycapacity ? 0 : _Mydata._Myhead;
---_Mydata._Mysize;
-}
-
-WJR_INTRINSIC_CONSTEXPR20 void pop_back() noexcept {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-_Mydata._Mytail = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
---_Mydata._Mytail;
-wjr::destroy_at(al, _Mydata._Myptr + _Mydata._Mytail);
---_Mydata._Mysize;
-}
-
-WJR_INTRINSIC_CONSTEXPR20 reference front() noexcept {
-const auto& _Mydata = getData();
-return _Mydata._Myptr[_Mydata._Myhead];
-}
-WJR_INTRINSIC_CONSTEXPR20 const_reference front() const noexcept {
-const auto& _Mydata = getData();
-return _Mydata._Myptr[_Mydata._Myhead];
-}
-
-WJR_INTRINSIC_CONSTEXPR20 reference back() noexcept {
-const auto& _Mydata = getData();
-const auto __offset = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
-return _Mydata._Myptr[__offset - 1];
-}
-WJR_INTRINSIC_CONSTEXPR20 const_reference back() const noexcept {
-const auto& _Mydata = getData();
-const auto __offset = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
-return _Mydata._Myptr[__offset - 1];
-}
-
-WJR_INTRINSIC_CONSTEXPR20 size_type size() const noexcept { return getData()._Mysize; }
-WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept { return getData()._Mycapacity; }
-
-WJR_INTRINSIC_CONSTEXPR20 bool empty() const noexcept { return size() == 0; }
-
-WJR_CONSTEXPR20 void clear() {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-if (_Mydata._Mysize) {
-wjr::destroy(al, begin(), end());
-_Mydata._Myhead = _Mydata._Mytail = _Mydata._Mysize = 0;
-}
-}
-
-WJR_INTRINSIC_CONSTEXPR20 iterator begin() {
-const auto& _Mydata = getData();
-return iterator(_Mydata._Myptr, _Mydata._Myhead, _Mydata._Mycapacity);
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_iterator begin() const {
-const auto& _Mydata = getData();
-return iterator(_Mydata._Myptr, _Mydata._Myhead, _Mydata._Mycapacity);
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_iterator cbegin() const {
-return begin();
-}
-
-WJR_INTRINSIC_CONSTEXPR20 iterator end() {
-return begin() + size();
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_iterator end() const {
-return begin() + size();
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_iterator cend() const {
-return end();
-}
-
-WJR_INTRINSIC_CONSTEXPR20 reverse_iterator rbegin() {
-return reverse_iterator(end());
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator rbegin() const {
-return const_reverse_iterator(end());
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator crbegin() const {
-return const_reverse_iterator(end());
-}
-
-WJR_INTRINSIC_CONSTEXPR20 reverse_iterator rend() {
-return reverse_iterator(begin());
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator rend() const {
-return const_reverse_iterator(begin());
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator crend() const {
-return const_reverse_iterator(begin());
-}
-
-WJR_INTRINSIC_CONSTEXPR20 reference operator[](size_type pos) {
-return *(begin() + pos);
-}
-
-WJR_INTRINSIC_CONSTEXPR20 const_reference operator[](size_type pos) const {
-return *(begin() + pos);
-}
-
-WJR_CONSTEXPR20 void tidy() {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-if (_Mydata._Myptr) {
-clear();
-_Alty_traits::deallocate(al, _Mydata._Myptr, _Mydata._Mycapacity);
-_Mydata._Myptr = nullptr;
-_Mydata._Mycapacity = 0;
-}
-}
-
-WJR_INTRINSIC_CONSTEXPR20 _Alty& getAllocator() noexcept { return _Myval.first(); }
-WJR_INTRINSIC_CONSTEXPR20 const _Alty& getAllocator() const noexcept { return _Myval.first(); }
-WJR_INTRINSIC_CONSTEXPR20 __data& getData() noexcept { return _Myval.second(); }
-WJR_INTRINSIC_CONSTEXPR20 const __data& getData() const noexcept { return _Myval.second(); }
-
-private:
-
-WJR_CONSTEXPR20 static size_type getGrowthCapacity(
-const size_type _Oldcapacity, const size_type _Newsize) noexcept {
-WJR_ASSUME(_Newsize > _Oldcapacity);
-const auto _Newcapacity = _Oldcapacity + _Oldcapacity / 2;
-const auto _FixedCapacity = _Newcapacity < _Newsize ? _Newsize : _Newcapacity;
-const auto ret = _FixedCapacity < 32 ? ((_FixedCapacity + 3) & (-4)) :
-_FixedCapacity < 256 ? ((_FixedCapacity + 15) & (-16)) :
-((_FixedCapacity + 63) & (-64));
-WJR_ASSUME(ret >= _Newsize);
-return ret;
-}
-
-template<typename...Args>
-WJR_CONSTEXPR20 void _M_realloc_insert_at_begin(Args&&...args) {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-const auto _Oldsize = _Mydata._Mysize;
-WJR_ASSUME(_Mydata._Mysize == _Mydata._Mycapacity);
-WJR_ASSUME(_Mydata._Myhead == _Mydata._Mytail);
-const auto _Newsize = _Oldsize + 1;
-const auto _Newcapacity = getGrowthCapacity(_Oldsize, _Newsize);
-
-auto _Newptr = _Alty_traits::allocate(al, _Newcapacity);
-wjr::construct_at(al, _Newptr, std::forward<Args>(args)...);
-
-wjr::uninitialized_move(al, begin(), begin() + capacity(), _Newptr + 1);
-
-tidy();
-
-_Mydata._Myptr = _Newptr;
-_Mydata._Myhead = 0;
-_Mydata._Mytail = _Mydata._Mysize = _Newsize;
-_Mydata._Mycapacity = _Newcapacity;
-}
-
-template<typename...Args>
-WJR_CONSTEXPR20 void _M_realloc_insert_at_end(Args&&...args) {
-auto& al = getAllocator();
-auto& _Mydata = getData();
-const auto _Oldsize = _Mydata._Mysize;
-WJR_ASSUME(_Mydata._Mysize == _Mydata._Mycapacity);
-WJR_ASSUME(_Mydata._Myhead == _Mydata._Mytail);
-const auto _Newsize = _Oldsize + 1;
-const auto _Newcapacity = getGrowthCapacity(_Oldsize, _Newsize);
-
-auto _Newptr = _Alty_traits::allocate(al, _Newcapacity);
-wjr::construct_at(al, _Newptr + _Oldsize, std::forward<Args>(args)...);
-
-wjr::uninitialized_move(al, begin(), begin() + capacity(), _Newptr);
-
-tidy();
-
-_Mydata._Myptr = _Newptr;
-_Mydata._Myhead = 0;
-_Mydata._Mytail = _Mydata._Mysize = _Newsize;
-_Mydata._Mycapacity = _Newcapacity;
-}
-
-compressed_pair<_Alty, __data> _Myval;
-};
-
-_WJR_END
-
-#ifndef __WJR_CIRCULAR_BUFFER_H
-#error "This file should not be included directly. Include <wjr/circular_buffer.h> instead."
-#endif // __WJR_CIRCULAR_BUFFER_H
-
-// algorithm
-
-_WJR_BEGIN
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
-const auto ptr = _First.ptr();
-const auto head_pos = _First.pos();
-const auto tail_pos = _Last.pos();
-const auto c = _First.capacity();
-if (tail_pos < c) {
-return wjr::uninitialized_copy(ptr + head_pos, ptr + tail_pos, _Dest);
-}
-return wjr::uninitialized_copy(
-ptr,
-ptr + tail_pos - c,
-wjr::uninitialized_copy(
-ptr + head_pos,
-ptr + c,
-_Dest
-)
-);
-}
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
-return wjr::uninitialized_copy(_First.base(), _Last.base(), _Dest);
-}
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
-const auto ptr = _First.ptr();
-const auto head_pos = _First.pos();
-const auto tail_pos = _Last.pos();
-const auto c = _First.capacity();
-if (tail_pos < c) {
-return wjr::uninitialized_copy(al, ptr + head_pos, ptr + tail_pos, _Dest);
-}
-return wjr::uninitialized_copy(al,
-ptr,
-ptr + tail_pos - c,
-wjr::uninitialized_copy(al,
-ptr + head_pos,
-ptr + c,
-_Dest
-)
-);
-}
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
-return wjr::uninitialized_copy(al, _First.base(), _Last.base(), _Dest);
-}
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
-const auto ptr = _First.ptr();
-const auto head_pos = _First.pos();
-const auto tail_pos = _Last.pos();
-const auto c = _First.capacity();
-if (tail_pos < c) {
-return wjr::uninitialized_move(ptr + head_pos, ptr + tail_pos, _Dest);
-}
-return wjr::uninitialized_move(
-ptr,
-ptr + tail_pos - c,
-wjr::uninitialized_move(
-ptr + head_pos,
-ptr + c,
-_Dest
-)
-);
-}
-
-template<typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
-return wjr::uninitialized_move(_First.base(), _Last.base(), _Dest);
-}
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
-circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
-const auto ptr = _First.ptr();
-const auto head_pos = _First.pos();
-const auto tail_pos = _Last.pos();
-const auto c = _First.capacity();
-if (tail_pos < c) {
-return wjr::uninitialized_move(al, ptr + head_pos, ptr + tail_pos, _Dest);
-}
-return wjr::uninitialized_move(al,
-ptr,
-ptr + tail_pos - c,
-wjr::uninitialized_move(al,
-ptr + head_pos,
-ptr + c,
-_Dest
-)
-);
-}
-
-template<typename Alloc, typename T, typename _Iter>
-WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
-circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
-return wjr::uninitialized_move(al, _First.base(), _Last.base(), _Dest);
-}
-
-_WJR_END
-
-#endif // __WJR_CIRCULAR_BUFFER_H
-
-_WJR_BEGIN
-
-class thread_pool {
-public:
-
-thread_pool(
-unsigned int core_threads_size = default_threads_size());
-~thread_pool();
-
-void pause();
-void unpause();
-void flush();
-
-bool is_valid() const;
-bool is_paused() const;
-
-template<typename Func, typename...Args>
-void push(Func&& func, Args&&...args);
-
-template<typename Func, typename...Args, typename R = std::invoke_result_t<Func&&, Args&&...>>
-WJR_NODISCARD std::future<R> submit(Func&& func, Args&&... args);
-
-unsigned int get_threads_size() const;
-
-static size_t default_threads_size();
-
-private:
-public:
-void core_work();
-
-void create_all_threads(unsigned int core_threads_size);
-
-alignas(8) spin_mutex m_fast_task_mutex;
-alignas(8) circular_buffer<std::function<void()>> m_task_queue;
-alignas(8) bool m_valid = true;
-alignas(8) std::atomic_bool m_pause = false;
-
-alignas(16) std::atomic<size_t> m_real_tasks = 0;
-alignas(16) wjr::vector<std::thread> m_core_threads;
-};
-
-template<typename Func, typename...Args>
-void thread_pool::push(Func&& func, Args&&...args) {
-std::function<void()> function = std::bind(std::forward<Func>(func), std::forward<Args>(args)...);
-{
-std::unique_lock slow_task_lock(m_fast_task_mutex);
-m_task_queue.push_back(std::move(function));
-#if defined(_WJR_EXCEPTION)
-if (is_unlikely(!m_valid)) {
-throw std::runtime_error("can't put task into invalid thread_pool");
-}
-#endif // _WJR_EXCEPTION
-}
-m_real_tasks.fetch_add(1, std::memory_order_relaxed);
-}
-
-template<typename Func, typename...Args, typename R>
-WJR_NODISCARD std::future<R> thread_pool::submit(Func&& func, Args&&... args) {
-
-std::function<R()> task_function = std::bind(std::forward<Func>(func), std::forward<Args>(args)...);
-std::shared_ptr<std::promise<R>> task_promise = std::make_shared<std::promise<R>>();
-push(
-[func = std::move(task_function), task_promise]() {
-#if defined(_WJR_EXCEPTION)
-try {
-#endif // _WJR_EXCEPTION
-if constexpr (std::is_void_v<R>) {
-std::invoke(func);
-task_promise->set_value();
-}
-else {
-task_promise->set_value(std::invoke(func));
-}
-#if defined(_WJR_EXCEPTION)
-}
-catch (...) {
-try {
-task_promise->set_exception(std::current_exception());
-}
-catch (...) {
-}
-}
-#endif // _WJR_EXCEPTION
-});
-return task_promise->get_future();
-}
-
-_WJR_END
-
-#endif // __WJR_NETWORK_THREAD_POOL_H
-
-_WJR_BEGIN
-
-thread_pool::thread_pool(
-unsigned int core_threads_size){
-create_all_threads(core_threads_size);
-}
-
-thread_pool::~thread_pool() {
-flush();
-{
-std::unique_lock fast_task_lock(m_fast_task_mutex);
-m_valid = false;
-}
-for (auto& i : m_core_threads) i.join();
-}
-
-void thread_pool::pause() {
-m_pause.store(true, std::memory_order_relaxed);
-}
-
-void thread_pool::unpause() {
-m_pause.store(false, std::memory_order_relaxed);
-}
-
-void thread_pool::flush() {
-waiter it;
-std::unique_lock fast_task_lock(m_fast_task_mutex);
-wjr::wait(fast_task_lock, it, [this] {
-return (m_real_tasks.load(std::memory_order_relaxed)
-== (m_pause.load(std::memory_order_relaxed) ? m_task_queue.size() : 0));
-});
-}
-
-bool thread_pool::is_valid() const {
-return m_valid;
-}
-
-bool thread_pool::is_paused() const {
-return m_pause.load(std::memory_order_relaxed);
-}
-
-unsigned int thread_pool::get_threads_size() const {
-return m_core_threads.size();
-}
-
-void thread_pool::core_work() {
-
-for (;;) {
-std::function<void()> task;
-
-{
-waiter it;
-std::unique_lock fast_task_lock(m_fast_task_mutex);
-wjr::wait(fast_task_lock, it, [this] {
-return !m_task_queue.empty()
-|| !m_valid;
-});
-
-if (is_likely(m_valid)) {
-if (!m_pause.load(std::memory_order_relaxed)) {
-task = std::move(m_task_queue.front());
-m_task_queue.pop_front();
-fast_task_lock.unlock();
-task();
-m_real_tasks.fetch_sub(1, std::memory_order_relaxed);
-}
-continue;
-}
-
-break;
-}
-}
-
-}
-
-void thread_pool::create_all_threads(
-unsigned int core_threads_size) {
-#if defined(_WJR_EXCEPTION)
-if (!core_threads_size) {
-throw std::invalid_argument("!core_threads_size");
-}
-#endif // _WJR_EXCEPTION
-
-m_core_threads.reserve(core_threads_size);
-
-m_valid = true;
-m_pause = false;
-
-for (unsigned int i = 0; i < core_threads_size; ++i) {
-m_core_threads.emplace_back(&thread_pool::core_work, this);
-}
-}
-
-size_t thread_pool::default_threads_size() {
-return std::max(static_cast<size_t>(1), static_cast<size_t>(std::thread::hardware_concurrency()));
-}
-
-_WJR_END
-
-#pragma once
-#ifndef __WJR_STRING_H
-#define __WJR_STRING_H
-
-#include <string_view>
-#include <iostream>
-
 #pragma once
 #ifndef __WJR_FUNCTIONAL_H
 #define __WJR_FUNCTIONAL_H
@@ -14586,6 +13387,12 @@ const type_identity_t<basic_string_view<Char>> rhs) noexcept {
 return !(lhs < rhs);
 }
 
+template<typename Char>
+std::basic_ostream<Char, std::char_traits<Char>>& operator<<(
+std::basic_ostream<Char, std::char_traits<Char>>& os, wjr::basic_string_view<Char> sv) {
+return (os << (std::basic_string_view<Char, std::char_traits<Char>>)(sv));
+}
+
 using string_view = basic_string_view<char>;
 #if defined(WJR_CHAR8_T)
 using u8string_view = basic_string_view<char8_t>;
@@ -14612,12 +13419,6 @@ return u32string_view(str, len);
 WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR wstring_view operator""_sv(const wchar_t* str, size_t len) noexcept {
 return wstring_view(str, len);
 }
-}
-
-template<typename Char>
-std::basic_ostream<Char, std::char_traits<Char>>& operator<<(
-std::basic_ostream<Char, std::char_traits<Char>>& os, wjr::basic_string_view<Char> sv) {
-return (os << (std::basic_string_view<Char, std::char_traits<Char>>)(sv));
 }
 
 template<typename Char, typename Alloc = std::allocator<Char>,
@@ -15745,17 +14546,63 @@ const basic_string<Char, Alloc, Data>& rhs) noexcept {
 return !(lhs < rhs);
 }
 
-template<typename Char>
+template<typename Char, typename Alloc, typename Data>
 std::basic_ostream<Char, std::char_traits<Char>>& operator<<(
 std::basic_ostream<Char, std::char_traits<Char>>& os,
-const basic_string<Char>& str) {
+const basic_string<Char, Alloc, Data>& str) {
 return os << str.view();
 }
 
-template<typename Char>
+template<typename Char, typename Alloc, typename Data>
 std::basic_istream<Char, std::char_traits<Char>>& operator>>(
 std::basic_istream<Char, std::char_traits<Char>>& is,
-basic_string<Char>& str) {
+basic_string<Char, Alloc, Data>& str) {
+using IS = std::basic_istream<Char, std::char_traits<Char>>;
+using size_type = typename basic_string<Char, Alloc, Data>::size_type;
+using traits = std::char_traits<Char>;
+
+typename IS::iostate state = IS::goodbit;
+const typename IS::sentry sentry(is);
+
+bool changed = false;
+
+if (sentry) { // state okay, extract characters
+
+str.clear();
+
+size_type _Size;
+
+if (is.width() && static_cast<size_type>(is.width()) < str.max_size()) {
+_Size = static_cast<size_type>(is.width());
+}
+else {
+_Size = str.max_size();
+}
+
+typename traits::int_type _Meta = is.rdbuf()->sgetc();
+
+for (; 0 < _Size; --_Size, _Meta = is.rdbuf()->snextc()) {
+if (traits::eq_int_type(traits::eof(), _Meta)) {
+state |= IS::eofbit;
+break;
+}
+if (isspace(traits::to_char_type(_Meta))) {
+break;
+}
+str.push_back(traits::to_char_type(_Meta));
+changed = true;
+}
+
+}
+
+is.width(0);
+
+if (!changed) {
+state |= IS::failbit;
+}
+
+is.setstate(state);
+
 return is;
 }
 
@@ -15787,174 +14634,1209 @@ _WJR_END
 
 #endif // __WJR_STRING_H
 #pragma once
-#ifndef __WJR_ALLOCATOR_H
-#define __WJR_ALLOCATOR_H
+#ifndef __WJR_NETWORK_THREAD_POOL_H
+#define __WJR_NETWORK_THREAD_POOL_H
 
-#include <new>
+#include <thread>
+#include <mutex>
+#include <shared_mutex>
+#include <condition_variable>
+#include <future>
+#include <functional>
+#include <chrono>
+
+#pragma once
+#ifndef __WJR_NETWORK_SPIN_MUTEX_H
+#define __WJR_NETWORK_SPIN_MUTEX_H
+
+#include <atomic>
+#include <mutex>
+
+#pragma once
+#ifndef __WJR_NETWORK_WAITER_H
+#define __WJR_NETWORK_WAITER_H
+#include <chrono>
+#include <thread>
+
 
 _WJR_BEGIN
 
-template<typename _Ty>
-struct __aligned_helper;
-
-template<>
-struct __aligned_helper<void> {
-constexpr static size_t value = std::max((size_t)(16), (size_t)(alignof(max_align_t)));
-};
-
-template<typename _Ty>
-struct __aligned_helper {
-constexpr static size_t value = std::max((size_t)alignof(_Ty), __aligned_helper<void>::value);
-};
-
-#if defined(_DEBUG)
-#define WJR_TEST_ALLOCATOR
-#endif
-
-#if defined(WJR_TEST_ALLOCATOR)
-struct __test_allocator {
-~__test_allocator();
-long long _Count = 0;
-};
-extern __test_allocator __test_allocator_instance;
-#endif
-
-template<typename _Ty, size_t _Al = __aligned_helper<_Ty>::value, size_t _Off = 0>
-class aligned_allocator {
+// waiter : non-blocking
+// use pause when the number of times is small,
+// use yield if the wait time is long,
+// use sleep when wait time is too long
+// pause : about 5 ~ 20ns (default : 2^5 times -> 160 ` 640 ns)
+// yield : about 100 ~ 1000ns (default : 2^16 times -> 6 ~ 60 ms)
+// sleep : about 10 ms (sleep after 60 ms)
+class waiter {
 public:
-static_assert(!std::is_const_v<_Ty>, "The C++ Standard forbids containers of const elements "
-"because allocator<const T> is ill-formed.");
-static_assert(_Al >= 8, "The alignment must be greater than or equal to 8.");
-static_assert(_Off >= 0 && _Off < _Al,
-"The offset must be greater than or equal to 0 and less than the alignment.");
-static_assert((_Al & (_Al - 1)) == 0, "The alignment must be a power of 2.");
+constexpr static unsigned int default_pause_limit = 1 << 5;
+constexpr static unsigned int default_yield_limit = 1 << 16;
+constexpr static std::chrono::milliseconds default_sleep_time = std::chrono::milliseconds(10);
 
-using value_type = _Ty;
+WJR_INTRINSIC_CONSTEXPR waiter() noexcept = default;
+WJR_INTRINSIC_CONSTEXPR waiter(
+unsigned int pause_limit,
+unsigned int yield_limit = default_yield_limit,
+const std::chrono::milliseconds& sleep_time = default_sleep_time)
+: m_pause_limit(pause_limit), m_yield_limit(yield_limit), m_sleep_time(sleep_time) {}
 
-#if !defined(WJR_CPP_20)
-using pointer = _Ty*;
-using const_pointer = const _Ty*;
+WJR_INTRINSIC_CONSTEXPR waiter(const waiter& other) noexcept = default;
+WJR_INTRINSIC_CONSTEXPR waiter& operator=(const waiter& other) noexcept = default;
 
-using reference = _Ty&;
-using const_reference = const _Ty&;
-#endif // !WJR_CPP_20
+WJR_INTRINSIC_INLINE void operator()() noexcept {
+assume_no_add_overflow(m_count, 1u);
+if (m_count < m_pause_limit) {
+++m_count;
+wjr::masm::pause();
+}
+else {
+if (m_count < m_yield_limit) {
+++m_count;
+std::this_thread::yield();
+}
+else {
+std::this_thread::sleep_for(m_sleep_time);
+}
+}
+}
 
-using size_type = size_t;
-using difference_type = ptrdiff_t;
-
-using propagate_on_container_move_assignment = std::true_type;
-using is_always_equal = std::true_type;
-
-template <typename _Other>
-struct rebind {
-using other = aligned_allocator<_Other, _Al, _Off>;
+private:
+unsigned int m_count = 0;
+unsigned int m_pause_limit = default_pause_limit;
+unsigned int m_yield_limit = default_yield_limit;
+std::chrono::milliseconds m_sleep_time = default_sleep_time;
 };
 
-#if !defined(WJR_CPP_20)
-WJR_NODISCARD _Ty* address(_Ty& _Val) const noexcept {
-return std::addressof(_Val);
+template<typename Waiter, typename Func>
+WJR_INTRINSIC_INLINE void wait(Waiter& it, Func fn) {
+while (!fn()) {
+wait(it);
+}
 }
 
-WJR_NODISCARD const _Ty* address(const _Ty& _Val) const noexcept {
-return std::addressof(_Val);
+// if time out return false
+// else return true
+template<typename Waiter, typename Clock, typename Duration, typename Func>
+WJR_INTRINSIC_INLINE bool wait_until(Waiter& it,
+const std::chrono::time_point<Clock, Duration>& rel_time, Func fn) {
+while (!fn()) {
+const auto _Now = Clock::now();
+if (_Now >= rel_time) {
+return false;
 }
-#endif // !WJR_CPP_20
-
-constexpr aligned_allocator() noexcept {}
-
-constexpr aligned_allocator(const aligned_allocator&) noexcept = default;
-template <typename _Other>
-constexpr aligned_allocator(const aligned_allocator<_Other, _Al, _Off>&) noexcept {}
-WJR_CONSTEXPR20 ~aligned_allocator() = default;
-WJR_CONSTEXPR20 aligned_allocator& operator=(const aligned_allocator&) = default;
-
-WJR_CONSTEXPR20 void deallocate(_Ty* const _Ptr, const size_t _Count) {
-#if defined(WJR_TEST_ALLOCATOR)
-__test_allocator_instance._Count -= _Count * sizeof(_Ty) + _Off;
-#endif
-WJR_ASSUME(reinterpret_cast<uintptr_t>(_Ptr) % _Al == _Off);
-auto ptr = reinterpret_cast<char*>(_Ptr) - _Off;
-::operator delete(ptr, _Count * sizeof(_Ty) + _Off, static_cast<std::align_val_t>(_Al));
+wait(it);
 }
-
-WJR_NODISCARD WJR_CONSTEXPR20 _Ty* allocate(const size_t _Count) {
-#if defined(WJR_TEST_ALLOCATOR)
-__test_allocator_instance._Count += _Count * sizeof(_Ty) + _Off;
-#endif
-auto ptr = static_cast<char*>(::operator new(_Count * sizeof(_Ty) + _Off,
-static_cast<std::align_val_t>(_Al))) + _Off;
-WJR_ASSUME(reinterpret_cast<uintptr_t>(ptr) % _Al == _Off);
-return reinterpret_cast<_Ty*>(ptr);
-}
-
-#if !defined(WJR_CPP_20)
-WJR_NODISCARD size_t max_size() const noexcept {
-return static_cast<size_t>(-1) / sizeof(_Ty);
-}
-#endif // !WJR_CPP_20
-};
-
-template <size_t _Al, size_t _Off>
-class aligned_allocator<void, _Al, _Off> {
-public:
-using value_type = void;
-#if !defined(WJR_CPP_20)
-using pointer = void*;
-using const_pointer = const void*;
-#endif // !WJR_CPP_20
-
-using size_type = size_t;
-using difference_type = ptrdiff_t;
-
-using propagate_on_container_move_assignment = std::true_type;
-using is_always_equal = std::true_type;
-
-#if !defined(WJR_CPP_20)
-template <class _Other>
-struct rebind {
-using other = aligned_allocator<_Other>;
-};
-#endif // !WJR_CPP_20
-};
-
-template <typename _Ty, typename _Other, size_t _Al, size_t _Off>
-WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
-const aligned_allocator<_Ty, _Al, _Off>&,
-const aligned_allocator<_Other, _Al, _Off>&) noexcept {
 return true;
 }
 
-template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
-WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
-const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
-const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
+template<typename Waiter, typename Rep, typename Period, typename Func>
+WJR_INTRINSIC_INLINE bool wait_for(Waiter& it,
+const std::chrono::duration<Rep, Period>& rel_time, Func fn) {
+if (rel_time < std::chrono::duration<Rep, Period>::zero()) {
 return false;
 }
-
-template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
-WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator!=(
-const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
-const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
-return !(lhs == rhs);
+const auto stamp = std::chrono::steady_clock::now();
+return wait_until(it, stamp + rel_time, std::move(fn));
 }
-
-template<typename T, size_t _Al, size_t _Off>
-struct is_default_allocator<aligned_allocator<T, _Al, _Off>> : std::true_type {};
 
 _WJR_END
 
-#endif // __WJR_ALLOCATOR_H
-#include <stdio.h>
+#endif // __WJR_NETWORK_WAITER_H
 
 _WJR_BEGIN
-#if defined(WJR_TEST_ALLOCATOR)
-__test_allocator::~__test_allocator() {
-if (_Count != 0) {
-printf("memory leak: %lld bytes", _Count);
+
+// Non-blocking spin lock
+// If you cannot lock for a long time, you will fall asleep
+class spin_mutex {
+public:
+WJR_INTRINSIC_INLINE spin_mutex() = default;
+spin_mutex(const spin_mutex&) = delete;
+spin_mutex& operator=(const spin_mutex&) = delete;
+WJR_INTRINSIC_INLINE ~spin_mutex() = default;
+
+template<typename Waiter>
+WJR_INTRINSIC_INLINE void lock(Waiter it) noexcept {
+while (m_flag.test_and_set(std::memory_order_acquire)) {
+it();
 }
 }
-__test_allocator __test_allocator_instance;
-#endif
+
+WJR_INTRINSIC_INLINE void lock() noexcept {
+lock(waiter());
+}
+
+WJR_INTRINSIC_INLINE bool try_lock() noexcept {
+return !m_flag.test_and_set(std::memory_order_acquire);
+}
+
+WJR_INTRINSIC_INLINE void unlock() noexcept {
+m_flag.clear(std::memory_order_release);
+}
+
+WJR_INTRINSIC_INLINE std::atomic_flag& flag() { return m_flag; }
+WJR_INTRINSIC_INLINE const std::atomic_flag& flag() const { return m_flag; }
+
+private:
+std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
+};
+
+class shared_spin_mutex {
+public:
+WJR_INTRINSIC_INLINE shared_spin_mutex() = default;
+shared_spin_mutex(const shared_spin_mutex&) = delete;
+shared_spin_mutex& operator=(const shared_spin_mutex&) = delete;
+WJR_INTRINSIC_INLINE ~shared_spin_mutex() = default;
+
+WJR_INTRINSIC_INLINE void lock() noexcept {
+m_write.lock();
+}
+
+WJR_INTRINSIC_INLINE bool try_lock() noexcept {
+return m_write.try_lock();
+}
+
+WJR_INTRINSIC_INLINE void unlock() noexcept {
+m_write.unlock();
+}
+
+WJR_INTRINSIC_INLINE void lock_shared() noexcept {
+m_read.lock();
+if (++m_count == 1)m_write.lock();
+m_read.unlock();
+}
+
+WJR_INTRINSIC_INLINE bool try_lock_shared() noexcept {
+if (!m_read.try_lock())return false;
+if (++m_count == 1) {
+if (!m_write.try_lock()) {
+--m_count;
+m_read.unlock();
+return false;
+}
+}
+m_read.unlock();
+return true;
+}
+
+WJR_INTRINSIC_INLINE void unlock_shared() noexcept {
+m_read.lock();
+if (--m_count == 0)m_write.unlock();
+m_read.unlock();
+}
+
+WJR_INTRINSIC_INLINE spin_mutex& read_flag() { return m_read; }
+WJR_INTRINSIC_INLINE const spin_mutex& read_flag() const { return m_read; }
+WJR_INTRINSIC_INLINE spin_mutex& write_flag() { return m_write; }
+WJR_INTRINSIC_INLINE const spin_mutex& write_flag() const { return m_write; }
+
+private:
+spin_mutex m_read = {};
+spin_mutex m_write = {};
+size_t m_count = 0;
+};
+
+template<typename Mutex, typename Waiter, typename Func>
+WJR_INTRINSIC_INLINE void wait(std::unique_lock<Mutex>& lck, Waiter& it, Func fn) {
+while (!fn()) {
+lck.unlock();
+it();
+lck.lock();
+}
+}
+
+template<typename Mutex, typename Func>
+WJR_INTRINSIC_INLINE void wait(std::unique_lock<Mutex>& lck, Func fn) {
+waiter it;
+wait(lck, it, std::move(fn));
+}
+
+// if time out return false
+// else return true
+template<typename Mutex, typename Waiter, typename Clock, typename Duration, typename Func>
+WJR_INTRINSIC_INLINE bool wait_until(std::unique_lock<Mutex>& lck, Waiter& it,
+const std::chrono::time_point<Clock, Duration>& rel_time, Func fn) {
+while (!fn()) {
+const auto _Now = Clock::now();
+if (_Now >= rel_time) {
+return false;
+}
+wait(lck, it);
+}
+return true;
+}
+
+template<typename Mutex, typename Clock, typename Duration, typename Func>
+WJR_INTRINSIC_INLINE bool wait_until(std::unique_lock<Mutex>& lck,
+const std::chrono::time_point<Clock, Duration>& rel_time, Func fn) {
+waiter it;
+return wait_until(lck, it, rel_time, std::move(fn));
+}
+
+template<typename Mutex, typename Waiter, typename Rep, typename Period, typename Func>
+WJR_INTRINSIC_INLINE void wait_for(std::unique_lock<Mutex>& lck, Waiter& it,
+const std::chrono::duration<Rep, Period>& rel_time, Func fn) {
+wait_until(lck, it, std::chrono::steady_clock::now() + rel_time, std::move(fn));
+}
+
+template<typename Mutex, typename Rep, typename Period, typename Func>
+WJR_INTRINSIC_INLINE void wait_for(std::unique_lock<Mutex>& lck,
+const std::chrono::duration<Rep, Period>& rel_time, Func fn) {
+waiter it;
+wait_for(lck, it, rel_time, std::move(fn));
+}
+
+_WJR_END
+
+#endif //__WJR_NETWORK_SPIN_MUTEX_H
+#pragma once
+#ifndef __WJR_CIRCULAR_BUFFER_H
+#define __WJR_CIRCULAR_BUFFER_H
+
+
+_WJR_BEGIN
+
+// TODO
+
+template<typename T>
+class circular_buffer_const_iterator {
+public:
+using iterator_category = std::random_access_iterator_tag;
+using value_type = T;
+using difference_type = std::ptrdiff_t;
+using pointer = const T*;
+using reference = const T&;
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator() noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_const_iterator(const circular_buffer_const_iterator&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_const_iterator&
+operator=(const circular_buffer_const_iterator&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_const_iterator(pointer m_ptr, size_t m_pos, size_t m_capacity) noexcept
+: m_ptr(m_ptr), m_pos(m_pos), m_capacity(m_capacity) {}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator*() const noexcept {
+return m_ptr[offset()];
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 pointer operator->() const noexcept {
+return m_ptr + offset();
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator& operator++() noexcept {
+assume_no_add_overflow(m_pos, static_cast<size_t>(1));
+++m_pos;
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator operator++(int)noexcept {
+circular_buffer_const_iterator tmp = *this;
+++(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator& operator--() noexcept {
+assume_no_sub_overflow(m_pos, static_cast<size_t>(1));
+--m_pos;
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator operator--(int)noexcept {
+circular_buffer_const_iterator tmp = *this;
+--(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator& operator+=(const difference_type n) noexcept {
+assume_no_add_overflow(m_pos, static_cast<size_t>(n));
+m_pos += n;
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator operator+(const difference_type n) const noexcept {
+circular_buffer_const_iterator tmp = *this;
+tmp += n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator& operator-=(const difference_type n) noexcept {
+(*this) += (-n);
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_const_iterator operator-(const difference_type n) const noexcept {
+circular_buffer_const_iterator tmp = *this;
+tmp -= n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 friend difference_type operator-(
+const circular_buffer_const_iterator& lhs,
+const circular_buffer_const_iterator& rhs
+) noexcept {
+return lhs.m_pos - rhs.m_pos;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator[](const difference_type n) const noexcept {
+return *(*this + n);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator==(
+const circular_buffer_const_iterator& lhs,
+const circular_buffer_const_iterator& rhs
+) noexcept {
+return lhs.m_pos == rhs.m_pos;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator!=(
+const circular_buffer_const_iterator& lhs,
+const circular_buffer_const_iterator& rhs
+) noexcept {
+return !(lhs == rhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<(
+const circular_buffer_const_iterator& lhs,
+const circular_buffer_const_iterator& rhs
+) noexcept {
+return lhs.m_pos < rhs.m_pos;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<=(
+const circular_buffer_const_iterator& lhs,
+const circular_buffer_const_iterator& rhs
+) noexcept {
+return !(rhs < lhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>(
+const circular_buffer_const_iterator& lhs,
+const circular_buffer_const_iterator& rhs
+) noexcept {
+return rhs < lhs;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>=(
+const circular_buffer_const_iterator& lhs,
+const circular_buffer_const_iterator& rhs
+) noexcept {
+return !(lhs < rhs);
+}
+
+WJR_CONSTEXPR20 pointer ptr() const noexcept {
+return m_ptr;
+}
+
+WJR_CONSTEXPR20 size_t pos() const noexcept {
+return m_pos;
+}
+
+WJR_CONSTEXPR20 size_t offset() const noexcept {
+return m_pos >= m_capacity ? m_pos - m_capacity : m_pos;
+}
+
+WJR_CONSTEXPR20 size_t capacity() const noexcept {
+return m_capacity;
+}
+
+private:
+pointer m_ptr = nullptr;
+size_t m_pos = 0;
+size_t m_capacity = 0;
+};
+
+template<typename T>
+class circular_buffer_iterator : public circular_buffer_const_iterator<T> {
+public:
+using iterator_category = std::random_access_iterator_tag;
+using value_type = T;
+using difference_type = std::ptrdiff_t;
+using pointer = T*;
+using reference = T&;
+
+using _Mybase = circular_buffer_const_iterator<T>;
+
+WJR_CONSTEXPR20 circular_buffer_iterator() noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_iterator(const circular_buffer_iterator&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_iterator&
+operator=(const circular_buffer_iterator&) noexcept = default;
+WJR_CONSTEXPR20 circular_buffer_iterator(pointer m_ptr, size_t m_pos, size_t m_capacity) noexcept
+: _Mybase(m_ptr, m_pos, m_capacity) {}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator*() const noexcept {
+return const_cast<reference>(_Mybase::operator*());
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 pointer operator->() const noexcept {
+return const_cast<pointer>(_Mybase::operator->());
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator& operator++() noexcept {
+_Mybase::operator++();
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator operator++(int)noexcept {
+circular_buffer_iterator tmp = *this;
+++(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator& operator--() noexcept {
+_Mybase::operator--();
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator operator--(int)noexcept {
+circular_buffer_iterator tmp = *this;
+--(*this);
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator& operator+=(const difference_type n) noexcept {
+_Mybase::operator+=(n);
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator operator+(const difference_type n) const noexcept {
+circular_buffer_iterator tmp = *this;
+tmp += n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator& operator-=(const difference_type n) noexcept {
+(*this) += (-n);
+return *this;
+}
+
+WJR_CONSTEXPR20 circular_buffer_iterator operator-(const difference_type n) const noexcept {
+circular_buffer_iterator tmp = *this;
+tmp -= n;
+return tmp;
+}
+
+WJR_CONSTEXPR20 friend difference_type operator-(
+const circular_buffer_iterator& lhs,
+const circular_buffer_iterator& rhs
+) noexcept {
+return lhs.pos() - rhs.pos();
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 reference operator[](const difference_type n) const noexcept {
+return *(*this + n);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator==(
+const circular_buffer_iterator& lhs,
+const circular_buffer_iterator& rhs
+) noexcept {
+return lhs.pos() == rhs.pos();
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator!=(
+const circular_buffer_iterator& lhs,
+const circular_buffer_iterator& rhs
+) noexcept {
+return !(lhs == rhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<(
+const circular_buffer_iterator& lhs,
+const circular_buffer_iterator& rhs
+) noexcept {
+return lhs.pos() < rhs.pos();
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator<=(
+const circular_buffer_iterator& lhs,
+const circular_buffer_iterator& rhs
+) noexcept {
+return !(rhs < lhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>(
+const circular_buffer_iterator& lhs,
+const circular_buffer_iterator& rhs
+) noexcept {
+return rhs < lhs;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 friend bool operator>=(
+const circular_buffer_iterator& lhs,
+const circular_buffer_iterator& rhs
+) noexcept {
+return !(lhs < rhs);
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 _Mybase& base() {
+return *this;
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 const _Mybase& base() const {
+return *this;
+}
+};
+
+// algorithm overload
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest);
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest);
+
+template<typename T, typename Alloc = std::allocator<T>>
+class circular_buffer {
+using _Alty = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+using _Alty_traits = std::allocator_traits<_Alty>;
+public:
+using value_type = T;
+using allocator_type = Alloc;
+using size_type = typename _Alty_traits::size_type;
+using difference_type = typename _Alty_traits::difference_type;
+using reference = value_type&;
+using const_reference = const value_type&;
+using pointer = typename _Alty_traits::pointer;
+using const_pointer = typename _Alty_traits::const_pointer;
+using iterator = circular_buffer_iterator<T>;
+using const_iterator = circular_buffer_const_iterator<T>;
+using reverse_iterator = std::reverse_iterator<iterator>;
+using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+private:
+struct __data {
+
+WJR_INTRINSIC_CONSTEXPR20 void reset() noexcept {
+_Myptr = nullptr;
+_Myhead = _Mytail = _Mysize = _Mycapacity = 0;
+}
+
+pointer _Myptr = nullptr;
+size_type _Myhead = 0;
+size_type _Mytail = 0;
+size_type _Mysize = 0;
+size_type _Mycapacity = 0;
+};
+public:
+WJR_CONSTEXPR20 circular_buffer()
+noexcept(std::is_nothrow_default_constructible_v<_Alty>) = default;
+WJR_CONSTEXPR20 circular_buffer(const allocator_type& al)
+noexcept(std::is_nothrow_constructible_v<_Alty, const allocator_type&>)
+: _Myval(std::piecewise_construct_t{},
+std::forward_as_tuple(al),
+std::forward_as_tuple()) {}
+
+template<typename _Alloc>
+WJR_CONSTEXPR20 circular_buffer(const circular_buffer& other, _Alloc&& _Al, disable_tag)
+noexcept(std::is_nothrow_constructible_v<_Alty, _Alloc&&>)
+: _Myval(std::piecewise_construct_t{},
+std::forward_as_tuple(_Al),
+std::forward_as_tuple()){
+auto& al = getAllocator();
+auto& _Mydata = getData();
+const auto& _Otherdata = other.getData();
+if (_Otherdata._Mysize != 0) {
+const auto _Newcapacity = getGrowthCapacity(0, _Otherdata._Mysize);
+_Mydata._Myptr = _Alty_traits::allocate(al, _Newcapacity);
+_Mydata._Myhead = 0;
+_Mydata._Mytail = _Otherdata._Mysize;
+_Mydata._Mysize = _Otherdata._Mysize;
+_Mydata._Mycapacity = _Newcapacity;
+wjr::uninitialized_copy(other.begin(), other.end(), _Mydata._Myptr);
+}
+}
+
+WJR_CONSTEXPR20 circular_buffer(const circular_buffer& other)
+: circular_buffer(other, _Alty_traits::select_on_container_copy_construction(other.getAllocator()),
+disable_tag{}) {}
+
+WJR_CONSTEXPR20 circular_buffer(const circular_buffer& other, const allocator_type& al)
+: circular_buffer(other, al, disable_tag{}) {}
+
+WJR_CONSTEXPR20 circular_buffer(circular_buffer&& other)
+noexcept(std::is_nothrow_move_constructible_v<_Alty>)
+: _Myval(std::piecewise_construct_t{},
+std::forward_as_tuple(std::move(other.getAllocator())),
+std::forward_as_tuple(other.getData())) {
+other.getData().reset();
+}
+
+WJR_CONSTEXPR20 circular_buffer& operator=(const circular_buffer&) = delete;
+
+WJR_CONSTEXPR20 circular_buffer& operator=(circular_buffer&&) = delete;
+
+template<typename...Args>
+WJR_INLINE_CONSTEXPR20 decltype(auto) emplace_back(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
+wjr::construct_at(al, _Mydata._Myptr + _Mydata._Mytail, std::forward<Args>(args)...);
+++_Mydata._Mytail;
+_Mydata._Mytail = _Mydata._Mytail == _Mydata._Mycapacity ? 0 : _Mydata._Mytail;
+++_Mydata._Mysize;
+}
+else {
+_M_realloc_insert_at_end(std::forward<Args>(args)...);
+}
+return back();
+}
+
+WJR_INLINE_CONSTEXPR20 void push_back(const value_type& val) { emplace_back(val); }
+WJR_INLINE_CONSTEXPR20 void push_back(value_type&& val) { emplace_back(std::move(val)); }
+
+template<typename...Args>
+WJR_INLINE_CONSTEXPR20 decltype(auto) emplac_front(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (is_likely(_Mydata._Mysize != _Mydata._Mycapacity)) {
+_Mydata._Myhead = _Mydata._Myhead == 0 ? _Mydata._Mycapacity : _Mydata._Myhead;
+--_Mydata._Myhead;
+wjr::construct_at(al, _Mydata._Myptr + _Mydata._Myhead, std::forward<Args>(args)...);
+++_Mydata._Mysize;
+}
+else {
+_M_realloc_insert_at_begin(std::forward<Args>(args)...);
+}
+return back();
+}
+
+WJR_INLINE_CONSTEXPR20 void push_front(const value_type& val) { emplace_front(val); }
+WJR_INLINE_CONSTEXPR20 void push_front(value_type&& val) { emplace_front(std::move(val)); }
+
+WJR_INTRINSIC_CONSTEXPR20 void pop_front() noexcept {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+wjr::destroy_at(al, _Mydata._Myptr + _Mydata._Myhead);
+++_Mydata._Myhead;
+_Mydata._Myhead = _Mydata._Myhead == _Mydata._Mycapacity ? 0 : _Mydata._Myhead;
+--_Mydata._Mysize;
+}
+
+WJR_INTRINSIC_CONSTEXPR20 void pop_back() noexcept {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+_Mydata._Mytail = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
+--_Mydata._Mytail;
+wjr::destroy_at(al, _Mydata._Myptr + _Mydata._Mytail);
+--_Mydata._Mysize;
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reference front() noexcept {
+const auto& _Mydata = getData();
+return _Mydata._Myptr[_Mydata._Myhead];
+}
+WJR_INTRINSIC_CONSTEXPR20 const_reference front() const noexcept {
+const auto& _Mydata = getData();
+return _Mydata._Myptr[_Mydata._Myhead];
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reference back() noexcept {
+const auto& _Mydata = getData();
+const auto __offset = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
+return _Mydata._Myptr[__offset - 1];
+}
+WJR_INTRINSIC_CONSTEXPR20 const_reference back() const noexcept {
+const auto& _Mydata = getData();
+const auto __offset = _Mydata._Mytail == 0 ? _Mydata._Mycapacity : _Mydata._Mytail;
+return _Mydata._Myptr[__offset - 1];
+}
+
+WJR_INTRINSIC_CONSTEXPR20 size_type size() const noexcept { return getData()._Mysize; }
+WJR_INTRINSIC_CONSTEXPR20 size_type capacity() const noexcept { return getData()._Mycapacity; }
+
+WJR_INTRINSIC_CONSTEXPR20 bool empty() const noexcept { return size() == 0; }
+
+WJR_CONSTEXPR20 void clear() {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (_Mydata._Mysize) {
+wjr::destroy(al, begin(), end());
+_Mydata._Myhead = _Mydata._Mytail = _Mydata._Mysize = 0;
+}
+}
+
+WJR_INTRINSIC_CONSTEXPR20 iterator begin() {
+const auto& _Mydata = getData();
+return iterator(_Mydata._Myptr, _Mydata._Myhead, _Mydata._Mycapacity);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator begin() const {
+const auto& _Mydata = getData();
+return iterator(_Mydata._Myptr, _Mydata._Myhead, _Mydata._Mycapacity);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator cbegin() const {
+return begin();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 iterator end() {
+return begin() + size();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator end() const {
+return begin() + size();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_iterator cend() const {
+return end();
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reverse_iterator rbegin() {
+return reverse_iterator(end());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator rbegin() const {
+return const_reverse_iterator(end());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator crbegin() const {
+return const_reverse_iterator(end());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reverse_iterator rend() {
+return reverse_iterator(begin());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator rend() const {
+return const_reverse_iterator(begin());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reverse_iterator crend() const {
+return const_reverse_iterator(begin());
+}
+
+WJR_INTRINSIC_CONSTEXPR20 reference operator[](size_type pos) {
+return *(begin() + pos);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 const_reference operator[](size_type pos) const {
+return *(begin() + pos);
+}
+
+WJR_CONSTEXPR20 void tidy() {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+if (_Mydata._Myptr) {
+clear();
+_Alty_traits::deallocate(al, _Mydata._Myptr, _Mydata._Mycapacity);
+_Mydata._Myptr = nullptr;
+_Mydata._Mycapacity = 0;
+}
+}
+
+WJR_INTRINSIC_CONSTEXPR20 _Alty& getAllocator() noexcept { return _Myval.first(); }
+WJR_INTRINSIC_CONSTEXPR20 const _Alty& getAllocator() const noexcept { return _Myval.first(); }
+WJR_INTRINSIC_CONSTEXPR20 __data& getData() noexcept { return _Myval.second(); }
+WJR_INTRINSIC_CONSTEXPR20 const __data& getData() const noexcept { return _Myval.second(); }
+
+private:
+
+WJR_CONSTEXPR20 static size_type getGrowthCapacity(
+const size_type _Oldcapacity, const size_type _Newsize) noexcept {
+WJR_ASSUME(_Newsize > _Oldcapacity);
+const auto _Newcapacity = _Oldcapacity + _Oldcapacity / 2;
+const auto _FixedCapacity = _Newcapacity < _Newsize ? _Newsize : _Newcapacity;
+const auto ret = _FixedCapacity < 32 ? ((_FixedCapacity + 3) & (-4)) :
+_FixedCapacity < 256 ? ((_FixedCapacity + 15) & (-16)) :
+((_FixedCapacity + 63) & (-64));
+WJR_ASSUME(ret >= _Newsize);
+return ret;
+}
+
+template<typename...Args>
+WJR_CONSTEXPR20 void _M_realloc_insert_at_begin(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+const auto _Oldsize = _Mydata._Mysize;
+WJR_ASSUME(_Mydata._Mysize == _Mydata._Mycapacity);
+WJR_ASSUME(_Mydata._Myhead == _Mydata._Mytail);
+const auto _Newsize = _Oldsize + 1;
+const auto _Newcapacity = getGrowthCapacity(_Oldsize, _Newsize);
+
+auto _Newptr = _Alty_traits::allocate(al, _Newcapacity);
+wjr::construct_at(al, _Newptr, std::forward<Args>(args)...);
+
+wjr::uninitialized_move(al, begin(), begin() + capacity(), _Newptr + 1);
+
+tidy();
+
+_Mydata._Myptr = _Newptr;
+_Mydata._Myhead = 0;
+_Mydata._Mytail = _Mydata._Mysize = _Newsize;
+_Mydata._Mycapacity = _Newcapacity;
+}
+
+template<typename...Args>
+WJR_CONSTEXPR20 void _M_realloc_insert_at_end(Args&&...args) {
+auto& al = getAllocator();
+auto& _Mydata = getData();
+const auto _Oldsize = _Mydata._Mysize;
+WJR_ASSUME(_Mydata._Mysize == _Mydata._Mycapacity);
+WJR_ASSUME(_Mydata._Myhead == _Mydata._Mytail);
+const auto _Newsize = _Oldsize + 1;
+const auto _Newcapacity = getGrowthCapacity(_Oldsize, _Newsize);
+
+auto _Newptr = _Alty_traits::allocate(al, _Newcapacity);
+wjr::construct_at(al, _Newptr + _Oldsize, std::forward<Args>(args)...);
+
+wjr::uninitialized_move(al, begin(), begin() + capacity(), _Newptr);
+
+tidy();
+
+_Mydata._Myptr = _Newptr;
+_Mydata._Myhead = 0;
+_Mydata._Mytail = _Mydata._Mysize = _Newsize;
+_Mydata._Mycapacity = _Newcapacity;
+}
+
+compressed_pair<_Alty, __data> _Myval;
+};
+
+_WJR_END
+
+#ifndef __WJR_CIRCULAR_BUFFER_H
+#error "This file should not be included directly. Include <wjr/circular_buffer.h> instead."
+#endif // __WJR_CIRCULAR_BUFFER_H
+
+// algorithm
+
+_WJR_BEGIN
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
+const auto ptr = _First.ptr();
+const auto head_pos = _First.pos();
+const auto tail_pos = _Last.pos();
+const auto c = _First.capacity();
+if (tail_pos < c) {
+return wjr::uninitialized_copy(ptr + head_pos, ptr + tail_pos, _Dest);
+}
+return wjr::uninitialized_copy(
+ptr,
+ptr + tail_pos - c,
+wjr::uninitialized_copy(
+ptr + head_pos,
+ptr + c,
+_Dest
+)
+);
+}
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
+return wjr::uninitialized_copy(_First.base(), _Last.base(), _Dest);
+}
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
+const auto ptr = _First.ptr();
+const auto head_pos = _First.pos();
+const auto tail_pos = _Last.pos();
+const auto c = _First.capacity();
+if (tail_pos < c) {
+return wjr::uninitialized_copy(al, ptr + head_pos, ptr + tail_pos, _Dest);
+}
+return wjr::uninitialized_copy(al,
+ptr,
+ptr + tail_pos - c,
+wjr::uninitialized_copy(al,
+ptr + head_pos,
+ptr + c,
+_Dest
+)
+);
+}
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_copy(Alloc& al,
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
+return wjr::uninitialized_copy(al, _First.base(), _Last.base(), _Dest);
+}
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
+const auto ptr = _First.ptr();
+const auto head_pos = _First.pos();
+const auto tail_pos = _Last.pos();
+const auto c = _First.capacity();
+if (tail_pos < c) {
+return wjr::uninitialized_move(ptr + head_pos, ptr + tail_pos, _Dest);
+}
+return wjr::uninitialized_move(
+ptr,
+ptr + tail_pos - c,
+wjr::uninitialized_move(
+ptr + head_pos,
+ptr + c,
+_Dest
+)
+);
+}
+
+template<typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
+return wjr::uninitialized_move(_First.base(), _Last.base(), _Dest);
+}
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_const_iterator<T> _First, circular_buffer_const_iterator<T> _Last, _Iter _Dest) {
+const auto ptr = _First.ptr();
+const auto head_pos = _First.pos();
+const auto tail_pos = _Last.pos();
+const auto c = _First.capacity();
+if (tail_pos < c) {
+return wjr::uninitialized_move(al, ptr + head_pos, ptr + tail_pos, _Dest);
+}
+return wjr::uninitialized_move(al,
+ptr,
+ptr + tail_pos - c,
+wjr::uninitialized_move(al,
+ptr + head_pos,
+ptr + c,
+_Dest
+)
+);
+}
+
+template<typename Alloc, typename T, typename _Iter>
+WJR_CONSTEXPR20 _Iter uninitialized_move(Alloc& al,
+circular_buffer_iterator<T> _First, circular_buffer_iterator<T> _Last, _Iter _Dest) {
+return wjr::uninitialized_move(al, _First.base(), _Last.base(), _Dest);
+}
+
+_WJR_END
+
+#endif // __WJR_CIRCULAR_BUFFER_H
+
+_WJR_BEGIN
+
+class thread_pool {
+public:
+
+thread_pool(
+unsigned int core_threads_size = default_threads_size());
+~thread_pool();
+
+void pause();
+void unpause();
+void flush();
+
+bool is_valid() const;
+bool is_paused() const;
+
+template<typename Func, typename...Args>
+void push(Func&& func, Args&&...args);
+
+template<typename Func, typename...Args, typename R = std::invoke_result_t<Func&&, Args&&...>>
+WJR_NODISCARD std::future<R> submit(Func&& func, Args&&... args);
+
+unsigned int get_threads_size() const;
+
+static size_t default_threads_size();
+
+private:
+public:
+void core_work();
+
+void create_all_threads(unsigned int core_threads_size);
+
+//alignas(8) spin_mutex m_fast_task_mutex;
+alignas(8) circular_buffer<std::function<void()>> m_task_queue;
+alignas(8) bool m_valid = true;
+alignas(8) std::atomic_bool m_pause = false;
+
+alignas(16) std::atomic<size_t> m_real_tasks = 0;
+alignas(16) wjr::vector<std::thread> m_core_threads;
+
+std::mutex m_task_mutex;
+std::condition_variable m_task_cv;
+bool m_flush;
+std::condition_variable m_flush_cv;
+};
+
+template<typename Func, typename...Args>
+void thread_pool::push(Func&& func, Args&&...args) {
+std::function<void()> function = std::bind(std::forward<Func>(func), std::forward<Args>(args)...);
+{
+std::unique_lock lock(m_task_mutex);
+m_task_queue.push_back(std::move(function));
+#if defined(_WJR_EXCEPTION)
+if (is_unlikely(!m_valid)) {
+throw std::runtime_error("can't put task into invalid thread_pool");
+}
+#endif // _WJR_EXCEPTION
+}
+m_real_tasks.fetch_add(1, std::memory_order_relaxed);
+m_task_cv.notify_one();
+}
+
+template<typename Func, typename...Args, typename R>
+WJR_NODISCARD std::future<R> thread_pool::submit(Func&& func, Args&&... args) {
+
+std::function<R()> task_function = std::bind(std::forward<Func>(func), std::forward<Args>(args)...);
+std::shared_ptr<std::promise<R>> task_promise = std::make_shared<std::promise<R>>();
+push(
+[func = std::move(task_function), task_promise]() {
+#if defined(_WJR_EXCEPTION)
+try {
+#endif // _WJR_EXCEPTION
+if constexpr (std::is_void_v<R>) {
+std::invoke(func);
+task_promise->set_value();
+}
+else {
+task_promise->set_value(std::invoke(func));
+}
+#if defined(_WJR_EXCEPTION)
+}
+catch (...) {
+try {
+task_promise->set_exception(std::current_exception());
+}
+catch (...) {
+}
+}
+#endif // _WJR_EXCEPTION
+});
+return task_promise->get_future();
+}
+
+_WJR_END
+
+#endif // __WJR_NETWORK_THREAD_POOL_H
+
+_WJR_BEGIN
+
+thread_pool::thread_pool(
+unsigned int core_threads_size) {
+create_all_threads(core_threads_size);
+}
+
+thread_pool::~thread_pool() {
+flush();
+{
+std::unique_lock fast_task_lock(m_task_mutex);
+m_valid = false;
+}
+m_task_cv.notify_all();
+for (auto& i : m_core_threads) i.join();
+}
+
+void thread_pool::pause() {
+m_pause.store(true, std::memory_order_relaxed);
+}
+
+void thread_pool::unpause() {
+m_pause.store(false, std::memory_order_relaxed);
+}
+
+void thread_pool::flush() {
+std::unique_lock fast_task_lock(m_task_mutex);
+m_flush = true;
+m_flush_cv.wait(fast_task_lock, [this] {
+return (m_real_tasks.load(std::memory_order_relaxed)
+== (m_pause.load(std::memory_order_relaxed) ? m_task_queue.size() : 0));
+});
+m_flush = false;
+}
+
+bool thread_pool::is_valid() const {
+return m_valid;
+}
+
+bool thread_pool::is_paused() const {
+return m_pause.load(std::memory_order_relaxed);
+}
+
+unsigned int thread_pool::get_threads_size() const {
+return m_core_threads.size();
+}
+
+void thread_pool::core_work() {
+
+for (;;) {
+std::function<void()> task;
+
+{
+std::unique_lock fast_task_lock(m_task_mutex);
+m_task_cv.wait(fast_task_lock, [this] {
+return !m_task_queue.empty() || !m_valid;
+});
+
+if (is_likely(m_valid)) {
+if (!m_pause.load(std::memory_order_relaxed)) {
+task = std::move(m_task_queue.front());
+m_task_queue.pop_front();
+fast_task_lock.unlock();
+task();
+fast_task_lock.lock();
+m_real_tasks.fetch_sub(1, std::memory_order_relaxed);
+if (m_flush) {
+m_flush_cv.notify_one();
+}
+}
+continue;
+}
+
+break;
+}
+}
+
+}
+
+void thread_pool::create_all_threads(
+unsigned int core_threads_size) {
+#if defined(_WJR_EXCEPTION)
+if (!core_threads_size) {
+throw std::invalid_argument("!core_threads_size");
+}
+#endif // _WJR_EXCEPTION
+
+m_core_threads.reserve(core_threads_size);
+
+m_valid = true;
+m_pause = false;
+
+for (unsigned int i = 0; i < core_threads_size; ++i) {
+m_core_threads.emplace_back(&thread_pool::core_work, this);
+}
+}
+
+size_t thread_pool::default_threads_size() {
+return std::max(static_cast<size_t>(1), static_cast<size_t>(std::thread::hardware_concurrency()));
+}
+
 _WJR_END
 #pragma once
 #ifndef __WJR_RANDOM_H
@@ -16156,3 +16038,173 @@ using Random = random_static;
 _WJR_END
 
 #endif // __WJR_RANDOM_H
+#pragma once
+#ifndef __WJR_ALLOCATOR_H
+#define __WJR_ALLOCATOR_H
+
+#include <new>
+
+_WJR_BEGIN
+
+template<typename _Ty>
+struct __aligned_helper;
+
+template<>
+struct __aligned_helper<void> {
+constexpr static size_t value = std::max((size_t)(16), (size_t)(alignof(max_align_t)));
+};
+
+template<typename _Ty>
+struct __aligned_helper {
+constexpr static size_t value = std::max((size_t)alignof(_Ty), __aligned_helper<void>::value);
+};
+
+#if defined(_DEBUG)
+#define WJR_TEST_ALLOCATOR
+#endif
+
+#if defined(WJR_TEST_ALLOCATOR)
+struct __test_allocator {
+~__test_allocator();
+long long _Count = 0;
+};
+extern __test_allocator __test_allocator_instance;
+#endif
+
+template<typename _Ty, size_t _Al = __aligned_helper<_Ty>::value, size_t _Off = 0>
+class aligned_allocator {
+public:
+static_assert(!std::is_const_v<_Ty>, "The C++ Standard forbids containers of const elements "
+"because allocator<const T> is ill-formed.");
+static_assert(_Al >= 8, "The alignment must be greater than or equal to 8.");
+static_assert(_Off >= 0 && _Off < _Al,
+"The offset must be greater than or equal to 0 and less than the alignment.");
+static_assert((_Al & (_Al - 1)) == 0, "The alignment must be a power of 2.");
+
+using value_type = _Ty;
+
+#if !defined(WJR_CPP_20)
+using pointer = _Ty*;
+using const_pointer = const _Ty*;
+
+using reference = _Ty&;
+using const_reference = const _Ty&;
+#endif // !WJR_CPP_20
+
+using size_type = size_t;
+using difference_type = ptrdiff_t;
+
+using propagate_on_container_move_assignment = std::true_type;
+using is_always_equal = std::true_type;
+
+template <typename _Other>
+struct rebind {
+using other = aligned_allocator<_Other, _Al, _Off>;
+};
+
+#if !defined(WJR_CPP_20)
+WJR_NODISCARD _Ty* address(_Ty& _Val) const noexcept {
+return std::addressof(_Val);
+}
+
+WJR_NODISCARD const _Ty* address(const _Ty& _Val) const noexcept {
+return std::addressof(_Val);
+}
+#endif // !WJR_CPP_20
+
+constexpr aligned_allocator() noexcept {}
+
+constexpr aligned_allocator(const aligned_allocator&) noexcept = default;
+template <typename _Other>
+constexpr aligned_allocator(const aligned_allocator<_Other, _Al, _Off>&) noexcept {}
+WJR_CONSTEXPR20 ~aligned_allocator() = default;
+WJR_CONSTEXPR20 aligned_allocator& operator=(const aligned_allocator&) = default;
+
+WJR_CONSTEXPR20 void deallocate(_Ty* const _Ptr, const size_t _Count) {
+#if defined(WJR_TEST_ALLOCATOR)
+__test_allocator_instance._Count -= _Count * sizeof(_Ty) + _Off;
+#endif
+WJR_ASSUME(reinterpret_cast<uintptr_t>(_Ptr) % _Al == _Off);
+auto ptr = reinterpret_cast<char*>(_Ptr) - _Off;
+::operator delete(ptr, _Count * sizeof(_Ty) + _Off, static_cast<std::align_val_t>(_Al));
+}
+
+WJR_NODISCARD WJR_CONSTEXPR20 _Ty* allocate(const size_t _Count) {
+#if defined(WJR_TEST_ALLOCATOR)
+__test_allocator_instance._Count += _Count * sizeof(_Ty) + _Off;
+#endif
+auto ptr = static_cast<char*>(::operator new(_Count * sizeof(_Ty) + _Off,
+static_cast<std::align_val_t>(_Al))) + _Off;
+WJR_ASSUME(reinterpret_cast<uintptr_t>(ptr) % _Al == _Off);
+return reinterpret_cast<_Ty*>(ptr);
+}
+
+#if !defined(WJR_CPP_20)
+WJR_NODISCARD size_t max_size() const noexcept {
+return static_cast<size_t>(-1) / sizeof(_Ty);
+}
+#endif // !WJR_CPP_20
+};
+
+template <size_t _Al, size_t _Off>
+class aligned_allocator<void, _Al, _Off> {
+public:
+using value_type = void;
+#if !defined(WJR_CPP_20)
+using pointer = void*;
+using const_pointer = const void*;
+#endif // !WJR_CPP_20
+
+using size_type = size_t;
+using difference_type = ptrdiff_t;
+
+using propagate_on_container_move_assignment = std::true_type;
+using is_always_equal = std::true_type;
+
+#if !defined(WJR_CPP_20)
+template <class _Other>
+struct rebind {
+using other = aligned_allocator<_Other>;
+};
+#endif // !WJR_CPP_20
+};
+
+template <typename _Ty, typename _Other, size_t _Al, size_t _Off>
+WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
+const aligned_allocator<_Ty, _Al, _Off>&,
+const aligned_allocator<_Other, _Al, _Off>&) noexcept {
+return true;
+}
+
+template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
+WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator==(
+const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
+const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
+return false;
+}
+
+template <typename _Ty, size_t _Al1, size_t _Off1, typename _Other, size_t _Al2, size_t _Off2>
+WJR_NODISCARD WJR_INTRINSIC_CONSTEXPR20 bool operator!=(
+const aligned_allocator<_Ty, _Al1, _Off1>& lhs,
+const aligned_allocator<_Other, _Al2, _Off2>& rhs) noexcept {
+return !(lhs == rhs);
+}
+
+template<typename T, size_t _Al, size_t _Off>
+struct is_default_allocator<aligned_allocator<T, _Al, _Off>> : std::true_type {};
+
+_WJR_END
+
+#endif // __WJR_ALLOCATOR_H
+#include <stdio.h>
+
+_WJR_BEGIN
+#if defined(WJR_TEST_ALLOCATOR)
+__test_allocator::~__test_allocator() {
+if (_Count != 0) {
+printf("memory leak: %lld bytes", _Count);
+}
+}
+__test_allocator __test_allocator_instance;
+#endif
+_WJR_END
