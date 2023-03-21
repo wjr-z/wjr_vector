@@ -11716,10 +11716,12 @@ std::swap(getAllocator(), _Right.getAllocator());
 
 WJR_CONSTEXPR20 void clear() {
 _M_erase_at_end(data());
+WJR_ASSUME(size() == 0);
 }
 
 WJR_CONSTEXPR20 void tidy() noexcept {
 Tidy(getAllocator(), getData());
+WJR_ASSUME(size() == 0);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 allocator_type& get_allocator() noexcept {
@@ -11814,21 +11816,25 @@ return _Myval.second();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
-WJR_ASSUME(lastPtr() == data() + size());
-return getData().lastPtr();
+const auto ptr = getData().endPtr();
+WJR_ASSUME(ptr == data() + size());
+return ptr;
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
-WJR_ASSUME(lastPtr() == data() + size());
-return getData().lastPtr();
+const auto ptr = getData().endPtr();
+WJR_ASSUME(ptr == data() + size());
+return ptr;
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
-WJR_ASSUME(endPtr() == data() + capacity());
-return getData().endPtr();
+const auto ptr = getData().endPtr();
+WJR_ASSUME(ptr == data() + capacity());
+return ptr;
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
-WJR_ASSUME(endPtr() == data() + capacity());
-return getData().endPtr();
+const auto ptr = getData().endPtr();
+WJR_ASSUME(ptr == data() + capacity());
+return ptr;
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
@@ -16213,21 +16219,3 @@ printf("memory leak: %lld bytes", _Count);
 __test_allocator __test_allocator_instance;
 #endif
 _WJR_END
-
-#include <benchmark/benchmark.h>
-
-using vec = wjr::string;
-auto foo(const vec& b, const vec& c) {
-vec a;
-a.reserve(b.size());
-WJR_ASSUME(a.capacity() >= b.size());
-// WJR_ASSUME(a.endPtr() - a.lastPtr() >= b.size());
-a.append(b);
-// a.append(c);
-return a;
-}
-
-int main() {
-vec x("abc"), y("wjr");
-std::cout << foo(x, y);
-}
