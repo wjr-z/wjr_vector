@@ -11571,11 +11571,11 @@ return size() == 0;
 }
 
 WJR_CONSTEXPR20 void reserve(size_type n) {
+const auto _Oldsize = size();
 const auto _Oldcapacity = capacity();
 if (_Oldcapacity < n) {
 auto& al = getAllocator();
 
-const auto _Oldsize = size();
 const auto _Newcapacity = getGrowthCapacity(_Oldcapacity, n);
 
 data_type _Newdata(al, _Oldsize, _Newcapacity, extend_tag());
@@ -11584,7 +11584,9 @@ wjr::uninitialized_move_n(al, data(), _Oldsize, _Newdata.data());
 tidy();
 moveConstruct(al, std::move(_Newdata), getData());
 }
+WJR_ASSUME(size() == _Oldsize);
 WJR_ASSUME(capacity() >= n);
+assume_rest_capacity(capacity() - size());
 }
 
 WJR_INTRINSIC_CONSTEXPR20 reference operator[](size_type _Pos) noexcept {
@@ -11815,56 +11817,31 @@ return _Myval.second();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer lastPtr() noexcept {
-auto& _Data = getData();
-auto ptr = _Data.lastPtr();
-WJR_ASSUME(ptr == _Data.data() + _Data.size());
-return ptr;
+return getData().lastPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer lastPtr() const noexcept {
-const auto& _Data = getData();
-const auto ptr = _Data.lastPtr();
-WJR_ASSUME(ptr == _Data.data() + _Data.size());
-return ptr;
+return getData().lastPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 pointer endPtr() noexcept {
-auto& _Data = getData();
-auto ptr = _Data.endPtr();
-WJR_ASSUME(ptr == _Data.data() + _Data.capacity());
-return ptr;
+return getData().endPtr();
 }
 WJR_INTRINSIC_CONSTEXPR20 const_pointer endPtr() const noexcept {
-const auto& _Data = getData();
-const auto ptr = _Data.endPtr();
-WJR_ASSUME(ptr == _Data.data() + _Data.capacity());
-return ptr;
+return getData().endPtr();
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void set_size(const size_type _Size) noexcept {
-auto& _Data = getData();
-_Data.set_size(_Size);
-WJR_ASSUME(_Data.size() == _Size);
+getData().set_size(_Size);
+WJR_ASSUME(size() == _Size);
 }
 
 WJR_INTRINSIC_CONSTEXPR20 void inc_size(const difference_type _Size) noexcept {
-auto& _Data = getData();
 const auto _Oldsize = size();
-_Data.inc_size(_Size);
-WJR_ASSUME(_Oldsize + _Size == _Data.size());
+getData().inc_size(_Size);
+WJR_ASSUME(_Oldsize + _Size == size());
 }
 
 /*------External extension function------*/
-
-// n must less or equal
-WJR_INLINE_CONSTEXPR20 vector& chop(size_t n) {
-_M_erase_at_end(end() - n);
-return *this;
-}
-
-// n <= size()
-WJR_INLINE_CONSTEXPR20 vector& truncate(size_t n) {
-return chop(size() - n);
-}
 
 /*------default construct/value_construct------*/
 
@@ -11879,9 +11856,7 @@ _M_construct_n(_Count, value_construct_tag());
 }
 
 WJR_CONSTEXPR20 vector(data_type&& _Data, const allocator_type& al = allocator_type())
-: _Myval(std::piecewise_construct_t{},
-std::forward_as_tuple(al),
-std::forward_as_tuple()) {
+: vector(al) {
 moveConstruct(getAllocator(), std::move(_Data), getData());
 }
 
@@ -11912,6 +11887,17 @@ return *this;
 }
 
 /*------------------------------------------------------------*/
+
+// n must less or equal
+WJR_INLINE_CONSTEXPR20 vector& chop(size_t n) {
+_M_erase_at_end(end() - n);
+return *this;
+}
+
+// n <= size()
+WJR_INLINE_CONSTEXPR20 vector& truncate(size_t n) {
+return chop(size() - n);
+}
 
 WJR_INLINE_CONSTEXPR20 vector& append(const T& val) {
 emplace_back(val);
@@ -11958,6 +11944,16 @@ const auto __offset2 = static_cast<size_type>(_Oldlast - cbegin());
 _M_fill_replace(begin() + __offset1, begin() + __offset2,
 _Count, _Val);
 return *this;
+}
+
+WJR_INTRINSIC_CONSTEXPR20 void assume_total_capacity(const size_type n) const noexcept {
+WJR_ASSUME(endPtr() - data() >= n);
+WJR_ASSUME(capacity() >= n);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 void assume_rest_capacity(const size_type n) const noexcept {
+WJR_ASSUME(endPtr() - lastPtr() >= n);
+WJR_ASSUME(capacity() - size() >= n);
 }
 
 private:
@@ -14427,14 +14423,26 @@ const Char* const ptr, const size_type n2) const {
 return view().equal(off1, n1, ptr, n2);
 }
 
+WJR_INTRINSIC_CONSTEXPR20 void assume_total_capacity(const size_type n) const noexcept {
+m_core.assume_total_capacity(n);
+}
+
+WJR_INTRINSIC_CONSTEXPR20 void assume_rest_capacity(const size_type n) const noexcept {
+m_core.assume_rest_capacity(n);
+}
+
 private:
 vector_type m_core;
 };
 
-//template<typename Char, typename Alloc, typename Data>
-//WJR_NODISCARD WJR_CONSTEXPR20 basic_string<Char, Alloc, Data> operator+(
-//	const
-//	)
+template<typename Char, typename Alloc, typename Data>
+WJR_NODISCARD WJR_CONSTEXPR20 basic_string<Char, Alloc, Data> operator+(
+const basic_string<Char, Alloc, Data>& lhs,
+const basic_string<Char, Alloc, Data>& rhs
+) {
+basic_string<Char, Alloc, Data> ans;
+ans.reserve(lhs.size() + rhs.size());
+}
 
 template<typename Char, typename Alloc, typename Data>
 WJR_NODISCARD WJR_CONSTEXPR20 bool operator==(
